@@ -19,7 +19,7 @@ def init_db():
             name TEXT UNIQUE NOT NULL,
             code TEXT UNIQUE NOT NULL,
             rating INTEGER DEFAULT 0,
-            cards_count INTEGER DEFAULT 0  -- Новый столбец для количества карт
+            cards_count INTEGER DEFAULT 0
         )
     """)
 
@@ -30,7 +30,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
-            status TEXT
+            status TEXT DEFAULT 'Свободно'
         )
     """)
 
@@ -44,8 +44,13 @@ def init_db():
                     # Добавляем информацию о картинке в таблицу
                     image_name = filename
                     c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
+    
+    # Сбросить все статусы на "Свободно" при запуске
+    c.execute("UPDATE images SET status = 'Свободно'")
+    
     conn.commit()
     conn.close()
+
 
 
 
