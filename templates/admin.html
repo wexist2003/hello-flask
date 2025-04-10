@@ -60,6 +60,20 @@
         {% endfor %}
     </tbody>
 </table>
+<h2>Настройки для изображений</h2>
+<form method="POST" action="{{ url_for('set_images_status') }}">
+    <label for="group">Выберите группу:</label>
+    <select name="group" id="group" class="form-select">
+        <option value="koloda1">Koloda 1</option>
+        <option value="koloda2">Koloda 2</option>
+    </select>
+    
+    <label for="image_count">Количество изображений для пользователя:</label>
+    <input type="number" id="image_count" name="image_count" min="1" max="10" class="form-control" required>
+
+    <button type="submit" class="btn btn-primary">Установить</button>
+</form>
+
 <a href="{{ url_for('admin_images') }}" class="btn btn-info">Просмотр изображений</a>
 
 </body>
