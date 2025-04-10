@@ -76,10 +76,16 @@ def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
-    
+
+    # Получаем список подкаталогов
+    c.execute("SELECT DISTINCT subfolder FROM images")
+    subfolders = c.fetchall()
+
     if request.method == "POST":
         name = request.form.get("name")
         cards_count = request.form.get("cards_count", 0)
+        selected_subfolder = request.form.get("subfolder")  # Выбранный подкаталог
+        
         if name:
             code = generate_unique_code()
             try:
@@ -88,7 +94,16 @@ def admin():
                 message = f"Пользователь '{name}' добавлен с количеством карт {cards_count}."
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
-    
+
+        # Обновляем статус изображений
+        if selected_subfolder:
+            # Устанавливаем статус "Занято" для изображений в других подкаталогах
+            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected_subfolder,))
+            # Устанавливаем статус "Свободно" для изображений в выбранном подкаталоге
+            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_subfolder,))
+            conn.commit()
+            message = f"Изображения из подкаталога '{selected_subfolder}' теперь доступны."
+
     # Сортируем пользователей по имени
     c.execute("SELECT id, name, code, rating, cards_count FROM users ORDER BY name ASC")
     users = c.fetchall()
@@ -98,8 +113,9 @@ def admin():
     images = c.fetchall()
 
     conn.close()
-    
-    return render_template("admin.html", users=users, images=images, message=message)
+
+    return render_template("admin.html", users=users, images=images, subfolders=subfolders, message=message)
+
 
 
 
