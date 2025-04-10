@@ -42,9 +42,6 @@ def admin():
                     FOREIGN KEY (image_id) REFERENCES images(id)
                 )''')
     
-    # Заполнение таблицы images (например, вручную или при запуске)
-    # Если данных нет, добавьте их
-
     # Получение всех пользователей
     c.execute("SELECT * FROM users ORDER BY name")
     users = c.fetchall()
@@ -56,14 +53,14 @@ def admin():
     message = ""
     
     if request.method == "POST":
-        if "add_user" in request.form:
-            # Добавление нового пользователя
-            name = request.form.get("name")
-            image_count = int(request.form.get("image_count"))
-            
-            if name:
-                code = generate_unique_code()
-                try:
+        try:
+            if "add_user" in request.form:
+                # Добавление нового пользователя
+                name = request.form.get("name")
+                image_count = int(request.form.get("image_count"))
+                
+                if name:
+                    code = generate_unique_code()
                     c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name.strip(), code))
                     conn.commit()
                     message = f"Пользователь '{name}' добавлен."
@@ -83,22 +80,23 @@ def admin():
                         c.execute("INSERT INTO user_images (user_id, image_id) VALUES (?, ?)", (code, image[0]))
                     conn.commit()
                     
-                except sqlite3.IntegrityError as e:
-                    message = f"Ошибка базы данных: {str(e)}"
-                except Exception as e:
-                    message = f"Произошла ошибка: {str(e)}"
-
-        elif "select_group" in request.form:
-            # Выбор группы и изменение статуса изображений
-            selected_group = request.form.get("group")
-            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected_group,))
-            conn.commit()
-            message = f"Все изображения из других групп помечены как занятые."
-
-        conn.close()
+            elif "select_group" in request.form:
+                # Выбор группы и изменение статуса изображений
+                selected_group = request.form.get("group")
+                c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected_group,))
+                conn.commit()
+                message = f"Все изображения из других групп помечены как занятые."
+            
+        except Exception as e:
+            conn.rollback()  # Откат транзакции в случае ошибки
+            message = f"Произошла ошибка: {str(e)}"
+        
+        finally:
+            conn.close()
         return render_template("admin.html", users=users, message=message, images=images)
     
     return render_template("admin.html", users=users, message=message, images=images)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
