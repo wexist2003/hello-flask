@@ -43,10 +43,13 @@ def admin():
                 message = f"Пользователь '{name}' добавлен."
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
-    c.execute("SELECT id, name, code, rating FROM users")
+    
+    # Сортируем пользователей по имени
+    c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
     conn.close()
     return render_template("admin.html", users=users, message=message)
+
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
