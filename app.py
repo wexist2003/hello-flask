@@ -71,9 +71,10 @@ def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
+    
     if request.method == "POST":
         name = request.form.get("name")
-        cards_count = request.form.get("cards_count", 0)  # Получаем количество карт, если оно указано
+        cards_count = request.form.get("cards_count", 0)
         if name:
             code = generate_unique_code()
             try:
@@ -86,8 +87,14 @@ def admin():
     # Сортируем пользователей по имени
     c.execute("SELECT id, name, code, rating, cards_count FROM users ORDER BY name ASC")
     users = c.fetchall()
+
+    # Получаем список изображений
+    c.execute("SELECT subfolder, image, status FROM images")
+    images = c.fetchall()
+
     conn.close()
-    return render_template("admin.html", users=users, message=message)
+    
+    return render_template("admin.html", users=users, images=images, message=message)
 
 
 
