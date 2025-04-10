@@ -23,7 +23,6 @@
                         <div class="card">
                             <!-- Формируем путь к картинке -->
                             <img src="{{ url_for('serve_image', filename=card.subfolder ~ '/' ~ card.image) }}" class="card-img-top" alt="Изображение">
-
                             <div class="card-body">
                                 <h5 class="card-title">{{ card.image }}</h5>
                                 <p class="card-text">Подкаталог: {{ card.subfolder }}</p>
