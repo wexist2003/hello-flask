@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for
-from flask import send_from_directory
 import sqlite3
 import os
 import string
@@ -12,148 +11,137 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Создаем таблицу пользователей
+    # Удаляем таблицы и создаем заново
     c.execute("DROP TABLE IF EXISTS users")
-    c.execute(""" 
-        CREATE TABLE IF NOT EXISTS users (
+    c.execute("DROP TABLE IF EXISTS images")
+    c.execute("DROP TABLE IF EXISTS settings")
+
+    c.execute("""
+        CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
             code TEXT UNIQUE NOT NULL,
-            rating INTEGER DEFAULT 0,
-            cards_count INTEGER DEFAULT 0
+            rating INTEGER DEFAULT 0
         )
     """)
 
-    # Создаем таблицу изображений
-    c.execute("DROP TABLE IF EXISTS images")
-    c.execute(""" 
-        CREATE TABLE IF NOT EXISTS images (
+    c.execute("""
+        CREATE TABLE images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
-            status TEXT DEFAULT 'Свободно'
+            status TEXT
         )
     """)
 
-    # Создаем таблицу для назначения карт пользователям
-    c.execute("DROP TABLE IF EXISTS user_images")
-    c.execute(""" 
-        CREATE TABLE IF NOT EXISTS user_images (
-            user_id INTEGER,
-            image_id INTEGER,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (image_id) REFERENCES images (id)
+    c.execute("""
+        CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
 
-# Читаем изображения из папки
-image_folders = ['koloda1', 'koloda2']
-for folder in image_folders:
-    folder_path = os.path.join('static', 'images', folder)  # Теперь путь указывает на 'static/images'
-    if os.path.exists(folder_path):
-        for filename in os.listdir(folder_path):
-            if filename.endswith('.jpg'):
-                # Добавляем информацию о картинке в таблицу
-                image_name = filename
-                c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
+    # Загрузка изображений из static/images
+    image_folders = ['koloda1', 'koloda2']
+    for folder in image_folders:
+        folder_path = os.path.join('static', 'images', folder)
+        if os.path.exists(folder_path):
+            for filename in os.listdir(folder_path):
+                if filename.endswith('.jpg'):
+                    c.execute("INSERT INTO images (subfolder, image, status) VALUES (?, ?, 'Свободно')", (folder, filename))
 
-# Сбросить все статусы на "Свободно" при запуске
-c.execute("UPDATE images SET status = 'Свободно'")
+    # Удаляем статусы "Занято" (при новом запуске)
+    c.execute("UPDATE images SET status = 'Свободно'")
 
-    
     conn.commit()
     conn.close()
-
-
-@app.route('/images/<path:filename>')
-def serve_image(filename):
-    return send_from_directory(os.path.join(app.root_path, 'images'), filename)
-
 
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-@app.route("/admin/images")
-def admin_images():
+def get_setting(key):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT subfolder, image, status FROM images")
-    images = c.fetchall()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
     conn.close()
-    return render_template("admin_images.html", images=images)
+    return row[0] if row else None
 
+def set_setting(key, value):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
 
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
-
-import random
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
-
-    # Получаем список подкаталогов
-    c.execute("SELECT DISTINCT subfolder FROM images")
-    subfolders = c.fetchall()
-
+    
     if request.method == "POST":
-        name = request.form.get("name")
-        cards_count = request.form.get("cards_count", 0)
-        selected_subfolder = request.form.get("subfolder")  # Выбранный подкаталог
-        
-        if name:
+        if "name" in request.form:
+            name = request.form.get("name").strip()
+            num_cards = int(request.form.get("num_cards", 3))
             code = generate_unique_code()
-            try:
-                # Добавляем нового пользователя в базу данных
-                c.execute("INSERT INTO users (name, code, cards_count) VALUES (?, ?, ?)", (name.strip(), code, int(cards_count)))
-                user_id = c.lastrowid
-                conn.commit()
-                
-                # Выбираем случайные изображения для пользователя
-                c.execute("SELECT id FROM images WHERE status = 'Свободно' LIMIT ?", (cards_count,))
-                available_images = c.fetchall()
 
-                if len(available_images) < int(cards_count):
-                    message = "Недостаточно доступных изображений."
-                else:
-                    # Присваиваем изображения пользователю
-                    for image in available_images:
-                        c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image[0],))
-                        c.execute("INSERT INTO user_images (user_id, image_id) VALUES (?, ?)", (user_id, image[0]))
-                    
-                    conn.commit()
-                    message = f"Пользователь '{name}' добавлен с {cards_count} картами."
+            try:
+                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
+                user_id = c.lastrowid
+
+                # Назначаем карточки пользователю из активной колоды
+                active_subfolder = get_setting("active_subfolder")
+                if active_subfolder:
+                    c.execute("""
+                        SELECT id, subfolder, image FROM images
+                        WHERE subfolder = ? AND status = 'Свободно'
+                        LIMIT ?
+                    """, (active_subfolder, num_cards))
+                    cards = c.fetchall()
+
+                    for card in cards:
+                        c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+
+                conn.commit()
+                message = f"Пользователь '{name}' добавлен."
+
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
 
-        # Обновляем статус изображений
-        if selected_subfolder:
-            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected_subfolder,))
-            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_subfolder,))
+        elif "active_subfolder" in request.form:
+            selected = request.form.get("active_subfolder")
+            set_setting("active_subfolder", selected)
+            # Сделать все другие изображения занятыми
+            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
+            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
             conn.commit()
-            message = f"Изображения из подкаталога '{selected_subfolder}' теперь доступны."
+            message = f"Выбран подкаталог: {selected}"
 
-    # Сортируем пользователей по имени
-    c.execute("SELECT id, name, code, rating, cards_count FROM users ORDER BY name ASC")
+    # Получение данных
+    c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
-    # Получаем список изображений
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
+    subfolders = ['koloda1', 'koloda2']
+    active_subfolder = get_setting("active_subfolder") or ''
+
     conn.close()
-
-    return render_template("admin.html", users=users, images=images, subfolders=subfolders, message=message)
-
+    return render_template("admin.html", users=users, images=images, message=message,
+                           subfolders=subfolders, active_subfolder=active_subfolder)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    c.execute("UPDATE images SET status = 'Свободно' WHERE status = ?", (f"Занято:{user_id}",))
     conn.commit()
     conn.close()
     return redirect(url_for("admin"))
@@ -162,23 +150,20 @@ def delete_user(user_id):
 def user(code):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT name, rating FROM users WHERE code = ?", (code,))
+    c.execute("SELECT id, name, rating FROM users WHERE code = ?", (code,))
     row = c.fetchone()
 
-    if row:
-        name, rating = row
-        c.execute("""
-            SELECT images.image, images.subfolder FROM user_images
-            JOIN images ON user_images.image_id = images.id
-            WHERE user_images.user_id = (SELECT id FROM users WHERE code = ?)
-        """, (code,))
-        cards = c.fetchall()
-        conn.close()
-        return render_template("user.html", name=name, rating=rating, cards=cards)
-    else:
+    if not row:
         conn.close()
         return "<h1>Пользователь не найден</h1>", 404
 
+    user_id, name, rating = row
+
+    c.execute("SELECT subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
+    cards = [{"subfolder": r[0], "image": r[1]} for r in c.fetchall()]
+    conn.close()
+
+    return render_template("user.html", name=name, rating=rating, cards=cards)
 
 if __name__ == "__main__":
     init_db()
