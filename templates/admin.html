@@ -3,30 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Page</title>
+    <title>Административная панель</title>
 </head>
 <body>
-    <h1>Admin Page</h1>
+    <h1>Административная панель</h1>
 
     <h2>Добавить нового пользователя</h2>
-    <form method="POST" action="{{ url_for('admin') }}">
+    <form method="POST">
         <label for="name">Имя:</label>
-        <input type="text" id="name" name="name" required><br><br>
-
+        <input type="text" name="name" required>
+        <br><br>
         <label for="image_count">Количество изображений:</label>
-        <input type="number" id="image_count" name="image_count" min="1" required><br><br>
-
-        <button type="submit">Добавить пользователя</button>
+        <input type="number" name="image_count" min="1" required>
+        <br><br>
+        <button type="submit" name="add_user">Добавить пользователя</button>
     </form>
 
-    <h2>Настройки для изображений</h2>
-    <form method="POST" action="{{ url_for('set_images_status') }}">
+    <h2>Выбор группы изображений</h2>
+    <form method="POST">
         <label for="group">Выберите группу:</label>
-        <select name="group" id="group">
-            <option value="koloda1">Koloda 1</option>
-            <option value="koloda2">Koloda 2</option>
+        <select name="group">
+            <option value="koloda1">koloda1</option>
+            <option value="koloda2">koloda2</option>
+            <!-- Добавьте другие группы при необходимости -->
         </select>
-        <button type="submit">Установить статус "Занято"</button>
+        <br><br>
+        <button type="submit" name="select_group">Выбрать группу</button>
     </form>
 
     <h2>Список пользователей</h2>
@@ -36,21 +38,45 @@
                 <th>Имя</th>
                 <th>Ссылка</th>
                 <th>Рейтинг</th>
+                <th>Удалить</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users %}
                 <tr>
-                    <td>{{ user[1] }}</td>
-                    <td><a href="{{ url_for('user_page', user_code=user[2]) }}">Ссылка</a></td>
-                    <td>{{ user[3] }}</td>
+                    <td>{{ user['name'] }}</td>
+                    <td><a href="/user/{{ user['code'] }}" target="_blank">{{ user['code'] }}</a></td>
+                    <td>{{ user['rating'] if user['rating'] else 'Не задан' }}</td>
+                    <td>
+                        <form method="POST" action="/delete_user/{{ user['id'] }}">
+                            <button type="submit">Удалить</button>
+                        </form>
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    {% if message %}
-        <p>{{ message }}</p>
-    {% endif %}
+    <h2>Список изображений</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Подпапка</th>
+                <th>Изображение</th>
+                <th>Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for image in images %}
+                <tr>
+                    <td>{{ image['subfolder'] }}</td>
+                    <td>{{ image['image'] }}</td>
+                    <td>{{ image['status'] if image['status'] else 'Свободно' }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>{{ message }}</h2>
 </body>
 </html>
