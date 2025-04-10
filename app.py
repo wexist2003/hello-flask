@@ -82,22 +82,40 @@ def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
+    image_count = 0  # Количество изображений, которое назначаем пользователю
+
     if request.method == "POST":
         name = request.form.get("name")
+        image_count = int(request.form.get("image_count"))  # Получаем количество изображений
+
         if name:
             code = generate_unique_code()
             try:
+                # Создаем нового пользователя
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name.strip(), code))
                 conn.commit()
                 message = f"Пользователь '{name}' добавлен."
+                
+                # Получаем все изображения без статуса "Занято"
+                c.execute("SELECT id, subfolder, image FROM images WHERE status IS NULL")
+                available_images = c.fetchall()
+
+                # Случайным образом выбираем необходимое количество изображений
+                chosen_images = random.sample(available_images, min(image_count, len(available_images)))
+
+                for image in chosen_images:
+                    # Назначаем изображение пользователю
+                    c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image[0],))
+                    c.execute("INSERT INTO user_images (user_id, image_id) VALUES (?, ?)", (code, image[0]))
+                conn.commit()
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
-    
-    # Сортируем пользователей по имени
+
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
     conn.close()
-    return render_template("admin.html", users=users, message=message)
+    return render_template("admin.html", users=users, message=message, image_count=image_count)
+
 
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
