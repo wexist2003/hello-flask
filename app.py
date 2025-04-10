@@ -73,20 +73,22 @@ def admin():
     message = ""
     if request.method == "POST":
         name = request.form.get("name")
+        cards_count = request.form.get("cards_count", 0)  # Получаем количество карт, если оно указано
         if name:
             code = generate_unique_code()
             try:
-                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name.strip(), code))
+                c.execute("INSERT INTO users (name, code, cards_count) VALUES (?, ?, ?)", (name.strip(), code, int(cards_count)))
                 conn.commit()
-                message = f"Пользователь '{name}' добавлен."
+                message = f"Пользователь '{name}' добавлен с количеством карт {cards_count}."
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
     
     # Сортируем пользователей по имени
-    c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
+    c.execute("SELECT id, name, code, rating, cards_count FROM users ORDER BY name ASC")
     users = c.fetchall()
     conn.close()
     return render_template("admin.html", users=users, message=message)
+
 
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
