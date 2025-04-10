@@ -7,31 +7,32 @@
 </head>
 <body class="p-4">
     <h1>Панель администратора</h1>
-    
-    <!-- Форма добавления нового пользователя -->
+
+    <!-- Добавление пользователя -->
     <form method="post" class="mb-4">
-        <div class="input-group">
+        <div class="input-group mb-2">
             <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
-            <input type="number" name="cards_count" class="form-control" placeholder="Количество карт" required>
+            <input type="number" name="num_cards" class="form-control" value="3" min="1" placeholder="Количество карт">
             <button class="btn btn-primary" type="submit">Добавить</button>
         </div>
     </form>
 
+    <!-- Выбор активного подкаталога -->
     <form method="post" class="mb-4">
-        <h3>Выберите подкаталог для активных изображений</h3>
         <div class="input-group">
-            <select name="subfolder" class="form-control" required>
-                <option value="">Выберите подкаталог</option>
-                {% for subfolder in subfolders %}
-                    <option value="{{ subfolder[0] }}">{{ subfolder[0] }}</option>
+            <label class="input-group-text">Выбрать колоду</label>
+            <select name="active_subfolder" class="form-select" onchange="this.form.submit()">
+                {% for folder in subfolders %}
+                    <option value="{{ folder }}" {% if folder == active_subfolder %}selected{% endif %}>
+                        {{ folder }}
+                    </option>
                 {% endfor %}
             </select>
-            <button class="btn btn-primary" type="submit">Обновить изображения</button>
         </div>
     </form>
 
     {% if message %}
-        <div class="alert alert-info">{{ message }}</div>
+        <div class="alert alert-info mt-2">{{ message }}</div>
     {% endif %}
 
     <!-- Список пользователей -->
@@ -42,7 +43,6 @@
                 <th>Имя</th>
                 <th>Ссылка</th>
                 <th>Рейтинг</th>
-                <th>Количество карт</th>
                 <th>Удалить</th>
             </tr>
         </thead>
@@ -52,17 +52,16 @@
                     <td>{{ user[1] }}</td>
                     <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td>
                     <td>{{ user[3] }}</td>
-                    <td>{{ user[4] }}</td>
                     <td>
                         <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
-                            <button class="btn btn-danger" type="submit">Удалить</button>
+                            <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
                         </form>
                     </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
-    
+
     <!-- Список изображений -->
     <h2>Список изображений</h2>
     <table class="table table-bordered">
@@ -71,14 +70,18 @@
                 <th>Подкаталог</th>
                 <th>Изображение</th>
                 <th>Статус</th>
+                <th>Превью</th>
             </tr>
         </thead>
         <tbody>
             {% for image in images %}
                 <tr>
-                    <td>{{ image[0] }}</td>  <!-- Подкаталог -->
-                    <td>{{ image[1] }}</td>  <!-- Имя изображения -->
-                    <td>{{ image[2] }}</td>  <!-- Статус -->
+                    <td>{{ image[0] }}</td>
+                    <td>{{ image[1] }}</td>
+                    <td>{{ image[2] or 'Отсутствует' }}</td>
+                    <td>
+                        <img src="{{ url_for('static', filename='images/' + image[0] + '/' + image[1]) }}" alt="img" style="max-width: 100px;">
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
