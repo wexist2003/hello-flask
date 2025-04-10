@@ -59,6 +59,19 @@ def admin_images():
     conn.close()
     return render_template("admin_images.html", images=images)
 
+@app.route("/admin/set_images_status", methods=["POST"])
+def set_images_status():
+    group = request.form.get("group")  # Получаем группу, выбранную администратором
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Обновляем статус всех изображений, которые не находятся в выбранной группе
+    c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (group,))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('admin_images'))
+
 
 @app.route("/")
 def index():
