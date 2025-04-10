@@ -19,30 +19,33 @@
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
     <h2>Список пользователей</h2>
-    <table class="table table-bordered">
-        <thead>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Имя</th>
+            <th>Ссылка</th>
+            <th>Рейтинг</th>
+            <th>Количество карт</th>  <!-- Новая колонка для количества карт -->
+            <th>Удалить</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
             <tr>
-                <th>Имя</th>
-                <th>Ссылка</th>
-                <th>Рейтинг</th>
-                <th>Удалить</th>
+                <td>{{ user[1] }}</td>  <!-- Имя -->
+                <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td>  <!-- Ссылка -->
+                <td>{{ user[3] }}</td>  <!-- Рейтинг -->
+                <td>{{ user[4] }}</td>  <!-- Количество карт -->
+                <td>
+                    <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
+                        <button class="btn btn-danger" type="submit">Удалить</button>
+                    </form>
+                </td>
             </tr>
-        </thead>
-        <tbody>
-            {% for user in users %}
-                <tr>
-                    <td>{{ user[1] }}</td>  <!-- Имя -->
-                    <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td>  <!-- Ссылка -->
-                    <td>{{ user[3] }}</td>  <!-- Рейтинг -->
-                    <td>
-                        <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
-                            <button class="btn btn-danger" type="submit">Удалить</button>
-                        </form>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        {% endfor %}
+    </tbody>
+</table>
+
     <h2>Список изображений</h2>
 <table class="table table-bordered">
     <thead>
