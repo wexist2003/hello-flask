@@ -163,12 +163,21 @@ def user(code):
     c = conn.cursor()
     c.execute("SELECT name, rating FROM users WHERE code = ?", (code,))
     row = c.fetchone()
-    conn.close()
+
     if row:
         name, rating = row
-        return render_template("user.html", name=name, rating=rating)
+        c.execute("""
+            SELECT images.image, images.subfolder FROM user_images
+            JOIN images ON user_images.image_id = images.id
+            WHERE user_images.user_id = (SELECT id FROM users WHERE code = ?)
+        """, (code,))
+        cards = c.fetchall()
+        conn.close()
+        return render_template("user.html", name=name, rating=rating, cards=cards)
     else:
+        conn.close()
         return "<h1>Пользователь не найден</h1>", 404
+
 
 if __name__ == "__main__":
     init_db()
