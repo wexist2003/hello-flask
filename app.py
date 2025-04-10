@@ -11,7 +11,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Удаляем таблицу, если она существует, и создаем заново
+    # Создаем таблицу пользователей
     c.execute("DROP TABLE IF EXISTS users")
     c.execute(""" 
         CREATE TABLE IF NOT EXISTS users (
@@ -23,7 +23,7 @@ def init_db():
         )
     """)
 
-    # Создаем таблицу для изображений
+    # Создаем таблицу изображений
     c.execute("DROP TABLE IF EXISTS images")
     c.execute(""" 
         CREATE TABLE IF NOT EXISTS images (
@@ -31,6 +31,17 @@ def init_db():
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
             status TEXT DEFAULT 'Свободно'
+        )
+    """)
+
+    # Создаем таблицу для назначения карт пользователям
+    c.execute("DROP TABLE IF EXISTS user_images")
+    c.execute(""" 
+        CREATE TABLE IF NOT EXISTS user_images (
+            user_id INTEGER,
+            image_id INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (image_id) REFERENCES images (id)
         )
     """)
 
@@ -54,6 +65,7 @@ def init_db():
 
 
 
+
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
@@ -70,6 +82,8 @@ def admin_images():
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
+
+import random
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -89,17 +103,31 @@ def admin():
         if name:
             code = generate_unique_code()
             try:
+                # Добавляем нового пользователя в базу данных
                 c.execute("INSERT INTO users (name, code, cards_count) VALUES (?, ?, ?)", (name.strip(), code, int(cards_count)))
+                user_id = c.lastrowid
                 conn.commit()
-                message = f"Пользователь '{name}' добавлен с количеством карт {cards_count}."
+                
+                # Выбираем случайные изображения для пользователя
+                c.execute("SELECT id FROM images WHERE status = 'Свободно' LIMIT ?", (cards_count,))
+                available_images = c.fetchall()
+
+                if len(available_images) < int(cards_count):
+                    message = "Недостаточно доступных изображений."
+                else:
+                    # Присваиваем изображения пользователю
+                    for image in available_images:
+                        c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image[0],))
+                        c.execute("INSERT INTO user_images (user_id, image_id) VALUES (?, ?)", (user_id, image[0]))
+                    
+                    conn.commit()
+                    message = f"Пользователь '{name}' добавлен с {cards_count} картами."
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
 
         # Обновляем статус изображений
         if selected_subfolder:
-            # Устанавливаем статус "Занято" для изображений в других подкаталогах
             c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected_subfolder,))
-            # Устанавливаем статус "Свободно" для изображений в выбранном подкаталоге
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_subfolder,))
             conn.commit()
             message = f"Изображения из подкаталога '{selected_subfolder}' теперь доступны."
@@ -115,6 +143,7 @@ def admin():
     conn.close()
 
     return render_template("admin.html", users=users, images=images, subfolders=subfolders, message=message)
+
 
 
 
