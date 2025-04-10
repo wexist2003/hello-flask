@@ -10,6 +10,9 @@ DB_PATH = 'database.db'
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+
+    # Удаляем таблицу, если она существует, и создаем заново
+    c.execute("DROP TABLE IF EXISTS users")
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,8 +21,31 @@ def init_db():
             rating INTEGER DEFAULT 0
         )
     """)
+
+    # Создаем таблицу для изображений
+    c.execute("DROP TABLE IF EXISTS images")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subfolder TEXT NOT NULL,
+            image TEXT NOT NULL,
+            status TEXT
+        )
+    """)
+
+    # Читаем изображения из папки
+    image_folders = ['koloda1', 'koloda2']
+    for folder in image_folders:
+        folder_path = os.path.join('images', folder)
+        if os.path.exists(folder_path):
+            for filename in os.listdir(folder_path):
+                if filename.endswith('.jpg'):
+                    # Добавляем информацию о картинке в таблицу
+                    image_name = filename
+                    c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
     conn.commit()
     conn.close()
+
 
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
