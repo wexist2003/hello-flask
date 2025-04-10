@@ -17,11 +17,19 @@
     <h2>Мои карточки</h2>
     <div class="border p-3">
         {% if cards %}
-            <ul>
+            <div class="row">
                 {% for card in cards %}
-                    <li>{{ card.image }} ({{ card.subfolder }})</li>
+                    <div class="col-md-3 mb-4">
+                        <div class="card">
+                            <img src="{{ url_for('static', filename='images/' ~ card.subfolder ~ '/' ~ card.image) }}" class="card-img-top" alt="Изображение">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ card.image }}</h5>
+                                <p class="card-text">Подкаталог: {{ card.subfolder }}</p>
+                            </div>
+                        </div>
+                    </div>
                 {% endfor %}
-            </ul>
+            </div>
         {% else %}
             <p>У вас нет карт.</p>
         {% endif %}
