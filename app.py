@@ -28,15 +28,6 @@ def generate_unique_code(length=8):
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
 
-@app.route("/admin/delete/<int:user_id>", methods=["POST"])
-def delete_user(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for("admin"))
-    
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     conn = sqlite3.connect(DB_PATH)
@@ -52,10 +43,19 @@ def admin():
                 message = f"Пользователь '{name}' добавлен."
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
-    c.execute("SELECT name, code, rating FROM users")
+    c.execute("SELECT id, name, code, rating FROM users")
     users = c.fetchall()
     conn.close()
     return render_template("admin.html", users=users, message=message)
+
+@app.route("/admin/delete/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("admin"))
 
 @app.route("/user/<code>")
 def user(code):
