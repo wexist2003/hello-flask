@@ -30,9 +30,9 @@
         <tbody>
             {% for image in images %}
                 <tr>
-                    <td>{{ image[0] }}</td>  <!-- Подкаталог -->
-                    <td>{{ image[1] }}</td>  <!-- Имя изображения -->
-                    <td>{{ image[2] or 'Отсутствует' }}</td>  <!-- Статус -->
+                    <td>{{ image[0] }}</td>
+                    <td>{{ image[1] }}</td>
+                    <td>{{ image[2] or 'Отсутствует' }}</td>
                 </tr>
             {% endfor %}
         </tbody>
