@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>{{ user[1] }} - Личная страница</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+    <h1>{{ user[1] }}</h1>
+    <p>Ссылка на страницу: /user/{{ user[2] }}</p>
+    
+    <h2>Общий стол</h2>
+    <!-- Тут будет содержимое общего стола -->
+    
+    <h2>Мои карточки</h2>
+    <!-- Тут будут карточки пользователя -->
+    
+    <a href="{{ url_for('admin') }}" class="btn btn-secondary">Назад к админке</a>
+</body>
+</html>
