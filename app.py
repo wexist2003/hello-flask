@@ -1,28 +1,55 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
 
 app = Flask(__name__)
+DB_PATH = 'database.db'
 
-# Инициализация БД
 def init_db():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS visits (count INTEGER)')
-    c.execute('INSERT INTO visits (count) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM visits)')
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    rating INTEGER DEFAULT 0
+                )""")
     conn.commit()
     conn.close()
 
 @app.route("/")
 def index():
-    conn = sqlite3.connect('database.db')
+    return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('UPDATE visits SET count = count + 1')
-    conn.commit()
-    c.execute('SELECT count FROM visits')
-    visit_count = c.fetchone()[0]
+    message = ""
+    if request.method == "POST":
+        name = request.form.get("name")
+        if name:
+            try:
+                c.execute("INSERT INTO users (name) VALUES (?)", (name.strip(),))
+                conn.commit()
+                message = f"Пользователь '{name}' добавлен."
+            except sqlite3.IntegrityError:
+                message = f"Имя '{name}' уже существует."
+    c.execute("SELECT name, rating FROM users")
+    users = c.fetchall()
     conn.close()
-    return render_template("index.html", visits=visit_count)
+    return render_template("admin.html", users=users, message=message)
+
+@app.route("/user/<name>")
+def user(name):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT rating FROM users WHERE name = ?", (name,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return render_template("user.html", name=name, rating=row[0])
+    else:
+        return "<h1>Пользователь не найден</h1>", 404
 
 if __name__ == "__main__":
     init_db()
