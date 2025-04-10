@@ -15,6 +15,16 @@
     <div class="border p-3 mb-4">[Контент общего стола здесь]</div>
 
     <h2>Мои карточки</h2>
-    <div class="border p-3">[Карточки пользователя здесь]</div>
+    <div class="border p-3">
+        {% if cards %}
+            <ul>
+                {% for card in cards %}
+                    <li>{{ card.image }} ({{ card.subfolder }})</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>У вас нет карт.</p>
+        {% endif %}
+    </div>
 </body>
 </html>
