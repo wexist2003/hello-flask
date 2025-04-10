@@ -7,65 +7,67 @@
 </head>
 <body class="p-4">
     <h1>Панель администратора</h1>
-<form method="post" class="mb-4">
-    <div class="input-group">
-        <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
-        <input type="number" name="cards_count" class="form-control" placeholder="Количество карт" required>
-        <button class="btn btn-primary" type="submit">Добавить</button>
-    </div>
-</form>
-
+    
+    <!-- Форма добавления нового пользователя -->
+    <form method="post" class="mb-4">
+        <div class="input-group">
+            <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
+            <input type="number" name="cards_count" class="form-control" placeholder="Количество карт" required>
+            <button class="btn btn-primary" type="submit">Добавить</button>
+        </div>
+    </form>
     {% if message %}
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
+    
+    <!-- Список пользователей -->
     <h2>Список пользователей</h2>
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Имя</th>
-            <th>Ссылка</th>
-            <th>Рейтинг</th>
-            <th>Количество карт</th>  <!-- Новая колонка для количества карт -->
-            <th>Удалить</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
+    <table class="table table-bordered">
+        <thead>
             <tr>
-                <td>{{ user[1] }}</td>  <!-- Имя -->
-                <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td>  <!-- Ссылка -->
-                <td>{{ user[3] }}</td>  <!-- Рейтинг -->
-                <td>{{ user[4] }}</td>  <!-- Количество карт -->
-                <td>
-                    <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
-                        <button class="btn btn-danger" type="submit">Удалить</button>
-                    </form>
-                </td>
+                <th>Имя</th>
+                <th>Ссылка</th>
+                <th>Рейтинг</th>
+                <th>Количество карт</th>
+                <th>Удалить</th>
             </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
+        </thead>
+        <tbody>
+            {% for user in users %}
+                <tr>
+                    <td>{{ user[1] }}</td>
+                    <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td>
+                    <td>{{ user[3] }}</td>
+                    <td>{{ user[4] }}</td>
+                    <td>
+                        <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
+                            <button class="btn btn-danger" type="submit">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Список изображений -->
     <h2>Список изображений</h2>
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Подкаталог</th>
-            <th>Изображение</th>
-            <th>Статус</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for image in images %}
+    <table class="table table-bordered">
+        <thead>
             <tr>
-                <td>{{ image[1] }}</td>  <!-- Подкаталог -->
-                <td>{{ image[2] }}</td>  <!-- Имя изображения -->
-                <td>{{ image[3] }}</td>  <!-- Статус -->
+                <th>Подкаталог</th>
+                <th>Изображение</th>
+                <th>Статус</th>
             </tr>
-        {% endfor %}
-    </tbody>
-</table>
-<a href="{{ url_for('admin_images') }}" class="btn btn-info">Просмотр изображений</a>
-
+        </thead>
+        <tbody>
+            {% for image in images %}
+                <tr>
+                    <td>{{ image[0] }}</td>  <!-- Подкаталог -->
+                    <td>{{ image[1] }}</td>  <!-- Имя изображения -->
+                    <td>{{ image[2] or 'Отсутствует' }}</td>  <!-- Статус -->
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
