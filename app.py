@@ -50,6 +50,16 @@ def init_db():
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
+@app.route("/admin/images")
+def admin_images():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT subfolder, image, status FROM images")
+    images = c.fetchall()
+    conn.close()
+    return render_template("admin_images.html", images=images)
+
+
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
