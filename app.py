@@ -11,8 +11,11 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Удаляем таблицу, если она существует, и создаем заново
+    # Удаляем таблицы, если они существуют
     c.execute("DROP TABLE IF EXISTS users")
+    c.execute("DROP TABLE IF EXISTS user_images")
+    
+    # Создаем таблицы
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,14 +25,21 @@ def init_db():
         )
     """)
 
-    # Создаем таблицу для изображений
-    c.execute("DROP TABLE IF EXISTS images")
     c.execute("""
         CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
             status TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_images (
+            user_id INTEGER NOT NULL,
+            image_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (image_id) REFERENCES images (id)
         )
     """)
 
