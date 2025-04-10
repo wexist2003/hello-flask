@@ -7,12 +7,14 @@
 </head>
 <body class="p-4">
     <h1>Панель администратора</h1>
-    <form method="post" class="mb-4">
-        <div class="input-group">
-            <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
-            <button class="btn btn-primary" type="submit">Добавить</button>
-        </div>
-    </form>
+<form method="post" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
+        <input type="number" name="cards_count" class="form-control" placeholder="Количество карт" required>
+        <button class="btn btn-primary" type="submit">Добавить</button>
+    </div>
+</form>
+
     {% if message %}
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
