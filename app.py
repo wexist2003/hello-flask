@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for
+from flask import send_from_directory
 import sqlite3
 import os
 import string
@@ -63,7 +64,9 @@ def init_db():
     conn.close()
 
 
-
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    return send_from_directory(os.path.join(app.root_path, 'images'), filename)
 
 
 def generate_unique_code(length=8):
@@ -143,9 +146,6 @@ def admin():
     conn.close()
 
     return render_template("admin.html", users=users, images=images, subfolders=subfolders, message=message)
-
-
-
 
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
