@@ -17,16 +17,31 @@
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
     <h2>Список пользователей</h2>
-    <table class="table table-bordered">
-        <thead>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Имя</th>
+            <th>Ссылка</th>
+            <th>Рейтинг</th>
+            <th>Изображения</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
             <tr>
-                <th>Имя</th>
-                <th>Ссылка</th>
-                <th>Рейтинг</th>
-                <th>Удалить</th>
+                <td>{{ user[1] }}</td>
+                <td><a href="{{ url_for('user_page', user_code=user[2]) }}">Ссылка</a></td>
+                <td>{{ user[3] }}</td>
+                <td>
+                    {% for image in user.images %}
+                        <img src="{{ url_for('static', filename='images/' + image.subfolder + '/' + image.image) }}" width="50" height="50">
+                    {% endfor %}
+                </td>
             </tr>
-        </thead>
-        <tbody>
+        {% endfor %}
+    </tbody>
+</table>
+
             {% for user in users %}
                 <tr>
                     <td>{{ user[1] }}</td>  <!-- Имя -->
