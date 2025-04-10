@@ -26,10 +26,10 @@
             </tr>
         </thead>
         <tbody>
-            {% for name, rating in users %}
+            {% for name, code, rating in users %}
                 <tr>
                     <td>{{ name }}</td>
-                    <td><a href="{{ url_for('user', name=name) }}" target="_blank">{{ url_for('user', name=name, _external=True) }}</a></td>
+                    <td><a href="{{ url_for('user', code=code) }}" target="_blank">{{ url_for('user', code=code, _external=True) }}</a></td>
                     <td>{{ rating }}</td>
                 </tr>
             {% endfor %}
