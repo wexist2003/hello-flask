@@ -46,19 +46,20 @@ def init_db():
         )
     """)
 
-    # Читаем изображения из папки
-    image_folders = ['koloda1', 'koloda2']
-    for folder in image_folders:
-        folder_path = os.path.join('images', folder)
-        if os.path.exists(folder_path):
-            for filename in os.listdir(folder_path):
-                if filename.endswith('.jpg'):
-                    # Добавляем информацию о картинке в таблицу
-                    image_name = filename
-                    c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
-    
-    # Сбросить все статусы на "Свободно" при запуске
-    c.execute("UPDATE images SET status = 'Свободно'")
+# Читаем изображения из папки
+image_folders = ['koloda1', 'koloda2']
+for folder in image_folders:
+    folder_path = os.path.join('static', 'images', folder)  # Теперь путь указывает на 'static/images'
+    if os.path.exists(folder_path):
+        for filename in os.listdir(folder_path):
+            if filename.endswith('.jpg'):
+                # Добавляем информацию о картинке в таблицу
+                image_name = filename
+                c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
+
+# Сбросить все статусы на "Свободно" при запуске
+c.execute("UPDATE images SET status = 'Свободно'")
+
     
     conn.commit()
     conn.close()
