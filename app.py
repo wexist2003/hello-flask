@@ -1,12 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
-import string
 import random
+from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
-DB_PATH = 'database.db'
 
+DB_PATH = 'database.db'
+IMAGES_DIR = 'images'
+
+
+# Инициализация базы данных
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -14,7 +17,8 @@ def init_db():
     # Удаляем таблицы, если они существуют
     c.execute("DROP TABLE IF EXISTS users")
     c.execute("DROP TABLE IF EXISTS user_images")
-    
+    c.execute("DROP TABLE IF EXISTS images")
+
     # Создаем таблицы
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -43,78 +47,58 @@ def init_db():
         )
     """)
 
-    # Читаем изображения из папки
-    image_folders = ['koloda1', 'koloda2']
-    for folder in image_folders:
-        folder_path = os.path.join('images', folder)
-        if os.path.exists(folder_path):
-            for filename in os.listdir(folder_path):
+    conn.commit()
+    conn.close()
+
+
+# Генерация уникального кода для пользователей
+def generate_unique_code():
+    code = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+    return code
+
+
+# Загрузка изображений из папки и запись в базу данных
+def load_images():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    for subfolder in os.listdir(IMAGES_DIR):
+        subfolder_path = os.path.join(IMAGES_DIR, subfolder)
+        if os.path.isdir(subfolder_path):
+            for filename in os.listdir(subfolder_path):
                 if filename.endswith('.jpg'):
-                    # Добавляем информацию о картинке в таблицу
                     image_name = filename
-                    c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
+                    c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (subfolder, image_name))
+
     conn.commit()
     conn.close()
 
 
-def generate_unique_code(length=8):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-@app.route("/admin/images")
-def admin_images():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT subfolder, image, status FROM images")
-    images = c.fetchall()
-    conn.close()
-    return render_template("admin_images.html", images=images)
-
-@app.route("/admin/set_images_status", methods=["POST"])
-def set_images_status():
-    group = request.form.get("group")  # Получаем группу, выбранную администратором
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    # Обновляем статус всех изображений, которые не находятся в выбранной группе
-    c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (group,))
-    conn.commit()
-    conn.close()
-    
-    return redirect(url_for('admin_images'))
-
-
-@app.route("/")
-def index():
-    return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
-
+# Главная страница для админа
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
-    image_count = 0  # Количество изображений, которое назначаем пользователю
+    image_count = 0
 
     if request.method == "POST":
         name = request.form.get("name")
-        image_count = int(request.form.get("image_count"))  # Получаем количество изображений
+        image_count = int(request.form.get("image_count"))
 
         if name:
             code = generate_unique_code()
             try:
-                # Создаем нового пользователя
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name.strip(), code))
                 conn.commit()
                 message = f"Пользователь '{name}' добавлен."
-                
-                # Получаем все изображения без статуса "Занято"
+
                 c.execute("SELECT id, subfolder, image FROM images WHERE status IS NULL")
                 available_images = c.fetchall()
 
-                # Случайным образом выбираем необходимое количество изображений
                 chosen_images = random.sample(available_images, min(image_count, len(available_images)))
 
                 for image in chosen_images:
-                    # Назначаем изображение пользователю
                     c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image[0],))
                     c.execute("INSERT INTO user_images (user_id, image_id) VALUES (?, ?)", (code, image[0]))
                 conn.commit()
@@ -124,33 +108,62 @@ def admin():
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
     conn.close()
+
     return render_template("admin.html", users=users, message=message, image_count=image_count)
 
 
-
-@app.route("/admin/delete/<int:user_id>", methods=["POST"])
-def delete_user(user_id):
+# Страница для настройки изображений
+@app.route("/admin/set_images_status", methods=["POST"])
+def set_images_status():
+    group = request.form.get("group")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+    c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (group,))
     conn.commit()
     conn.close()
-    return redirect(url_for("admin"))
 
-@app.route("/user/<code>")
-def user(code):
+    return redirect(url_for('admin_images'))
+
+
+# Страница с изображениями
+@app.route("/admin/images")
+def admin_images():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT name, rating FROM users WHERE code = ?", (code,))
-    row = c.fetchone()
+
+    c.execute("SELECT id, subfolder, image, status FROM images")
+    images = c.fetchall()
+
     conn.close()
-    if row:
-        name, rating = row
-        return render_template("user.html", name=name, rating=rating)
-    else:
-        return "<h1>Пользователь не найден</h1>", 404
+
+    return render_template("admin_images.html", images=images)
+
+
+# Стартовый маршрут для пользователя
+@app.route("/user/<user_code>")
+def user_page(user_code):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute("SELECT name FROM users WHERE code = ?", (user_code,))
+    user = c.fetchone()
+
+    c.execute("""
+        SELECT i.subfolder, i.image
+        FROM images i
+        JOIN user_images ui ON i.id = ui.image_id
+        JOIN users u ON u.id = ui.user_id
+        WHERE u.code = ?
+    """, (user_code,))
+    images = c.fetchall()
+
+    conn.close()
+
+    return render_template("user.html", user=user, images=images)
+
 
 if __name__ == "__main__":
     init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    load_images()
+    app.run(debug=True)
