@@ -16,10 +16,24 @@
             <button class="btn btn-primary" type="submit">Добавить</button>
         </div>
     </form>
+
+    <form method="post" class="mb-4">
+        <h3>Выберите подкаталог для активных изображений</h3>
+        <div class="input-group">
+            <select name="subfolder" class="form-control" required>
+                <option value="">Выберите подкаталог</option>
+                {% for subfolder in subfolders %}
+                    <option value="{{ subfolder[0] }}">{{ subfolder[0] }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" type="submit">Обновить изображения</button>
+        </div>
+    </form>
+
     {% if message %}
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
-    
+
     <!-- Список пользователей -->
     <h2>Список пользователей</h2>
     <table class="table table-bordered">
@@ -64,7 +78,7 @@
                 <tr>
                     <td>{{ image[0] }}</td>  <!-- Подкаталог -->
                     <td>{{ image[1] }}</td>  <!-- Имя изображения -->
-                    <td>{{ image[2] or 'Отсутствует' }}</td>  <!-- Статус -->
+                    <td>{{ image[2] }}</td>  <!-- Статус -->
                 </tr>
             {% endfor %}
         </tbody>
