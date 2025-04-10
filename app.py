@@ -13,18 +13,19 @@ def init_db():
 
     # Удаляем таблицу, если она существует, и создаем заново
     c.execute("DROP TABLE IF EXISTS users")
-    c.execute("""
+    c.execute(""" 
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
             code TEXT UNIQUE NOT NULL,
-            rating INTEGER DEFAULT 0
+            rating INTEGER DEFAULT 0,
+            cards_count INTEGER DEFAULT 0  -- Новый столбец для количества карт
         )
     """)
 
     # Создаем таблицу для изображений
     c.execute("DROP TABLE IF EXISTS images")
-    c.execute("""
+    c.execute(""" 
         CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
@@ -45,6 +46,7 @@ def init_db():
                     c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, image_name))
     conn.commit()
     conn.close()
+
 
 
 def generate_unique_code(length=8):
