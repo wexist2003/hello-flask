@@ -41,5 +41,25 @@
             {% endfor %}
         </tbody>
     </table>
+    <h2>Список изображений</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Подкаталог</th>
+            <th>Изображение</th>
+            <th>Статус</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for image in images %}
+            <tr>
+                <td>{{ image[1] }}</td>  <!-- Подкаталог -->
+                <td>{{ image[2] }}</td>  <!-- Имя изображения -->
+                <td>{{ image[3] }}</td>  <!-- Статус -->
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 </body>
 </html>
