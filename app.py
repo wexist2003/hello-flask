@@ -8,10 +8,6 @@ app = Flask(__name__)
 DB_PATH = 'database.db'
 IMAGE_DIR = 'static/images'
 
-# Удаление старой базы данных
-if os.path.exists(DB_PATH):
-    os.remove(DB_PATH)
-
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -54,9 +50,9 @@ def init_db():
     """)
 
     # Чтение изображений
-    image_folders = [name for name in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, name))]
+    image_folders = ['koloda1', 'koloda2']
     for folder in image_folders:
-        folder_path = os.path.join(IMAGE_DIR, folder)
+        folder_path = os.path.join('static', 'images', folder)
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
@@ -65,10 +61,10 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Вызываем инициализацию базы
-init_db()
+# Инициализация базы, если не существует
+if not os.path.exists(DB_PATH):
+    init_db()
 
-# Генерация случайного кода
 def generate_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
@@ -81,12 +77,10 @@ def admin():
     # Получение всех подкаталогов
     subfolders = [name for name in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, name))]
 
-    # Выбор активного подкаталога
+    # Получение текущей активной колоды
     c.execute("SELECT subfolder FROM images WHERE status = 'Свободно' LIMIT 1")
-    active_subfolder = None
     row = c.fetchone()
-    if row:
-        active_subfolder = row[0]
+    active_subfolder = row[0] if row else None
 
     if request.method == "POST":
         if 'name' in request.form:
@@ -110,17 +104,21 @@ def admin():
 
         elif 'active_subfolder' in request.form:
             active_subfolder = request.form['active_subfolder']
-            # Все изображения пометить как занятые
             c.execute("UPDATE images SET status = 'Занято'")
-            # А в выбранной колоде — свободные
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (active_subfolder,))
             message = f"Выбрана колода: {active_subfolder}"
 
-    # Список пользователей
+        elif 'reset_all' in request.form:
+            c.execute("DELETE FROM user_images")
+            c.execute("DELETE FROM chosen_cards")
+            c.execute("DELETE FROM users")
+            c.execute("UPDATE images SET status = 'Свободно'")
+            conn.commit()
+            message = "Все пользователи удалены, статусы изображений сброшены."
+
     c.execute("SELECT * FROM users")
     users = c.fetchall()
 
-    # Список всех изображений
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
@@ -140,7 +138,6 @@ def user(code):
 
     user_id, name, rating = row
 
-    # Мои карточки
     c.execute("""
         SELECT images.id, images.subfolder, images.image
         FROM user_images
@@ -149,7 +146,6 @@ def user(code):
     """, (user_id,))
     my_cards = c.fetchall()
 
-    # Общий стол
     c.execute("""
         SELECT images.subfolder, images.image
         FROM chosen_cards
@@ -165,7 +161,6 @@ def choose_card(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Удалить из user_images
     c.execute("""
         DELETE FROM user_images
         WHERE image_id = ? AND user_id = (
@@ -173,7 +168,6 @@ def choose_card(code, image_id):
         )
     """, (image_id, code))
 
-    # Добавить в chosen_cards
     c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
 
     conn.commit()
