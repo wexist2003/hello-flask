@@ -64,9 +64,6 @@ def init_db():
 # Вызываем инициализацию базы данных
 init_db()
 
-# Вызываем инициализацию базы
-init_db()
-
 # Генерация случайного кода
 def generate_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -137,6 +134,32 @@ def admin():
     conn.close()
     return render_template("admin.html", users=users, subfolders=subfolders,
                            active_subfolder=active_subfolder, images=images, message=message)
+
+
+@app.route("/choose_card/<code>/<int:image_id>", methods=["POST"])
+def choose_card(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Удалить из user_cards
+    c.execute("""
+        DELETE FROM user_cards
+        WHERE image_id = ? AND user_id = (
+            SELECT id FROM users WHERE code = ?
+        )
+    """, (image_id, code))
+
+    # Добавить в общий стол (chosen_cards)
+    c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
+
+    # Обновить статус изображения на "Занято" в базе данных
+    c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image_id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
+
 
 @app.route("/user/<code>")
 def user(code):
