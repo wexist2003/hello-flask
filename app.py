@@ -8,7 +8,10 @@ app = Flask(__name__)
 DB_PATH = 'database.db'
 IMAGE_DIR = 'static/images'
 
-# Инициализация базы данных
+# Удаление старой базы данных
+if os.path.exists(DB_PATH):
+    os.remove(DB_PATH)
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -55,6 +58,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Вызываем инициализацию базы
 init_db()
 
 # Генерация случайного кода
