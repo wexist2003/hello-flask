@@ -13,51 +13,44 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Таблицы пользователей
-    c.execute("""CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        code TEXT NOT NULL UNIQUE,
-        rating INTEGER DEFAULT 0
-    )""")
+    # Создаем таблицы
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            code TEXT UNIQUE NOT NULL,
+            rating INTEGER DEFAULT 0
+        )
+    """)
 
-    # Таблица изображений
-    c.execute("""CREATE TABLE IF NOT EXISTS images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        subfolder TEXT NOT NULL,
-        image TEXT NOT NULL,
-        status TEXT DEFAULT 'Свободно'
-    )""")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subfolder TEXT NOT NULL,
+            image TEXT NOT NULL,
+            status TEXT
+        )
+    """)
 
-    # Таблица назначения изображений пользователям
-    c.execute("""CREATE TABLE IF NOT EXISTS user_images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        image_id INTEGER NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(image_id) REFERENCES images(id)
-    )""")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            image_id INTEGER,
+            chosen INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (image_id) REFERENCES images(id)
+        )
+    """)
 
-    # Таблица выбранных карточек
-    c.execute("""CREATE TABLE IF NOT EXISTS chosen_cards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        image_id INTEGER NOT NULL,
-        FOREIGN KEY(image_id) REFERENCES images(id)
-    )""")
-
-    # Сброс всех статусов
-    c.execute("UPDATE images SET status = 'Свободно'")
-
-    # Загрузка изображений из папок
+    # Чтение изображений
     image_folders = ['koloda1', 'koloda2']
     for folder in image_folders:
-        folder_path = os.path.join(IMAGE_DIR, folder)
+        folder_path = os.path.join('static', 'images', folder)
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
-                    c.execute("SELECT COUNT(*) FROM images WHERE subfolder = ? AND image = ?", (folder, filename))
-                    if c.fetchone()[0] == 0:
-                        c.execute("INSERT INTO images (subfolder, image) VALUES (?, ?)", (folder, filename))
+                    c.execute("INSERT INTO images (subfolder, image, status) VALUES (?, ?, 'Свободно')", (folder, filename))
 
     conn.commit()
     conn.close()
