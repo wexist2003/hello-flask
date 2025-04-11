@@ -156,29 +156,6 @@ def choose_card_user(code, image_id):
 
     return redirect(url_for('user', code=code))
 
-@app.route("/choose_card/<code>/<int:image_id>", methods=["POST"])
-def choose_card(code, image_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    # Удалить из user_cards
-    c.execute("""
-        DELETE FROM user_cards
-        WHERE image_id = ? AND user_id = (
-            SELECT id FROM users WHERE code = ?
-        )
-    """, (image_id, code))
-
-    # Добавить в общий стол (chosen_cards)
-    c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
-
-    # Обновить статус изображения на "Занято" в базе данных
-    c.execute("UPDATE images SET status = 'Занято' WHERE id = ?", (image_id,))
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('user', code=code))
 
 
 @app.route("/user/<code>")
@@ -213,26 +190,7 @@ def user(code):
     conn.close()
     return render_template("user.html", name=name, rating=rating, my_cards=my_cards, table_cards=table_cards, code=code)
 
-@app.route("/choose_card/<code>/<int:image_id>", methods=["POST"])
-def choose_card(code, image_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
 
-    # Удалить из user_images
-    c.execute("""
-        DELETE FROM user_images
-        WHERE image_id = ? AND user_id = (
-            SELECT id FROM users WHERE code = ?
-        )
-    """, (image_id, code))
-
-    # Добавить в chosen_cards
-    c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('user', code=code))
 
 @app.route("/delete_user/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
