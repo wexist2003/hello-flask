@@ -36,20 +36,27 @@ def init_db():
     """)
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS user_cards (
+        CREATE TABLE IF NOT EXISTS user_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             image_id INTEGER,
-            chosen INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (image_id) REFERENCES images(id)
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS chosen_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            image_id INTEGER,
+            FOREIGN KEY (image_id) REFERENCES images(id)
+        )
+    """)
+
     # Чтение изображений
-    image_folders = ['koloda1', 'koloda2']
+    image_folders = [name for name in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, name))]
     for folder in image_folders:
-        folder_path = os.path.join('static', 'images', folder)
+        folder_path = os.path.join(IMAGE_DIR, folder)
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
@@ -75,11 +82,11 @@ def admin():
     subfolders = [name for name in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, name))]
 
     # Выбор активного подкаталога
-    c.execute("SELECT image FROM images WHERE status = 'Активный' LIMIT 1")
+    c.execute("SELECT subfolder FROM images WHERE status = 'Свободно' LIMIT 1")
     active_subfolder = None
     row = c.fetchone()
     if row:
-        active_subfolder = row[0].split('/')[0]
+        active_subfolder = row[0]
 
     if request.method == "POST":
         if 'name' in request.form:
@@ -105,7 +112,7 @@ def admin():
             active_subfolder = request.form['active_subfolder']
             # Все изображения пометить как занятые
             c.execute("UPDATE images SET status = 'Занято'")
-            # А в выбранной колоде — активные и свободные
+            # А в выбранной колоде — свободные
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (active_subfolder,))
             message = f"Выбрана колода: {active_subfolder}"
 
