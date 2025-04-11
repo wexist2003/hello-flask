@@ -9,7 +9,7 @@
     <h1>Панель администратора</h1>
 
     <!-- Добавление пользователя -->
-    <form method="post" class="mb-3">
+    <form method="post" class="mb-4">
         <div class="input-group mb-2">
             <input type="text" name="name" class="form-control" placeholder="Введите имя пользователя" required>
             <input type="number" name="num_cards" class="form-control" value="3" min="1" placeholder="Количество карт">
@@ -18,8 +18,8 @@
     </form>
 
     <!-- Выбор активного подкаталога -->
-    <form method="post" class="mb-3">
-        <div class="input-group mb-2">
+    <form method="post" class="mb-4">
+        <div class="input-group">
             <label class="input-group-text">Выбрать колоду</label>
             <select name="active_subfolder" class="form-select" onchange="this.form.submit()">
                 {% for folder in subfolders %}
@@ -31,9 +31,9 @@
         </div>
     </form>
 
-    <!-- Кнопка сброса -->
+    <!-- Кнопка сброса пользователей и статусов -->
     <form method="post" class="mb-4">
-        <button type="submit" name="reset_all" class="btn btn-danger">Сбросить всех пользователей и статусы</button>
+        <button class="btn btn-danger" type="submit" name="reset_all">Сбросить всех пользователей и статусы</button>
     </form>
 
     {% if message %}
