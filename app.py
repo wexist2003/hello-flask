@@ -8,9 +8,12 @@ app = Flask(__name__)
 DB_PATH = 'database.db'
 IMAGE_DIR = 'static/images'
 
-# Удаление старой базы данных
+# Удаление старой базы данных (с добавлением логирования)
 if os.path.exists(DB_PATH):
+    print(f"Удаление базы данных {DB_PATH}")  # Логирование удаления базы данных
     os.remove(DB_PATH)
+else:
+    print("База данных не найдена, создаем новую.")
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -57,6 +60,9 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+# Вызываем инициализацию базы данных
+init_db()
 
 # Вызываем инициализацию базы
 init_db()
