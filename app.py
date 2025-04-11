@@ -135,6 +135,26 @@ def admin():
     return render_template("admin.html", users=users, subfolders=subfolders,
                            active_subfolder=active_subfolder, images=images, message=message)
 
+@app.route("/choose_card_user/<code>/<int:image_id>", methods=["POST"])
+def choose_card_user(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Удалить из user_images
+    c.execute("""
+        DELETE FROM user_images
+        WHERE image_id = ? AND user_id = (
+            SELECT id FROM users WHERE code = ?
+        )
+    """, (image_id, code))
+
+    # Добавить в chosen_cards
+    c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
 
 @app.route("/choose_card/<code>/<int:image_id>", methods=["POST"])
 def choose_card(code, image_id):
