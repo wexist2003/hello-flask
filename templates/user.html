@@ -16,9 +16,9 @@
                 <div class="card">
                     <img src="{{ url_for('static', filename='images/' + card[1] + '/' + card[2]) }}" class="card-img-top" alt="{{ card[2] }}">
                     <div class="card-body">
-                        <form method="POST" action="{{ url_for('choose_card', code=code, image_id=card[0]) }}">
-                            <button type="submit" class="btn btn-success">Выбрать</button>
-                        </form>
+<form method="POST" action="{{ url_for('choose_card_user', code=code, image_id=card[0]) }}">
+    <button type="submit" class="btn btn-success">Выбрать</button>
+</form>
                     </div>
                 </div>
             </div>
