@@ -8,6 +8,10 @@ app = Flask(__name__)
 DB_PATH = 'database.db'
 IMAGE_DIR = 'static/images'
 
+# Удаление старой базы данных
+if os.path.exists(DB_PATH):
+    os.remove(DB_PATH)
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -32,19 +36,12 @@ def init_db():
     """)
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS user_images (
+        CREATE TABLE IF NOT EXISTS user_cards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             image_id INTEGER,
+            chosen INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (image_id) REFERENCES images(id)
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS chosen_cards (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            image_id INTEGER,
             FOREIGN KEY (image_id) REFERENCES images(id)
         )
     """)
@@ -61,10 +58,10 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Инициализация базы, если не существует
-if not os.path.exists(DB_PATH):
-    init_db()
+# Вызываем инициализацию базы
+init_db()
 
+# Генерация случайного кода
 def generate_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
@@ -77,13 +74,16 @@ def admin():
     # Получение всех подкаталогов
     subfolders = [name for name in os.listdir(IMAGE_DIR) if os.path.isdir(os.path.join(IMAGE_DIR, name))]
 
-    # Получение текущей активной колоды
-    c.execute("SELECT subfolder FROM images WHERE status = 'Свободно' LIMIT 1")
+    # Выбор активного подкаталога
+    c.execute("SELECT image FROM images WHERE status = 'Активный' LIMIT 1")
+    active_subfolder = None
     row = c.fetchone()
-    active_subfolder = row[0] if row else None
+    if row:
+        active_subfolder = row[0].split('/')[0]
 
     if request.method == "POST":
         if 'name' in request.form:
+            # Добавление пользователя
             name = request.form['name']
             num_cards = int(request.form.get('num_cards', 3))
             code = generate_code()
@@ -103,22 +103,28 @@ def admin():
             message = f"Пользователь {name} добавлен."
 
         elif 'active_subfolder' in request.form:
+            # Выбор колоды
             active_subfolder = request.form['active_subfolder']
+            # Все изображения пометить как занятые
             c.execute("UPDATE images SET status = 'Занято'")
+            # В выбранной колоде — активные и свободные
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (active_subfolder,))
             message = f"Выбрана колода: {active_subfolder}"
 
         elif 'reset_all' in request.form:
-            c.execute("DELETE FROM user_images")
-            c.execute("DELETE FROM chosen_cards")
+            # Сброс всех пользователей и статусов изображений
             c.execute("DELETE FROM users")
+            c.execute("DELETE FROM user_images")
             c.execute("UPDATE images SET status = 'Свободно'")
-            conn.commit()
-            message = "Все пользователи удалены, статусы изображений сброшены."
 
+            conn.commit()
+            message = "Все пользователи и статусы изображений сброшены."
+
+    # Список пользователей
     c.execute("SELECT * FROM users")
     users = c.fetchall()
 
+    # Список всех изображений
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
@@ -138,6 +144,7 @@ def user(code):
 
     user_id, name, rating = row
 
+    # Мои карточки
     c.execute("""
         SELECT images.id, images.subfolder, images.image
         FROM user_images
@@ -146,6 +153,7 @@ def user(code):
     """, (user_id,))
     my_cards = c.fetchall()
 
+    # Общий стол
     c.execute("""
         SELECT images.subfolder, images.image
         FROM chosen_cards
@@ -161,6 +169,7 @@ def choose_card(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    # Удалить из user_images
     c.execute("""
         DELETE FROM user_images
         WHERE image_id = ? AND user_id = (
@@ -168,6 +177,7 @@ def choose_card(code, image_id):
         )
     """, (image_id, code))
 
+    # Добавить в chosen_cards
     c.execute("INSERT INTO chosen_cards (image_id) VALUES (?)", (image_id,))
 
     conn.commit()
