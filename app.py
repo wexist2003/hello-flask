@@ -41,6 +41,14 @@ def init_db():
         )
     """)
 
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS common_table (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        image_id INTEGER,
+        user_id INTEGER
+    )
+''')
+
     # Загрузка изображений из static/images
     image_folders = ['koloda1', 'koloda2']
     for folder in image_folders:
@@ -77,6 +85,29 @@ def set_setting(key, value):
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
+
+@app.route('/select_card/<int:card_id>', methods=['POST'])
+def select_card(card_id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    # Получаем владельца карточки и проверяем
+    c.execute("SELECT id, subfolder, image, status FROM images WHERE id = ?", (card_id,))
+    image = c.fetchone()
+
+    if image and image[3] and image[3].startswith("Занято:"):
+        user_id = int(image[3].split(":")[1])
+
+        # Добавляем в общий стол
+        c.execute("INSERT INTO common_table (image_id, user_id) VALUES (?, ?)", (card_id, user_id))
+
+        # Обновляем статус карточки, чтобы скрыть из "Моих карточек"
+        c.execute("UPDATE images SET status = 'Общий' WHERE id = ?", (card_id,))
+        conn.commit()
+
+    conn.close()
+    return redirect(request.referrer)
+
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -159,11 +190,21 @@ def user(code):
 
     user_id, name, rating = row
 
-    c.execute("SELECT subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-    cards = [{"subfolder": r[0], "image": r[1]} for r in c.fetchall()]
+    # Получаем карточки пользователя
+c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user[0]}",))
+cards = [dict(id=row[0], subfolder=row[1], image=row[2]) for row in c.fetchall()]
+
+# Общий стол
+c.execute('''
+    SELECT images.subfolder, images.image
+    FROM common_table
+    JOIN images ON common_table.image_id = images.id
+''')
+common_cards = c.fetchall()
     conn.close()
 
-    return render_template("user.html", name=name, rating=rating, cards=cards)
+    return render_template('user.html', name=user[1], rating=user[3], cards=cards, common_cards=common_cards)
+
 
 if __name__ == "__main__":
     init_db()
