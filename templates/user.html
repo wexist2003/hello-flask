@@ -12,16 +12,36 @@
     <hr>
 
     <h2>Общий стол</h2>
-    <div class="border p-3 mb-4">[Контент общего стола здесь]</div>
+    {% if common_cards %}
+        <div class="d-flex flex-wrap gap-3 mb-4">
+            {% for card in common_cards %}
+                <div class="border p-2">
+                    <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                         alt="card" style="max-width: 150px;">
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted">Общий стол пока пуст.</p>
+    {% endif %}
 
     <h2>Мои карточки</h2>
-    <div class="d-flex flex-wrap gap-3">
-        {% for card in cards %}
-            <div class="border p-2">
-                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
-                     alt="card" style="max-width: 150px;">
-            </div>
-        {% endfor %}
-    </div>
+    {% if cards %}
+        <div class="d-flex flex-wrap gap-3">
+            {% for card in cards %}
+                {% if card.status != 'Общий' %}
+                    <div class="border p-2">
+                        <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                             alt="card" style="max-width: 150px;">
+                        <form method="post" action="{{ url_for('select_card', card_id=card.id) }}" class="mt-2">
+                            <button type="submit" class="btn btn-sm btn-primary">Выбрать</button>
+                        </form>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted">У вас пока нет карточек.</p>
+    {% endif %}
 </body>
 </html>
