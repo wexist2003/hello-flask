@@ -147,18 +147,24 @@ def select_card(card_id):
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
 
+    # Получаем ID пользователя из статуса
     c.execute("SELECT id, status FROM images WHERE id = ?", (card_id,))
     image = c.fetchone()
 
     if image and image[1] and image[1].startswith("Занято:"):
         user_id = int(image[1].split(":")[1])
 
-        c.execute("INSERT INTO common_table (image_id, user_id) VALUES (?, ?)", (card_id, user_id))
-        c.execute("UPDATE images SET status = 'Общий' WHERE id = ?", (card_id,))
-        conn.commit()
+        # Проверяем, есть ли уже карточка от этого пользователя в общем столе
+        c.execute("SELECT COUNT(*) FROM common_table WHERE user_id = ?", (user_id,))
+        if c.fetchone()[0] == 0:
+            # Если нет, добавляем
+            c.execute("INSERT INTO common_table (image_id, user_id) VALUES (?, ?)", (card_id, user_id))
+            c.execute("UPDATE images SET status = 'Общий' WHERE id = ?", (card_id,))
+            conn.commit()
 
     conn.close()
     return redirect(request.referrer)
+
 
 @app.route('/admin/images')
 def admin_images():
