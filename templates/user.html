@@ -12,28 +12,16 @@
     <hr>
 
     <h2>Общий стол</h2>
-<div class="d-flex flex-wrap gap-3">
-    {% for card in common_cards %}
-        <div class="border p-2">
-            <img src="{{ url_for('static', filename='images/' + card[0] + '/' + card[1]) }}"
-                 alt="common card" style="max-width: 150px;">
-        </div>
-    {% endfor %}
-</div>
-
+    <div class="border p-3 mb-4">[Контент общего стола здесь]</div>
 
     <h2>Мои карточки</h2>
-<div class="d-flex flex-wrap gap-3">
-    {% for card in cards %}
-        <div class="border p-2">
-            <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
-                 alt="card" style="max-width: 150px;">
-            <form method="post" action="{{ url_for('select_card', card_id=card.id) }}" class="mt-2">
-                <button type="submit" class="btn btn-sm btn-primary">Выбрать</button>
-            </form>
-        </div>
-    {% endfor %}
-</div>
-
+    <div class="d-flex flex-wrap gap-3">
+        {% for card in cards %}
+            <div class="border p-2">
+                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                     alt="card" style="max-width: 150px;">
+            </div>
+        {% endfor %}
+    </div>
 </body>
 </html>
