@@ -201,7 +201,6 @@ c.execute('''
     JOIN images ON common_table.image_id = images.id
 ''')
 common_cards = c.fetchall()
-    conn.close()
 
     return render_template('user.html', name=user[1], rating=user[3], cards=cards, common_cards=common_cards)
 
