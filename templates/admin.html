@@ -18,23 +18,20 @@
     </form>
 
     <!-- Выбор активного подкаталога -->
-    <form method="post" class="mb-4">
-        <div class="input-group">
-            <label class="input-group-text">Выбрать колоду</label>
-            <select name="active_subfolder" class="form-select" onchange="this.form.submit()">
-                {% for folder in subfolders %}
-                    <option value="{{ folder }}" {% if folder == active_subfolder %}selected{% endif %}>
-                        {{ folder }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-    </form>
+<form method="post" class="mb-4 d-flex">
+    <div class="input-group me-2" style="max-width: 300px;">
+        <label class="input-group-text">Выбрать колоду</label>
+        <select name="active_subfolder" class="form-select">
+            {% for folder in subfolders %}
+                <option value="{{ folder }}" {% if folder == active_subfolder %}selected{% endif %}>
+                    {{ folder }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Выбрать</button>
+</form>
 
-    <!-- Кнопка сброса пользователей и статусов -->
-    <form method="post" class="mb-4">
-        <button class="btn btn-danger" type="submit" name="reset_all">Сбросить всех пользователей и статусы</button>
-    </form>
 
     {% if message %}
         <div class="alert alert-info mt-2">{{ message }}</div>
