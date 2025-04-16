@@ -81,6 +81,7 @@ def user_page(code):
         return render_template("user.html", user=user, images=images)
     return "User not found", 404
 
+
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
