@@ -12,14 +12,27 @@
     <hr>
 
     <h2>Общий стол</h2>
-    <div class="border p-3 mb-4">[Контент общего стола здесь]</div>
+    {% if selected_card %}
+        <div class="border p-3 mb-4">
+            <img src="{{ url_for('static', filename='images/' + selected_card[0] + '/' + selected_card[1]) }}"
+                 alt="chosen" style="max-width: 200px;">
+        </div>
+    {% else %}
+        <p>Вы ещё не выбрали карточку.</p>
+    {% endif %}
 
     <h2>Мои карточки</h2>
     <div class="d-flex flex-wrap gap-3">
         {% for card in cards %}
             <div class="border p-2">
-                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                <img src="{{ url_for('static', filename='images/' + card[1] + '/' + card[2]) }}"
                      alt="card" style="max-width: 150px;">
+                <form method="post" action="{{ url_for('select_card', code=code, card_id=card[0]) }}">
+                    <button class="btn btn-sm btn-primary mt-2" type="submit"
+                            {% if selected_card %}disabled{% endif %}>
+                        {% if selected_card and selected_card[1] == card[2] %}Выбрано{% else %}Выбрать{% endif %}
+                    </button>
+                </form>
             </div>
         {% endfor %}
     </div>
