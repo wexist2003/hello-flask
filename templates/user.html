@@ -11,38 +11,28 @@
 
     <hr>
 
-    
     <h2>Общий стол</h2>
-    {% if common_cards %}
-        <div class="d-flex flex-wrap gap-3 mb-4">
-            {% for card in common_cards %}
-                <div class="border p-2">
-                    <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
-                         alt="card" style="max-width: 150px;">
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="text-muted">Общий стол пока пуст.</p>
-    {% endif %}
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        {% for card in table_cards %}
+            <div class="border p-2 text-center">
+                <p class="mb-1"><strong>{{ card.user_name }}</strong></p>
+                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                     alt="card" style="max-width: 150px;">
+            </div>
+        {% endfor %}
+    </div>
 
     <h2>Мои карточки</h2>
-    {% if cards %}
-        <div class="d-flex flex-wrap gap-3">
-            {% for card in cards %}
-                {% if card.status != 'Общий' %}
-                    <div class="border p-2">
-                        <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
-                             alt="card" style="max-width: 150px;">
-                        <form method="post" action="{{ url_for('select_card', card_id=card.id) }}" class="mt-2">
-                            <button type="submit" class="btn btn-sm btn-primary">Выбрать</button>
-                        </form>
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="text-muted">У вас пока нет карточек.</p>
-    {% endif %}
+    <div class="d-flex flex-wrap gap-3">
+        {% for card in cards %}
+            <div class="border p-2 text-center">
+                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                     alt="card" style="max-width: 150px;">
+                <form method="post" action="{{ url_for('select_card', card_id=card.id) }}" class="mt-2">
+                    <button class="btn btn-sm btn-primary" type="submit">Выбрать</button>
+                </form>
+            </div>
+        {% endfor %}
+    </div>
 </body>
 </html>
