@@ -159,4 +159,5 @@ def select_card(code, card_id):
 if __name__ == '__main__':
     init_db()
     load_images()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)
