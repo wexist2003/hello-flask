@@ -21,13 +21,12 @@
                     <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
                         <select name="guessed_user_id" class="form-select form-select-sm">
                             <option value="">-- Выберите игрока --</option>
-                            {% for other_user in other_users %}
-                                <option value="{{ other_user.id }}">{{ other_user.name }}</option>
+                            {% for other_user in other_users[loop.index0] %}  <option value="{{ other_user[0] }}">{{ other_user[1] }}</option>
                             {% endfor %}
                         </select>
                         <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
                     </form>
-                    <p>Owner: {{ table_image.owner_name }}</p>  <p>Guesses: {{ table_image.guesses }}</p>
+                    <p>Guesses: {{ table_image.guesses }}</p>
                 </div>
             {% endfor %}
         </div>
