@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
 import string
 import random
+import json
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
@@ -31,8 +32,8 @@ def init_db():
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
             status TEXT,
-            owner_id INTEGER,  -- New column
-            guesses TEXT       -- New column
+            owner_id INTEGER,
+            guesses TEXT
         )
     """)
 
@@ -50,7 +51,7 @@ def init_db():
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
-                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
+                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))
 
     # Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
@@ -198,6 +199,13 @@ def guess_image(code, image_id):
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
+    # Check if the selected user is already guessed for another image
+    c.execute("SELECT id FROM images WHERE guesses LIKE ?", ('%' + f'"{guessed_user_id}"' + '%',))
+    already_guessed_image_ids = [row[0] for row in c.fetchall()]
+    if any(img_id != image_id and str(user_id) in json.loads(guesses).keys() for img_id in already_guessed_image_ids):
+        conn.close()
+        return "This user is already guessed for another image", 400
+
     # Add/Update the guess
     guesses[user_id] = int(guessed_user_id)
 
@@ -241,11 +249,9 @@ def user(code):
         }
         table_images.append(table_image)
 
-    # Get other users for the dropdown (excluding the current user and the card owner)
-    other_users = []
-    for table_image in table_images:
-        c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"])) # Exclude current user
-        other_users.append(c.fetchall())
+    # Get all users except the current user for the dropdown
+    c.execute("SELECT id, name FROM users WHERE id != ?", (user_id,))
+    all_other_users = c.fetchall()
 
     # Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
@@ -254,7 +260,7 @@ def user(code):
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, other_users=other_users,
+                           table_images=table_images, all_other_users=all_other_users,
                            code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
