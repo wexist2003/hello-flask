@@ -185,12 +185,12 @@ def user(code):
     # Get other users for the dropdown (excluding the current user and the card owner)
     other_users = []
     for table_image in table_images:
-        c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"]))
+        c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"])) # Exclude current user
         other_users.append(c.fetchall())
 
     # Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    on_table = c.fetchone() is not None  # Add this line
+    on_table = c.fetchone() is not None
 
     conn.close()
 
@@ -198,8 +198,8 @@ def user(code):
                            table_images=table_images, other_users=other_users,
                            code=code, on_table=on_table)
     
-@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
-def place_card(code, image_id):
+@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
+def guess_image(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -211,18 +211,31 @@ def place_card(code, image_id):
         return "User not found", 404
     user_id = user_row[0]
 
-    # Check if the user already has a card on the table
-    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    if c.fetchone() is not None:
+    guessed_user_id = request.form.get("guessed_user_id")
+    if not guessed_user_id:
         conn.close()
-        return "You already have a card on the table", 400
+        return "No user selected", 400
 
-    # Update the image
-    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
+    # Get the image's current guesses
+    c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
+    image_data = c.fetchone()
+    guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
+
+    # Add/Update the guess
+    guesses[user_id] = int(guessed_user_id)
+
+    # Update the image with the guess
+    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
+
+    # Get the name of the guessed user
+    c.execute("SELECT name FROM users WHERE id = ?", (guessed_user_id,))
+    guessed_user_name = c.fetchone()[0]
+
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
+    return render_template('guess.html', guessed_user_name=guessed_user_name) # Render a simple template
+
 
 @app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
 def guess_image(code, image_id):
