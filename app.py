@@ -1,5 +1,5 @@
 import json  # Import json for handling guesses
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
 import string
@@ -150,6 +150,66 @@ def delete_user(user_id):
     conn.close()
     return redirect(url_for("admin"))
 
+@app.before_request
+def before_request():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    code = request.args.get('code') or request.view_args.get('code')
+    if code:
+        c.execute("SELECT id FROM users WHERE code = ?", (code,))
+        user_id = c.fetchone()
+        if user_id:
+            g.user_id = user_id[0]
+        else:
+            g.user_id = None
+    else:
+        g.user_id = None
+    conn.close()
+
+def get_user_name(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
+    user_name = c.fetchone()
+    conn.close()
+    if user_name:
+        return user_name[0]
+    return None
+
+@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
+def guess_image(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get user ID
+    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    user_row = c.fetchone()
+    if not user_row:
+        conn.close()
+        return "User not found", 404
+    user_id = user_row[0]
+
+    guessed_user_id = request.form.get("guessed_user_id")
+    if not guessed_user_id:
+        conn.close()
+        return "No user selected", 400
+
+    # Get the image's current guesses
+    c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
+    image_data = c.fetchone()
+    guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
+
+    # Add/Update the guess
+    guesses[user_id] = int(guessed_user_id)
+
+    # Update the image with the guess
+    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code)) # Redirect back to user page
+
 @app.route("/user/<code>")
 def user(code):
     conn = sqlite3.connect(DB_PATH)
@@ -196,10 +256,10 @@ def user(code):
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, other_users=other_users,
-                           code=code, on_table=on_table)
-    
-@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
-def guess_image(code, image_id):
+                           code=code, on_table=on_table, g=g)
+
+@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
+def place_card(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -211,60 +271,14 @@ def guess_image(code, image_id):
         return "User not found", 404
     user_id = user_row[0]
 
-    guessed_user_id = request.form.get("guessed_user_id")
-    if not guessed_user_id:
+    # Check if the user already has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    if c.fetchone() is not None:
         conn.close()
-        return "No user selected", 400
+        return "You already have a card on the table", 400
 
-    # Get the image's current guesses
-    c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
-    image_data = c.fetchone()
-    guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
-
-    # Add/Update the guess
-    guesses[user_id] = int(guessed_user_id)
-
-    # Update the image with the guess
-    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
-
-    # Get the name of the guessed user
-    c.execute("SELECT name FROM users WHERE id = ?", (guessed_user_id,))
-    guessed_user_name = c.fetchone()[0]
-
-    conn.commit()
-    conn.close()
-
-    return render_template('guess.html', guessed_user_name=guessed_user_name) # Render a simple template
-
-
-@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
-def guess_image(code, image_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    # Get user ID
-    c.execute("SELECT id FROM users WHERE code = ?", (code,))
-    user_row = c.fetchone()
-    if not user_row:
-        conn.close()
-        return "User not found", 404
-    user_id = user_row[0]
-
-    guessed_user_id = request.form.get("guessed_user_id")
-    if not guessed_user_id:
-        conn.close()
-        return "No user selected", 400
-
-    # Get the image's current guesses
-    c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
-    image_data = c.fetchone()
-    guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
-
-    # Add the new guess
-    guesses[user_id] = int(guessed_user_id)  # Ensure user IDs are integers
-
-    # Update the image with the new guess
-    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
+    # Update the image
+    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
     conn.commit()
     conn.close()
 
