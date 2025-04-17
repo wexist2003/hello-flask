@@ -77,6 +77,35 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
+@app.before_request
+def before_request():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    code = request.args.get('code') or request.view_args.get('code')
+    if code:
+        c.execute("SELECT id FROM users WHERE code = ?", (code,))
+        user_id = c.fetchone()
+        if user_id:
+            g.user_id = user_id[0]
+        else:
+            g.user_id = None
+    else:
+        g.user_id = None
+    conn.close()
+
+def get_user_name(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
+    user_name = c.fetchone()
+    conn.close()
+    if user_name:
+        return user_name[0]
+    return None
+
+app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
+
+
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
