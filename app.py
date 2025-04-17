@@ -188,12 +188,16 @@ def user(code):
         c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"]))
         other_users.append(c.fetchall())
 
+    # Check if the user has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    on_table = c.fetchone() is not None  # Add this line
+
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, other_users=other_users,
                            code=code, on_table=on_table)
-
+    
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
     conn = sqlite3.connect(DB_PATH)
