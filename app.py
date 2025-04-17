@@ -1,4 +1,4 @@
-import json  # Import json for handling guesses
+import json
 from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
@@ -32,8 +32,8 @@ def init_db():
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
             status TEXT,
-            owner_id INTEGER,  -- New column
-            guesses TEXT       -- New column
+            owner_id INTEGER,
+            guesses TEXT
         )
     """)
 
@@ -51,7 +51,7 @@ def init_db():
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
-                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
+                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))
 
     # Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
@@ -76,35 +76,6 @@ def set_setting(key, value):
     c.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
-
-@app.before_request
-def before_request():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
-    if code:
-        c.execute("SELECT id FROM users WHERE code = ?", (code,))
-        user_id = c.fetchone()
-        if user_id:
-            g.user_id = user_id[0]
-        else:
-            g.user_id = None
-    else:
-        g.user_id = None
-    conn.close()
-
-def get_user_name(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
-    user_name = c.fetchone()
-    conn.close()
-    if user_name:
-        return user_name[0]
-    return None
-
-app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
-
 
 @app.route("/")
 def index():
@@ -228,6 +199,13 @@ def guess_image(code, image_id):
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
+    # Check if the selected user is already guessed for another image
+    c.execute("SELECT id FROM images WHERE guesses LIKE ?", ('%' + f'"{guessed_user_id}"' + '%',))
+    already_guessed_image_ids = [row[0] for row in c.fetchall()]
+    if any(img_id != image_id and str(user_id) in json.loads(guesses).keys() for img_id in already_guessed_image_ids):
+        conn.close()
+        return "This user is already guessed for another image", 400
+
     # Add/Update the guess
     guesses[user_id] = int(guessed_user_id)
 
@@ -237,7 +215,7 @@ def guess_image(code, image_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code)) # Redirect back to user page
+    return redirect(url_for('user', code=code))
 
 @app.route("/user/<code>")
 def user(code):
@@ -271,11 +249,9 @@ def user(code):
         }
         table_images.append(table_image)
 
-    # Get other users for the dropdown (excluding the current user and the card owner)
-    other_users = []
-    for table_image in table_images:
-        c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"])) # Exclude current user
-        other_users.append(c.fetchall())
+    # Get all users except the current user for the dropdown
+    c.execute("SELECT id, name FROM users WHERE id != ?", (user_id,))
+    all_other_users = c.fetchall()
 
     # Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
@@ -284,7 +260,7 @@ def user(code):
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, other_users=other_users,
+                           table_images=table_images, all_other_users=all_other_users,
                            code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
