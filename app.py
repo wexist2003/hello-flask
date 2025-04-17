@@ -166,6 +166,33 @@ def user(code):
 
     return render_template("user.html", name=name, rating=rating, cards=cards)
 
+@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
+def place_card(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get user ID
+    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    user_row = c.fetchone()
+    if not user_row:
+        conn.close()
+        return "User not found", 404
+    user_id = user_row[0]
+
+    # Check if the user already has a card on the table
+    c.execute("SELECT 1 FROM images WHERE status = 'На столе' AND owner_id = ?", (user_id,))
+    if c.fetchone() is not None:
+        conn.close()
+        return "You already have a card on the table", 400
+
+    # Update the image
+    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
+
+
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
