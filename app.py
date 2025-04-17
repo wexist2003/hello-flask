@@ -173,27 +173,20 @@ def user(code):
     table_images = []
     for img in table_images_data:
         owner_id = img[3]
-        if owner_id:
-            c.execute("SELECT name FROM users WHERE id = ?", (owner_id,))
-            owner_name = c.fetchone()[0]
-        else:
-            owner_name = None
-        table_images.append({
+        table_image = {
             "id": img[0],
             "subfolder": img[1],
             "image": img[2],
             "owner_id": owner_id,
-            "owner_name": owner_name,
-            "guesses": json.loads(img[4]) if img[4] else {}, # Convert guesses to dict
-        })
+            "guesses": json.loads(img[4]) if img[4] else {},
+        }
+        table_images.append(table_image)
 
-    # Get other users for the dropdown
-    c.execute("SELECT id, name FROM users WHERE id != ?", (user_id,))
-    other_users = c.fetchall()
-
-    # Check if the user has a card on the table
-    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    on_table = c.fetchone() is not None
+    # Get other users for the dropdown (excluding the current user and the card owner)
+    other_users = []
+    for table_image in table_images:
+        c.execute("SELECT id, name FROM users WHERE id != ? AND id != ?", (user_id, table_image["owner_id"]))
+        other_users.append(c.fetchall())
 
     conn.close()
 
