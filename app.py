@@ -1,3 +1,4 @@
+import json  # Import json for handling guesses
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
@@ -30,7 +31,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
-            status TEXT
+            status TEXT,
+            owner_id INTEGER,  -- New column
+            guesses TEXT       -- New column
         )
     """)
 
@@ -48,7 +51,7 @@ def init_db():
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
                 if filename.endswith('.jpg'):
-                    c.execute("INSERT INTO images (subfolder, image, status) VALUES (?, ?, 'Свободно')", (folder, filename))
+                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
 
     # Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
@@ -83,7 +86,7 @@ def admin():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     message = ""
-    
+
     if request.method == "POST":
         if "name" in request.form:
             name = request.form.get("name").strip()
@@ -99,7 +102,8 @@ def admin():
                 if active_subfolder:
                     c.execute("""
                         SELECT id, subfolder, image FROM images
-                        WHERE subfolder = ? AND status = 'Свободно'
+                        WHERE subfolder = ?
+                        AND status = 'Свободно'
                         LIMIT ?
                     """, (active_subfolder, num_cards))
                     cards = c.fetchall()
@@ -159,11 +163,102 @@ def user(code):
 
     user_id, name, rating = row
 
-    c.execute("SELECT subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-    cards = [{"subfolder": r[0], "image": r[1]} for r in c.fetchall()]
+    # Get user's cards
+    c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
+    cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
+
+    # Get images on the table
+    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images_data = c.fetchall()
+    table_images = []
+    for img in table_images_data:
+        owner_id = img[3]
+        if owner_id:
+            c.execute("SELECT name FROM users WHERE id = ?", (owner_id,))
+            owner_name = c.fetchone()[0]
+        else:
+            owner_name = None
+        table_images.append({
+            "id": img[0],
+            "subfolder": img[1],
+            "image": img[2],
+            "owner_id": owner_id,
+            "owner_name": owner_name,
+            "guesses": json.loads(img[4]) if img[4] else {}, # Convert guesses to dict
+        })
+
+    # Get other users for the dropdown
+    c.execute("SELECT id, name FROM users WHERE id != ?", (user_id,))
+    other_users = c.fetchall()
+
+    # Check if the user has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    on_table = c.fetchone() is not None
+
     conn.close()
 
-    return render_template("user.html", name=name, rating=rating, cards=cards)
+    return render_template("user.html", name=name, rating=rating, cards=cards,
+                           table_images=table_images, other_users=other_users,
+                           code=code, on_table=on_table)
+
+@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
+def place_card(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get user ID
+    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    user_row = c.fetchone()
+    if not user_row:
+        conn.close()
+        return "User not found", 404
+    user_id = user_row[0]
+
+    # Check if the user already has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    if c.fetchone() is not None:
+        conn.close()
+        return "You already have a card on the table", 400
+
+    # Update the image
+    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
+
+@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
+def guess_image(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get user ID
+    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    user_row = c.fetchone()
+    if not user_row:
+        conn.close()
+        return "User not found", 404
+    user_id = user_row[0]
+
+    guessed_user_id = request.form.get("guessed_user_id")
+    if not guessed_user_id:
+        conn.close()
+        return "No user selected", 400
+
+    # Get the image's current guesses
+    c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
+    image_data = c.fetchone()
+    guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
+
+    # Add the new guess
+    guesses[user_id] = int(guessed_user_id)  # Ensure user IDs are integers
+
+    # Update the image with the new guess
+    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
 
 if __name__ == "__main__":
     init_db()
