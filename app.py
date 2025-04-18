@@ -80,19 +80,19 @@ def set_setting(key, value):
 
 @app.before_request
 def before_request():
- conn = sqlite3.connect(DB_PATH)
- c = conn.cursor()
- code = request.args.get('code') or request.view_args.get('code')
- if code:
- c.execute("SELECT id FROM users WHERE code = ?", (code,))
- user_id = c.fetchone()
- if user_id:
- g.user_id = user_id[0]
- else:
- g.user_id = None
- else:
- g.user_id = None
- conn.close()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    code = request.args.get('code') or request.view_args.get('code')
+    if code:
+        c.execute("SELECT id FROM users WHERE code = ?", (code,))
+        user_id = c.fetchone()
+        if user_id:
+            g.user_id = user_id[0]
+        else:
+            g.user_id = None
+    else:
+        g.user_id = None
+    conn.close()
 
 def get_user_name(user_id):
  conn = sqlite3.connect(DB_PATH)
