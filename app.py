@@ -24,7 +24,7 @@ def init_db():
             code TEXT UNIQUE NOT NULL,
             rating INTEGER DEFAULT 0
         )
-    """)
+    """) [cite: 1, 2, 3, 4]
 
     c.execute("""
         CREATE TABLE images (
@@ -35,14 +35,14 @@ def init_db():
             owner_id INTEGER,  -- New column
             guesses TEXT       -- New column
         )
-    """)
+    """) [cite: 2, 3]
 
     c.execute("""
         CREATE TABLE settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    """)
+    """) [cite: 3, 4]
 
     # Загрузка изображений из static/images
     image_folders = ['koloda1', 'koloda2']
@@ -126,19 +126,25 @@ def admin():
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                 user_id = c.lastrowid
 
-                # Назначаем карточки пользователю из активной колоды
+                # Назначаем карточки пользователю из активной колоды в случайном порядке
                 active_subfolder = get_setting("active_subfolder")
                 if active_subfolder:
                     c.execute("""
-                        SELECT id, subfolder, image FROM images
+                        SELECT id, subfolder, image
+                        FROM images
                         WHERE subfolder = ?
                         AND status = 'Свободно'
-                        LIMIT ?
-                    """, (active_subfolder, num_cards))
-                    cards = c.fetchall()
+                    """, (active_subfolder,))
+                    available_cards = c.fetchall()
 
-                    for card in cards:
-                        c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+                    if len(available_cards) < num_cards:
+                        message = f"Недостаточно свободных карточек в колоде {active_subfolder}."
+                    else:
+                        random.shuffle(available_cards)  # Перемешиваем карточки
+                        selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
+
+                        for card in selected_cards:
+                            c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
 
                 conn.commit()
                 message = f"Пользователь '{name}' добавлен."
