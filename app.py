@@ -95,27 +95,27 @@ def before_request():
     conn.close()
 
 def get_user_name(user_id):
- conn = sqlite3.connect(DB_PATH)
- c = conn.cursor()
- c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
- user_name = c.fetchone()
- conn.close()
- if user_name:
- return user_name[0]
- return None
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
+    user_name = c.fetchone()
+    conn.close()
+    if user_name:
+        return user_name[0]
+    return None
 
 app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
 
 
 @app.route("/")
 def index():
- return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
+    return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
- conn = sqlite3.connect(DB_PATH)
- c = conn.cursor()
- message = ""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    message = ""
 
  if request.method == "POST":
  if "name" in request.form:
