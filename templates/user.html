@@ -23,8 +23,8 @@
                 <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
                     <select name="guessed_user_id" class="form-select form-select-sm">
                         <option value="">-- Выберите игрока --</option>
-                        {% for other_user in other_users[loop.index0] %}
-                        <option value="{{ other_user[0] }}">{{ other_user[1] }}</option>
+                        {% for all_other_users in all_other_users[loop.index0] %}
+                        <option value="{{ all_other_users[0] }}">{{ all_other_users[1] }}</option>
                         {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
