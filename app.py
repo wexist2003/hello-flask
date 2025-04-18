@@ -24,7 +24,7 @@ def init_db():
             code TEXT UNIQUE NOT NULL,
             rating INTEGER DEFAULT 0
         )
-    """) [cite: 1, 2, 3, 4]
+    """)
 
     c.execute("""
         CREATE TABLE images (
@@ -35,14 +35,14 @@ def init_db():
             owner_id INTEGER,  -- New column
             guesses TEXT       -- New column
         )
-    """) [cite: 2, 3]
+    """)
 
     c.execute("""
         CREATE TABLE settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    """) [cite: 3, 4]
+    """)
 
     # Загрузка изображений из static/images
     image_folders = ['koloda1', 'koloda2']
@@ -146,8 +146,8 @@ def admin():
                         for card in selected_cards:
                             c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
 
-                conn.commit()
-                message = f"Пользователь '{name}' добавлен."
+                    conn.commit()
+                    message = f"Пользователь '{name}' добавлен."
 
             except sqlite3.IntegrityError:
                 message = f"Имя '{name}' уже существует."
