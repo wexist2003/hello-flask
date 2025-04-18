@@ -79,18 +79,15 @@ def set_setting(key, value):
 
 @app.before_request
 def before_request():
+    g.user_id = None  # Initialize g.user_id to None by default
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
+    code = request.args.get('code') or (request.view_args.get('code') if request.view_args else None) # Safe access to view_args
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
         if user_id:
             g.user_id = user_id[0]
-        else:
-            g.user_id = None
-    else:
-        g.user_id = None
     conn.close()
 
 def get_user_name(user_id):
