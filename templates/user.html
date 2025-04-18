@@ -22,11 +22,12 @@
                     alt="card" style="max-width: 150px;">
                 <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
                     <select name="guessed_user_id" class="form-select form-select-sm">
-                        <option value="">-- Выберите игрока --</option>
-                        {% for all_other_users in all_other_users[loop.index0] %}
-                        <option value="{{ all_other_users[0] }}">{{ all_other_users[1] }}</option>
-                        {% endfor %}
-                    </select>
+    <option value="">-- Выберите игрока --</option>
+    {% for user in all_users %}
+        {% if user[0] != g.user_id %}  <option value="{{ user[0] }}">{{ user[1] }}</option>
+        {% endif %}
+    {% endfor %}
+</select>
                     <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
                 </form>
                 <p>
