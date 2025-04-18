@@ -45,14 +45,15 @@ def init_db():
  """)
 
  # Загрузка изображений из static/images
+ # Загрузка изображений из static/images
  image_folders = ['koloda1', 'koloda2']
  for folder in image_folders:
- folder_path = os.path.join('static', 'images', folder)
- if os.path.exists(folder_path):
- for filename in os.listdir(folder_path):
- if filename.endswith('.jpg'):
- c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
-
+   folder_path = os.path.join('static', 'images', folder)
+   if os.path.exists(folder_path):
+     for filename in os.listdir(folder_path):
+       if filename.endswith('.jpg'):
+         c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))
+         
  # Удаляем статусы "Занято" (при новом запуске)
  c.execute("UPDATE images SET status = 'Свободно'")
 
