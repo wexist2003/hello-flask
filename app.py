@@ -1,9 +1,9 @@
-import json  # Import json for handling guesses
-from flask import Flask, render_template, request, redirect, url_for, g
-import sqlite3
-import os
-import string
-import random
+ import json  # Import json for handling guesses
+ from flask import Flask, render_template, request, redirect, url_for, g
+ import sqlite3
+ import os
+ import string
+ import random
  
  app = Flask(__name__)
  DB_PATH = 'database.db'
