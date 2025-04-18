@@ -277,10 +277,9 @@ def user(code):
         }
         table_images.append(table_image)
 
-    # Get other users for the dropdown (excluding the current user and the card owner)
-    other_users = []
-    c.execute("SELECT id, name FROM users WHERE id != ?", (user_id,))
-    all_other_users = c.fetchall()
+    # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
+    c.execute("SELECT id, name FROM users", )  # Fetch all users
+    all_users = c.fetchall()
 
     # Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
@@ -289,7 +288,7 @@ def user(code):
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_other_users=all_other_users,
+                           table_images=table_images, all_users=all_users, # передаем всех пользователей
                            code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
