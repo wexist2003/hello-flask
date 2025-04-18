@@ -1,41 +1,52 @@
-<select name="guessed_user_id" class="form-select form-select-sm">
-    <option value="">-- Выберите игрока --</option>
-    {% for user in all_users %}
-        {% if user[0] != g.user_id %}
-            <option value="{{ user[0] }}" data-user-id="{{ user[0] }}">{{ user[1] }}</option>
-        {% endif %}
-    {% endfor %}
-</select>
-<button type="submit" class="btn btn-primary btn-sm mt-2 guess-button" data-image-id="{{ table_image.id }}">Угадать</button>
+<div class="border p-3 mb-4">
+    <div class="d-flex flex-wrap gap-3">
+        {% for table_image in table_images %}
+            <div class="border p-2">
+                <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                     alt="card" style="max-width: 150px;">
+                <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                    <select name="guessed_user_id" class="form-select form-select-sm">
+                        <option value="">-- Выберите игрока --</option>
+                        {% for user in all_users %}
+                            {% if user[0] != g.user_id %}
+                                <option value="{{ user[0] }}" data-user-id="{{ user[0] }}" data-image-owner="{{ table_image.owner_id }}">
+                                    {{ user[1] }}
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm mt-2 guess-button">Угадать</button>
+                </form>
+                <p>
+                    {% for guesser_id, owner_id in table_image.guesses.items() %}
+                        {% if guesser_id|int == g.user_id|int %}
+                            You guessed: {{ get_user_name(owner_id) }}
+                        {% else %}
+                            Guesses: {{ table_image.guesses|length }}
+                        {% endif %}
+                    {% endfor %}
+                </p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const guessButtons = document.querySelectorAll('.guess-button');
+        const guessForms = document.querySelectorAll('form[action*="/guess/"]'); // Select guess forms
 
-        guessButtons.forEach(button => {
-            button.addEventListener('click', function(event) {
-                event.preventDefault(); // Prevent form submission for now
-
-                const imageId = this.dataset.imageId;
-                const selectElement = this.previousElementSibling; // Get the select element
-                const selectedUserId = selectElement.value;
-                const selectedUserName = selectElement.options[selectElement.selectedIndex].text;
-
+        guessForms.forEach(form => {
+            form.addEventListener('submit', function(event) {
+                const selectedUserId = this.querySelector('select[name="guessed_user_id"]').value;
                 if (selectedUserId) {
-                    // Disable the selected option in all select elements
-                    guessButtons.forEach(otherButton => {
-                        if (otherButton.dataset.imageId !== imageId) {
-                            const otherSelectElement = otherButton.previousElementSibling;
-                            for (let i = 0; i < otherSelectElement.options.length; i++) {
-                                if (otherSelectElement.options[i].value === selectedUserId) {
-                                    otherSelectElement.options[i].disabled = true;
-                                }
-                            }
+                    guessForms.forEach(otherForm => {
+                        if (otherForm !== this) { // Exclude the current form
+                            const options = otherForm.querySelectorAll(`option[data-user-id="${selectedUserId}"]`);
+                            options.forEach(option => {
+                                option.disabled = true;
+                            });
                         }
                     });
-
-                    // Optionally, you can submit the form here if needed
-                    selectElement.parentElement.submit();
                 }
             });
         });
