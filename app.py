@@ -120,7 +120,15 @@ def admin():
     c = conn.cursor()
     message = ""
 
-    # ... (existing code)
+    if request.method == "POST":
+        # ... (existing code)
+
+    # Получение данных
+    c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
+    users = c.fetchall()
+
+    c.execute("SELECT subfolder, image, status FROM images")
+    images = c.fetchall()
 
     # Get user guesses
     user_guesses = {}
@@ -137,12 +145,14 @@ def admin():
             guessed_user_name = c.fetchone()[0]
             user_guesses[int(guesser_id)].append(guessed_user_name)
 
-    # ... (existing code)
+    subfolders = ['koloda1', 'koloda2']
+    active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
                            user_guesses=user_guesses)
+    
     
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
