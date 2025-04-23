@@ -43,7 +43,7 @@
                                 </button>
                                 {% if table_image.guesses and table_image.guesses[g.user_id|string] %}
                                     <button type="submit" name="guessed_user_id" value="" class="btn btn-secondary btn-sm mt-2"
-                                            onclick="resetGuess('{{ code }}', {{ table_image.id }})">  Сбросить выбор
+                                            onclick="resetGuess({{ table_image.id }})">  Сбросить выбор
                                     </button>
                                 {% endif %}
                             </form>
@@ -81,9 +81,9 @@
     </div>
 
     <script>
-        function resetGuess(code, imageId) {
+        function resetGuess(imageId) {
             document.getElementById('guess-form-' + imageId).submit();
-            window.location.href = '/user/' + code; // Reload the page
+            window.location.reload(); // Reload the current page
         }
     </script>
 </body>
