@@ -292,7 +292,7 @@ def guess_image(code, image_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
+    return redirect(url_for('user', code=code) + "?r=" + str(random.randint(1, 1000000)))  # Add random parameter
     
 
 @app.route("/user/<code>")
