@@ -1,4 +1,4 @@
-import json  # Import json for handling guesses
+import json
 from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
@@ -7,6 +7,7 @@ import random
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -17,16 +18,19 @@ def init_db():
     c.execute("DROP TABLE IF EXISTS images")
     c.execute("DROP TABLE IF EXISTS settings")
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
             code TEXT UNIQUE NOT NULL,
             rating INTEGER DEFAULT 0
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
@@ -35,23 +39,29 @@ def init_db():
             owner_id INTEGER,  -- New column
             guesses TEXT       -- New column
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    """)
+    """
+    )
 
     # Загрузка изображений из static/images
-    image_folders = ['koloda1', 'koloda2']
+    image_folders = ["koloda1", "koloda2"]
     for folder in image_folders:
-        folder_path = os.path.join('static', 'images', folder)
+        folder_path = os.path.join("static", "images", folder)
         if os.path.exists(folder_path):
             for filename in os.listdir(folder_path):
-                if filename.endswith('.jpg'):
-                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
+                if filename.endswith(".jpg"):
+                    c.execute(
+                        "INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')",
+                        (folder, filename),
+                    )  # Initialize new columns
 
     # Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
@@ -59,16 +69,19 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def generate_unique_code(length=8):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
 
 def get_setting(key):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT value FROM settings WHERE key = ?", (key,) )
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
     row = c.fetchone()
     conn.close()
     return row[0] if row else None
+
 
 def set_setting(key, value):
     conn = sqlite3.connect(DB_PATH)
@@ -77,15 +90,16 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
+
 @app.before_request
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
+    if request.view_args and "code" in request.view_args:
+        code = request.view_args.get("code")
+    elif request.args and "code" in request.args:
+        code = request.args.get("code")
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -97,6 +111,7 @@ def before_request():
         g.user_id = None
     conn.close()
 
+
 def get_user_name(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -107,12 +122,14 @@ def get_user_name(user_id):
         return user_name[0]
     return None
 
-app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
+
+app.jinja_env.globals.update(get_user_name=get_user_name, g=g)  # Make the function globally available
 
 
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
+
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -133,12 +150,15 @@ def admin():
                 # Назначаем карточки пользователю из активной колоды в случайном порядке
                 active_subfolder = get_setting("active_subfolder")
                 if active_subfolder:
-                    c.execute("""
+                    c.execute(
+                        """
                         SELECT id, subfolder, image
                         FROM images
                         WHERE subfolder = ?
                         AND status = 'Свободно'
-                    """, (active_subfolder,))
+                    """,
+                        (active_subfolder,),
+                    )
                     available_cards = c.fetchall()
 
                     if len(available_cards) < num_cards:
@@ -148,7 +168,9 @@ def admin():
                         selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
 
                         for card in selected_cards:
-                            c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+                            c.execute(
+                                "UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0])
+                            )
 
                     conn.commit()
                     message = f"Пользователь '{name}' добавлен."
@@ -185,13 +207,20 @@ def admin():
         for guesser_id, guessed_user_id in guesses.items():
             guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
 
-    subfolders = ['koloda1', 'koloda2']
-    active_subfolder = get_setting("active_subfolder") or ''
+    subfolders = ["koloda1", "koloda2"]
+    active_subfolder = get_setting("active_subfolder") or ""
 
     conn.close()
-    return render_template("admin.html", users=users, images=images, message=message,
-                           subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+    return render_template(
+        "admin.html",
+        users=users,
+        images=images,
+        message=message,
+        subfolders=subfolders,
+        active_subfolder=active_subfolder,
+        guess_counts_by_user=guess_counts_by_user,
+    )
+
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -203,15 +232,16 @@ def delete_user(user_id):
     conn.close()
     return redirect(url_for("admin"))
 
+
 @app.before_request
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
+    if request.view_args and "code" in request.view_args:
+        code = request.view_args.get("code")
+    elif request.args and "code" in request.args:
+        code = request.args.get("code")
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -223,6 +253,7 @@ def before_request():
         g.user_id = None
     conn.close()
 
+
 def get_user_name(user_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -233,10 +264,15 @@ def get_user_name(user_id):
         return user_name[0]
     return None
 
+
 @app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
 def guess_image(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+
+    print(f"\n--- guess_image called ---")
+    print(f"code: {code}, image_id: {image_id}")
+    print(f"request.form: {request.form}")
 
     # Get user ID
     c.execute("SELECT id FROM users WHERE code = ?", (code,))
@@ -245,12 +281,15 @@ def guess_image(code, image_id):
         conn.close()
         return "User not found", 404
     user_id = user_row[0]
+    print(f"user_id: {user_id}")
 
     guessed_user_id = request.form.get("guessed_user_id")
     if guessed_user_id:
-        guessed_user_id = int(guessed_user_id)  # Convert to integer
+        guessed_user_id = int(guessed_user_id)
+        print(f"guessed_user_id (int): {guessed_user_id}")
     else:
-        guessed_user_id = None  # Allow for resetting the guess
+        guessed_user_id = None
+        print(f"guessed_user_id: {guessed_user_id} (None)")
 
     # Get all images on the table
     c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
@@ -258,14 +297,16 @@ def guess_image(code, image_id):
     all_guesses = {}
     for img_id, guesses_str in table_images_data:
         guesses = json.loads(guesses_str) if guesses_str else {}
-        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}  # Convert keys to int
+        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}
+
+    print(f"all_guesses: {all_guesses}")
 
     # Get current user's guesses (image_id: guessed_user_id)
     user_guesses = {
-        img_id: guesses.get(user_id)
-        for img_id, guesses in all_guesses.items()
-        if guesses and user_id in guesses
+        img_id: guesses.get(user_id) for img_id, guesses in all_guesses.items() if guesses and user_id in guesses
     }
+
+    print(f"user_guesses: {user_guesses}")
 
     # Check if the user is trying to choose the same person for a different card
     for other_image_id, already_guessed_user_id in user_guesses.items():
@@ -282,18 +323,28 @@ def guess_image(code, image_id):
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
+    print(f"Initial guesses for image {image_id}: {guesses}")
+
     if guessed_user_id is not None:
         guesses[user_id] = guessed_user_id
+        print(f"Guesses updated to: {guesses} (user {user_id} guessed {guessed_user_id})")
     elif user_id in guesses:
-        del guesses[user_id]  # Remove the guess to "reset"
+        del guesses[user_id]
+        print(f"Guesses updated to: {guesses} (guess removed for user {user_id})")
+    else:
+        print(f"Guesses unchanged: {guesses}")
 
-    c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
+    update_query = "UPDATE images SET guesses = ? WHERE id = ?"
+    update_data = (json.dumps(guesses), image_id)
+    print(f"Executing UPDATE: {update_query} with data: {update_data}")
+    c.execute(update_query, update_data)
+    print(f"UPDATE rows affected: {c.execute('SELECT changes()').fetchone()[0]}")
 
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
-    #return redirect(url_for('user', code=code) + "?r=" + str(random.randint(1, 1000000)))  # Add random parameter
+    return redirect(url_for("user", code=code))
+
 
 @app.route("/user/<code>")
 def user(code):
@@ -328,7 +379,7 @@ def user(code):
         table_images.append(table_image)
 
     # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users", )  # Fetch all users
+    c.execute("SELECT id, name FROM users")  # Fetch all users
     all_users = c.fetchall()
 
     # Check if the user has a card on the table
@@ -337,9 +388,18 @@ def user(code):
 
     conn.close()
 
-    return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, # передаем всех пользователей
-                           code=code, on_table=on_table, g=g)
+    return render_template(
+        "user.html",
+        name=name,
+        rating=rating,
+        cards=cards,
+        table_images=table_images,
+        all_users=all_users,
+        code=code,
+        on_table=on_table,
+        g=g,
+    )
+
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
@@ -365,9 +425,10 @@ def place_card(code, image_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
+    return redirect(url_for("user", code=code))
+
 
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="
