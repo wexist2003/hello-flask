@@ -247,25 +247,53 @@ def guess_image(code, image_id):
     user_id = user_row[0]
 
     guessed_user_id = request.form.get("guessed_user_id")
-    if not guessed_user_id:
-        conn.close()
-        return "No user selected", 400
+    if guessed_user_id:
+        guessed_user_id = int(guessed_user_id)  # Convert to integer
+    else:
+        guessed_user_id = None  # Allow for resetting the guess
 
-    # Get the image's current guesses
+    # Get all images on the table
+    c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images_data = c.fetchall()
+    all_guesses = {}
+    for img_id, guesses_str in table_images_data:
+        guesses = json.loads(guesses_str) if guesses_str else {}
+        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}  # Convert keys to int
+
+    # Get current user's guesses (image_id: guessed_user_id)
+    user_guesses = {
+        img_id: guesses.get(user_id)
+        for img_id, guesses in all_guesses.items()
+        if guesses and user_id in guesses
+    }
+
+    # Check if the user is trying to choose the same person for a different card
+    for other_image_id, already_guessed_user_id in user_guesses.items():
+        if (
+            other_image_id != image_id
+            and guessed_user_id is not None
+            and already_guessed_user_id == guessed_user_id
+        ):
+            conn.close()
+            return "You have already guessed this person for another card", 400
+
+    # Update the guess for the current image
     c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
-    # Add/Update the guess
-    guesses[user_id] = int(guessed_user_id)
+    if guessed_user_id is not None:
+        guesses[user_id] = guessed_user_id
+    elif user_id in guesses:
+        del guesses[user_id]  # Remove the guess to "reset"
 
-    # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
 
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code)) # Redirect back to user page
+    return redirect(url_for('user', code=code))
+    
 
 @app.route("/user/<code>")
 def user(code):
