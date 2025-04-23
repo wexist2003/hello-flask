@@ -16,34 +16,40 @@
     <h2>Общий стол</h2>
     <div class="border p-3 mb-4">
         <div class="d-flex flex-wrap gap-3">
-            {% for table_image in table_images %}
-                <div class="border p-2">
-                    <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-                         alt="card" style="max-width: 150px;">
-                    {% if table_image.owner_id != g.user_id %}  <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                            <select name="guessed_user_id" class="form-select form-select-sm">
-                                <option value="">-- Выберите игрока --</option>
-                                {% for user in all_users %}
-                                    {% if user[0] != g.user_id %}
-                                        <option value="{{ user[0] }}">{{ user[1] }}</option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
-                        </form>
-                    {% else %}
-                        <p class="mt-2">Это ваша карточка.</p>  {% endif %}
-                    <p>
-                        {% for guesser_id, owner_id in table_image.guesses.items() %}
-                            {% if guesser_id|int == g.user_id|int %}
-                                You guessed: {{ get_user_name(owner_id) }}
-                            {% else %}
-                                Guesses: {{ table_image.guesses|length }}
-                            {% endif %}
-                        {% endfor %}
-                    </p>
-                </div>
-            {% endfor %}
+            {% if table_images %}  {% for table_image in table_images %}
+                    <div class="border p-2">
+                        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                             alt="card" style="max-width: 150px;">
+                        {% if table_image.owner_id != g.user_id and g.user_id|string not in table_image.guesses %}
+                            <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                                <select name="guessed_user_id" class="form-select form-select-sm">
+                                    <option value="">-- Выберите игрока --</option>
+                                    {% for user in all_users %}
+                                        {% if user[0] != g.user_id %}
+                                            <option value="{{ user[0] }}">{{ user[1] }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
+                            </form>
+                        {% elif table_image.owner_id == g.user_id %}
+                            <p class="mt-2">Это ваша карточка.</p>
+                        {% else %}
+                            <p class="mt-2">Вы уже сделали предположение.</p>
+                        {% endif %}
+                        <p>
+                            {% for guesser_id, owner_id in table_image.guesses.items() %}
+                                {% if guesser_id|int == g.user_id|int %}
+                                    You guessed: {{ get_user_name(owner_id) }}
+                                {% else %}
+                                    Guesses: {{ table_image.guesses|length }}
+                                {% endif %}
+                            {% endfor %}
+                        </p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>На столе нет карточек.</p>  {% endif %}
         </div>
     </div>
 
@@ -51,35 +57,14 @@
     <div class="d-flex flex-wrap gap-3">
         {% for card in cards %}
             <div class="border p-2">
-    <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-         alt="card" style="max-width: 150px;">
-    {% if table_image.owner_id != g.user_id and g.user_id|string not in table_image.guesses %}
-        <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-            <select name="guessed_user_id" class="form-select form-select-sm">
-                <option value="">-- Выберите игрока --</option>
-                {% for user in all_users %}
-                    {% if user[0] != g.user_id %}
-                        <option value="{{ user[0] }}">{{ user[1] }}</option>
-                    {% endif %}
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-sm mt-2">Угадать</button>
-        </form>
-    {% elif table_image.owner_id == g.user_id %}
-        <p class="mt-2">Это ваша карточка.</p>
-    {% else %}
-        <p class="mt-2">Вы уже сделали предположение.</p>
-    {% endif %}
-    <p>
-        {% for guesser_id, owner_id in table_image.guesses.items() %}
-            {% if guesser_id|int == g.user_id|int %}
-                You guessed: {{ get_user_name(owner_id) }}
-            {% else %}
-                Guesses: {{ table_image.guesses|length }}
-            {% endif %}
-        {% endfor %}
-    </p>
-</div>
+                <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}" alt="card"
+                     style="max-width: 150px;">
+                {% if not on_table %}
+                    <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                        <button type="submit" class="btn btn-success btn-sm mt-2">Выложить на стол</button>
+                    </form>
+                {% endif %}
+            </div>
         {% endfor %}
     </div>
 </body>
