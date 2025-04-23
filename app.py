@@ -121,9 +121,51 @@ def admin():
     message = ""
 
     if request.method == "POST":
-        #  ... (код без изменений)
+        if "name" in request.form:
+            name = request.form.get("name").strip()
+            num_cards = int(request.form.get("num_cards", 3))
+            code = generate_unique_code()
 
-    # Получение данных
+            try:
+                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
+                user_id = c.lastrowid
+
+                # Назначаем карточки пользователю из активной колоды в случайном порядке
+                active_subfolder = get_setting("active_subfolder")
+                if active_subfolder:
+                    c.execute("""
+                        SELECT id, subfolder, image
+                        FROM images
+                        WHERE subfolder = ?
+                        AND status = 'Свободно'
+                    """, (active_subfolder,))
+                    available_cards = c.fetchall()
+
+                    if len(available_cards) < num_cards:
+                        message = f"Недостаточно свободных карточек в колоде {active_subfolder}."
+                    else:
+                        random.shuffle(available_cards)  # Перемешиваем карточки
+                        selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
+
+                        for card in selected_cards:
+                            c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+
+                    conn.commit()
+                    message = f"Пользователь '{name}' добавлен."
+
+            except sqlite3.IntegrityError:
+                message = f"Имя '{name}' уже существует."
+
+        elif "active_subfolder" in request.form:
+            selected = request.form.get("active_subfolder")
+            set_setting("active_subfolder", selected)
+            # Сделать все другие изображения занятыми
+            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
+            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
+            conn.commit()
+            message = f"Выбран подкаталог: {selected}"
+
+    # Получение данных (ВЫНЕСЕНО ИЗ POST-блока - ОЧЕНЬ ВАЖНО!)
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
@@ -164,7 +206,7 @@ def admin():
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
                            guess_counts_by_user=guess_counts_by_user,
-                           user_guesses=user_guesses)  # Передаем предположения пользователей
+                           user_guesses=user_guesses)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
