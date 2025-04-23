@@ -22,8 +22,8 @@
                         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
                              alt="card" style="max-width: 150px;">
                         {% if table_image.owner_id != g.user_id %}
-                            <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                                <select name="guessed_user_id" class="form-select form-select-sm">
+                            <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}"
+                                  id="guess-form-{{ table_image.id }}">  <select name="guessed_user_id" class="form-select form-select-sm">
                                     <option value="">-- Выберите игрока --</option>
                                     {% for user in all_users %}
                                         {% if user[0] != g.user_id %}
@@ -42,8 +42,8 @@
                                     {% endif %}
                                 </button>
                                 {% if table_image.guesses and table_image.guesses[g.user_id|string] %}
-                                    <button type="submit" name="guessed_user_id" value="" class="btn btn-secondary btn-sm mt-2">
-                                        Сбросить выбор
+                                    <button type="submit" name="guessed_user_id" value="" class="btn btn-secondary btn-sm mt-2"
+                                            onclick="resetGuess('{{ code }}', {{ table_image.id }})">  Сбросить выбор
                                     </button>
                                 {% endif %}
                             </form>
@@ -79,6 +79,13 @@
             </div>
         {% endfor %}
     </div>
+
+    <script>
+        function resetGuess(code, imageId) {
+            document.getElementById('guess-form-' + imageId).submit();
+            window.location.href = '/user/' + code; // Reload the page
+        }
+    </script>
 </body>
 
 </html>
