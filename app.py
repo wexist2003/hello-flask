@@ -234,8 +234,13 @@ def guess_image(code, image_id):
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
+    # Check if the user has already guessed for this image
+    if str(user_id) in guesses:  # Convert user_id to string for consistency with keys
+        conn.close()
+        return "You have already guessed for this card", 400
+
     # Add/Update the guess
-    guesses[user_id] = int(guessed_user_id)
+    guesses[str(user_id)] = int(guessed_user_id)  # Convert user_id to string
 
     # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
@@ -243,7 +248,7 @@ def guess_image(code, image_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code)) # Redirect back to user page
+    return redirect(url_for('user', code=code))
 
 @app.route("/user/<code>")
 def user(code):
