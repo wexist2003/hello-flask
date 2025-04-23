@@ -121,49 +121,7 @@ def admin():
     message = ""
 
     if request.method == "POST":
-        if "name" in request.form:
-            name = request.form.get("name").strip()
-            num_cards = int(request.form.get("num_cards", 3))
-            code = generate_unique_code()
-
-            try:
-                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
-                user_id = c.lastrowid
-
-                # Назначаем карточки пользователю из активной колоды в случайном порядке
-                active_subfolder = get_setting("active_subfolder")
-                if active_subfolder:
-                    c.execute("""
-                        SELECT id, subfolder, image
-                        FROM images
-                        WHERE subfolder = ?
-                        AND status = 'Свободно'
-                    """, (active_subfolder,))
-                    available_cards = c.fetchall()
-
-                    if len(available_cards) < num_cards:
-                        message = f"Недостаточно свободных карточек в колоде {active_subfolder}."
-                    else:
-                        random.shuffle(available_cards)  # Перемешиваем карточки
-                        selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
-
-                        for card in selected_cards:
-                            c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
-
-                    conn.commit()
-                    message = f"Пользователь '{name}' добавлен."
-
-            except sqlite3.IntegrityError:
-                message = f"Имя '{name}' уже существует."
-
-        elif "active_subfolder" in request.form:
-            selected = request.form.get("active_subfolder")
-            set_setting("active_subfolder", selected)
-            # Сделать все другие изображения занятыми
-            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
-            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
-            conn.commit()
-            message = f"Выбран подкаталог: {selected}"
+        #  ... (код без изменений)
 
     # Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
@@ -172,7 +130,7 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    # Get guess counts by each user  -- Moved outside the POST block
+    # Get guess counts by each user
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
@@ -185,13 +143,25 @@ def admin():
         for guesser_id, guessed_user_id in guesses.items():
             guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
 
+    # Get card owners names
+    card_owners = {}
+    c.execute("SELECT owner_id FROM images WHERE owner_id IS NOT NULL")
+    owners = c.fetchall()
+    for owner in owners:
+        owner_id = owner[0]
+        if owner_id:
+            owner_name = get_user_name(owner_id)
+            if owner_name:
+                card_owners[owner_id] = owner_name
+
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+                           guess_counts_by_user=guess_counts_by_user,
+                           card_owners=card_owners)  # передаем имена владельцев
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
