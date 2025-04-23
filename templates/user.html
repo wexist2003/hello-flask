@@ -50,8 +50,6 @@
                                 {% for guesser_id, owner_id in table_image.guesses.items() %}
                                     {% if guesser_id|int == g.user_id|int %}
                                         Ваше предположение: {{ get_user_name(owner_id) }}
-                                    {% else %}
-                                        Количество предположений: {{ table_image.guesses|length }}
                                     {% endif %}
                                 {% endfor %}
                             </p>
