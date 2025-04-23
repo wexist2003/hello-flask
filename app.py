@@ -281,3 +281,65 @@ def user(code):
     user_id, name, rating = row
 
     # Get user's cards
+    c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
+    cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
+
+    # Get images on the table
+    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images_data = c.fetchall()
+    table_images = []
+    for img in table_images_data:
+        owner_id = img[3]
+        table_image = {
+            "id": img[0],
+            "subfolder": img[1],
+            "image": img[2],
+            "owner_id": owner_id,
+            "guesses": json.loads(img[4]) if img[4] else {},
+        }
+        table_images.append(table_image)
+
+    # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
+    c.execute("SELECT id, name FROM users", )  # Fetch all users
+    all_users = c.fetchall()
+
+    # Check if the user has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    on_table = c.fetchone() is not None
+
+    conn.close()
+
+    return render_template("user.html", name=name, rating=rating, cards=cards,
+                           table_images=table_images, all_users=all_users, # передаем всех пользователей
+                           code=code, on_table=on_table, g=g)
+
+@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
+def place_card(code, image_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get user ID
+    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    user_row = c.fetchone()
+    if not user_row:
+        conn.close()
+        return "User not found", 404
+    user_id = user_row[0]
+
+    # Check if the user already has a card on the table
+    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
+    if c.fetchone() is not None:
+        conn.close()
+        return "You already have a card on the table", 400
+
+    # Update the image
+    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('user', code=code))
+
+if __name__ == "__main__":
+    init_db()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
