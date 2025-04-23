@@ -172,7 +172,7 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    # Get guess counts by each user
+    # Get guess counts by each user  -- Moved outside the POST block
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
@@ -191,8 +191,7 @@ def admin():
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts=guess_counts_by_user)
-    
+                           guess_counts_by_user=guess_counts_by_user)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -208,7 +207,11 @@ def delete_user(user_id):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
+    code = None
+    if request.view_args and 'code' in request.view_args:
+        code = request.view_args.get('code')
+    elif request.args and 'code' in request.args:
+        code = request.args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -248,41 +251,21 @@ def guess_image(code, image_id):
         conn.close()
         return "No user selected", 400
 
-    guessed_user_id = int(guessed_user_id)  # Convert to integer
-
-    # Get all images on the table
-    c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images_data = c.fetchall()
-    all_guesses = {}
-    for img_id, guesses_str in table_images_data:
-        guesses = json.loads(guesses_str) if guesses_str else {}
-        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}  # Convert keys to int
-
-    # Get current user's guesses
-    user_guesses = {}
-    for img_id, guesses in all_guesses.items():
-        if user_id in guesses:
-            user_guesses[img_id] = guesses[user_id]
-
-    # Check if the user has already guessed this person for another card
-    for other_image_id, already_guessed_user_id in user_guesses.items():
-        if other_image_id != image_id and already_guessed_user_id == guessed_user_id:
-            conn.close()
-            return "You have already guessed this person for another card", 400
-
-    # Add/Update the guess
+    # Get the image's current guesses
     c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
-    guesses[user_id] = guessed_user_id
 
+    # Add/Update the guess
+    guesses[user_id] = int(guessed_user_id)
+
+    # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
 
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
-
+    return redirect(url_for('user', code=code)) # Redirect back to user page
 
 @app.route("/user/<code>")
 def user(code):
@@ -298,65 +281,3 @@ def user(code):
     user_id, name, rating = row
 
     # Get user's cards
-    c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-    cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
-
-    # Get images on the table
-    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images_data = c.fetchall()
-    table_images = []
-    for img in table_images_data:
-        owner_id = img[3]
-        table_image = {
-            "id": img[0],
-            "subfolder": img[1],
-            "image": img[2],
-            "owner_id": owner_id,
-            "guesses": json.loads(img[4]) if img[4] else {},
-        }
-        table_images.append(table_image)
-
-    # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users", )  # Fetch all users
-    all_users = c.fetchall()
-
-    # Check if the user has a card on the table
-    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    on_table = c.fetchone() is not None
-
-    conn.close()
-
-    return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, # передаем всех пользователей
-                           code=code, on_table=on_table, g=g)
-
-@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
-def place_card(code, image_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    # Get user ID
-    c.execute("SELECT id FROM users WHERE code = ?", (code,))
-    user_row = c.fetchone()
-    if not user_row:
-        conn.close()
-        return "User not found", 404
-    user_id = user_row[0]
-
-    # Check if the user already has a card on the table
-    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    if c.fetchone() is not None:
-        conn.close()
-        return "You already have a card on the table", 400
-
-    # Update the image
-    c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('user', code=code))
-
-if __name__ == "__main__":
-    init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
