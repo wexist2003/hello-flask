@@ -55,6 +55,7 @@ def init_db():
 
     # Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
+    c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ('show_owner_name', '0'))  # По умолчанию не показывать
 
     conn.commit()
     conn.close()
@@ -164,6 +165,10 @@ def admin():
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
             conn.commit()
             message = f"Выбран подкаталог: {selected}"
+        elif "show_owner_name" in request.form:
+            show_owner = request.form.get("show_owner_name")
+            set_setting("show_owner_name", show_owner)
+            message = f"Отображение имени владельца карточки: {'Включено' if show_owner == '1' else 'Выключено'}"
 
     # Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
@@ -187,11 +192,13 @@ def admin():
 
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
+    show_owner_name = get_setting("show_owner_name")
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+                           guess_counts_by_user=guess_counts_by_user,
+                           show_owner_name=show_owner_name)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -306,12 +313,14 @@ def user(code):
     # Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
+    show_owner_name = get_setting("show_owner_name")
 
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, all_users=all_users, # передаем всех пользователей
-                           code=code, on_table=on_table, g=g)
+                           code=code, on_table=on_table, g=g,
+                           show_owner_name=show_owner_name)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
