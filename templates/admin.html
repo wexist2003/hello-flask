@@ -40,6 +40,7 @@
         <button type="submit" class="btn btn-primary">Сохранить</button>
     </form>
 
+    
     <h2>Список пользователей</h2>
     <table class="table table-bordered">
         <thead>
@@ -70,6 +71,18 @@
         </tbody>
     </table>
 
+<h2>Отображение имени владельца карточки</h2>
+<form method="post" action="/admin">
+    <div class="mb-3">
+        <label for="show_owner_name" class="form-label">Показывать имя владельца:</label>
+        <select id="show_owner_name" name="show_owner_name" class="form-select">
+            <option value="1" {% if show_owner_name == '1' %}selected{% endif %}>Да</option>
+            <option value="0" {% if show_owner_name == '0' %}selected{% endif %}>Нет</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+</form>
+    
     <h2>Список изображений</h2>
     <table class="table table-bordered">
         <thead>
