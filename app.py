@@ -1,4 +1,4 @@
-import json  # Import json for handling guesses
+import json  # Import json for handling guesse
 from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
