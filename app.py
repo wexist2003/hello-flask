@@ -121,7 +121,48 @@ def admin():
     message = ""
 
     if request.method == "POST":
-        # ... (existing code)
+        if "name" in request.form:
+            name = request.form.get("name").strip()
+            num_cards = int(request.form.get("num_cards", 3))
+            code = generate_unique_code()
+
+            try:
+                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
+                user_id = c.lastrowid
+
+                # Назначаем карточки пользователю из активной колоды в случайном порядке
+                active_subfolder = get_setting("active_subfolder")
+                if active_subfolder:
+                    c.execute("""
+                        SELECT id, subfolder, image
+                        FROM images
+                        WHERE subfolder = ? AND status = 'Свободно'
+                    """, (active_subfolder,))
+                    available_cards = c.fetchall()
+
+                    if len(available_cards) < num_cards:
+                        message = f"Недостаточно свободных карточек в колоде {active_subfolder}."
+                    else:
+                        random.shuffle(available_cards)  # Перемешиваем карточки
+                        selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
+
+                        for card in selected_cards:
+                            c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+
+                    conn.commit()
+                    message = f"Пользователь '{name}' добавлен."
+
+            except sqlite3.IntegrityError:
+                message = f"Имя '{name}' уже существует."
+
+        elif "active_subfolder" in request.form:
+            selected = request.form.get("active_subfolder")
+            set_setting("active_subfolder", selected)
+            # Сделать все другие изображения занятыми
+            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
+            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
+            conn.commit()
+            message = f"Выбран подкаталог: {selected}"
 
     # Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
