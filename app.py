@@ -81,7 +81,11 @@ def set_setting(key, value):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
+    code = None
+    if request.view_args and 'code' in request.view_args:
+        code = request.view_args.get('code')
+    elif request.args and 'code' in request.args:
+        code = request.args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
