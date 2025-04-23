@@ -81,7 +81,11 @@ def set_setting(key, value):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
+    code = None
+    if request.view_args and 'code' in request.view_args:
+        code = request.view_args.get('code')
+    elif request.args and 'code' in request.args:
+        code = request.args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -168,12 +172,26 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
+    # Get guess counts by each user  -- Moved outside the POST block
+    guess_counts_by_user = {}
+    for user in users:
+        user_id = user[0]
+        guess_counts_by_user[user_id] = 0
+
+    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  # Only images with guesses
+    images_with_guesses = c.fetchall()
+    for image_guesses_row in images_with_guesses:
+        guesses = json.loads(image_guesses_row[0])
+        for guesser_id, guessed_user_id in guesses.items():
+            guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
+
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
-                           subfolders=subfolders, active_subfolder=active_subfolder)
+                           subfolders=subfolders, active_subfolder=active_subfolder,
+                           guess_counts_by_user=guess_counts_by_user)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -189,7 +207,11 @@ def delete_user(user_id):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = request.args.get('code') or request.view_args.get('code')
+    code = None
+    if request.view_args and 'code' in request.view_args:
+        code = request.view_args.get('code')
+    elif request.args and 'code' in request.args:
+        code = request.args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -229,41 +251,21 @@ def guess_image(code, image_id):
         conn.close()
         return "No user selected", 400
 
-    guessed_user_id = int(guessed_user_id)  # Convert to integer
-
-    # Get all images on the table
-    c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images_data = c.fetchall()
-    all_guesses = {}
-    for img_id, guesses_str in table_images_data:
-        guesses = json.loads(guesses_str) if guesses_str else {}
-        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}  # Convert keys to int
-
-    # Get current user's guesses
-    user_guesses = {}
-    for img_id, guesses in all_guesses.items():
-        if user_id in guesses:
-            user_guesses[img_id] = guesses[user_id]
-
-    # Check if the user has already guessed this person for another card
-    for other_image_id, already_guessed_user_id in user_guesses.items():
-        if other_image_id != image_id and already_guessed_user_id == guessed_user_id:
-            conn.close()
-            return "You have already guessed this person for another card", 400
-
-    # Add/Update the guess
+    # Get the image's current guesses
     c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
-    guesses[user_id] = guessed_user_id
 
+    # Add/Update the guess
+    guesses[user_id] = int(guessed_user_id)
+
+    # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
 
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code))
-
+    return redirect(url_for('user', code=code)) # Redirect back to user page
 
 @app.route("/user/<code>")
 def user(code):
