@@ -17,7 +17,7 @@
     <h2>Добавить пользователя</h2>
     <form method="post" action="/admin">
         <div class="mb-3">
-            <label for="name" class="form-label">Имя:</label>
+            <label for="name" class="form-label">Имя пользователя:</label>
             <input type="text" id="name" name="name" class="form-control" required>
         </div>
         <div class="mb-3">
@@ -27,20 +27,39 @@
         <button type="submit" class="btn btn-primary">Добавить</button>
     </form>
 
+    <hr>
+
     <h2>Выбрать активную колоду</h2>
     <form method="post" action="/admin">
         <div class="mb-3">
             <label for="active_subfolder" class="form-label">Активная колода:</label>
             <select id="active_subfolder" name="active_subfolder" class="form-select">
                 {% for subfolder in subfolders %}
-                    <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
+                    <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>
+                        {{ subfolder }}
+                    </option>
                 {% endfor %}
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Сохранить</button>
     </form>
 
-    
+    <hr>
+
+    <h2>Отображение имени владельца карточки</h2>
+    <form method="post" action="/admin">
+        <div class="mb-3">
+            <label for="show_owner_name" class="form-label">Показывать имя владельца:</label>
+            <select id="show_owner_name" name="show_owner_name" class="form-select">
+                <option value="1" {% if show_owner_name == '1' %}selected{% endif %}>Да</option>
+                <option value="0" {% if show_owner_name == '0' %}selected{% endif %}>Нет</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+
+    <hr>
+
     <h2>Список пользователей</h2>
     <table class="table table-bordered">
         <thead>
@@ -48,8 +67,8 @@
                 <th>ID</th>
                 <th>Имя</th>
                 <th>Код</th>
-                <th>Ссылка на профиль</th>  <th>Рейтинг</th>
-                <th>Предположений</th>
+                <th>Рейтинг</th>
+                <th>Кол-во Угадываний</th>
                 <th>Действия</th>
             </tr>
         </thead>
@@ -59,7 +78,7 @@
                     <td>{{ user[0] }}</td>
                     <td>{{ user[1] }}</td>
                     <td>{{ user[2] }}</td>
-                    <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>  <td>{{ user[3] }}</td>
+                    <td>{{ user[3] }}</td>
                     <td>{{ guess_counts_by_user[user[0]] }}</td>
                     <td>
                         <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
@@ -71,18 +90,6 @@
         </tbody>
     </table>
 
-<h2>Отображение имени владельца карточки</h2>
-<form method="post" action="/admin">
-    <div class="mb-3">
-        <label for="show_owner_name" class="form-label">Показывать имя владельца:</label>
-        <select id="show_owner_name" name="show_owner_name" class="form-select">
-            <option value="1" {% if show_owner_name == '1' %}selected{% endif %}>Да</option>
-            <option value="0" {% if show_owner_name == '0' %}selected{% endif %}>Нет</option>
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Сохранить</button>
-</form>
-    
     <h2>Список изображений</h2>
     <table class="table table-bordered">
         <thead>
