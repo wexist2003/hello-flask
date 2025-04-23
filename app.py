@@ -4,6 +4,7 @@ import sqlite3
 import os
 import string
 import random
+import sys  # Import the sys module
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
@@ -81,11 +82,7 @@ def set_setting(key, value):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
+    code = request.args.get('code') or request.view_args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -172,26 +169,12 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    # Get guess counts by each user  -- Moved outside the POST block
-    guess_counts_by_user = {}
-    for user in users:
-        user_id = user[0]
-        guess_counts_by_user[user_id] = 0
-
-    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  # Only images with guesses
-    images_with_guesses = c.fetchall()
-    for image_guesses_row in images_with_guesses:
-        guesses = json.loads(image_guesses_row[0])
-        for guesser_id, guessed_user_id in guesses.items():
-            guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
-
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
-                           subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+                           subfolders=subfolders, active_subfolder=active_subfolder)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
@@ -207,11 +190,7 @@ def delete_user(user_id):
 def before_request():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
+    code = request.args.get('code') or request.view_args.get('code')
     if code:
         c.execute("SELECT id FROM users WHERE code = ?", (code,))
         user_id = c.fetchone()
@@ -238,9 +217,9 @@ def guess_image(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    print(f"\n--- guess_image called ---")
-    print(f"code: {code}, image_id: {image_id}")
-    print(f"request.form: {request.form}")
+    print(f"\n--- guess_image called ---", file=sys.stderr)
+    print(f"code: {code}, image_id: {image_id}", file=sys.stderr)
+    print(f"request.form: {request.form}", file=sys.stderr)
 
     # Get user ID
     c.execute("SELECT id FROM users WHERE code = ?", (code,))
@@ -249,15 +228,15 @@ def guess_image(code, image_id):
         conn.close()
         return "User not found", 404
     user_id = user_row[0]
-    print(f"user_id: {user_id}")
+    print(f"user_id: {user_id}", file=sys.stderr)
 
     guessed_user_id = request.form.get("guessed_user_id")
     if guessed_user_id:
         guessed_user_id = int(guessed_user_id)
-        print(f"guessed_user_id (int): {guessed_user_id}")
+        print(f"guessed_user_id (int): {guessed_user_id}", file=sys.stderr)
     else:
         guessed_user_id = None
-        print(f"guessed_user_id: {guessed_user_id} (None)")
+        print(f"guessed_user_id: {guessed_user_id} (None)", file=sys.stderr)
 
     # Get all images on the table
     c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
@@ -267,7 +246,7 @@ def guess_image(code, image_id):
         guesses = json.loads(guesses_str) if guesses_str else {}
         all_guesses[img_id] = {int(k): v for k, v in guesses.items()}
 
-    print(f"all_guesses: {all_guesses}")
+    print(f"all_guesses: {all_guesses}", file=sys.stderr)
 
     # Get current user's guesses (image_id: guessed_user_id)
     user_guesses = {
@@ -276,7 +255,7 @@ def guess_image(code, image_id):
         if guesses and user_id in guesses
     }
 
-    print(f"user_guesses: {user_guesses}")
+    print(f"user_guesses: {user_guesses}", file=sys.stderr)
 
     # Check if the user is trying to choose the same person for a different card
     for other_image_id, already_guessed_user_id in user_guesses.items():
@@ -293,22 +272,22 @@ def guess_image(code, image_id):
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
-    print(f"Initial guesses for image {image_id}: {guesses}")
+    print(f"Initial guesses for image {image_id}: {guesses}", file=sys.stderr)
 
     if guessed_user_id is not None:
         guesses[user_id] = guessed_user_id
-        print(f"Guesses updated to: {guesses} (user {user_id} guessed {guessed_user_id})")
+        print(f"Guesses updated to: {guesses} (user {user_id} guessed {guessed_user_id})", file=sys.stderr)
     elif user_id in guesses:
         del guesses[user_id]
-        print(f"Guesses updated to: {guesses} (guess removed for user {user_id})")
+        print(f"Guesses updated to: {guesses} (guess removed for user {user_id})", file=sys.stderr)
     else:
-        print(f"Guesses unchanged: {guesses}")
+        print(f"Guesses unchanged: {guesses}", file=sys.stderr)
 
     update_query = "UPDATE images SET guesses = ? WHERE id = ?"
     update_data = (json.dumps(guesses), image_id)
-    print(f"Executing UPDATE: {update_query} with data: {update_data}")
+    print(f"Executing UPDATE: {update_query} with data: {update_data}", file=sys.stderr)
     c.execute(update_query, update_data)
-    print(f"UPDATE rows affected: {c.execute('SELECT changes()').fetchone()[0]}")
+    print(f"UPDATE rows affected: {c.execute('SELECT changes()').fetchone()[0]}", file=sys.stderr)
 
     conn.commit()
     conn.close()
@@ -349,7 +328,7 @@ def user(code):
         table_images.append(table_image)
 
     # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users")  # Fetch all users
+    c.execute("SELECT id, name FROM users", )  # Fetch all users
     all_users = c.fetchall()
 
     # Check if the user has a card on the table
@@ -358,18 +337,9 @@ def user(code):
 
     conn.close()
 
-    return render_template(
-        "user.html",
-        name=name,
-        rating=rating,
-        cards=cards,
-        table_images=table_images,
-        all_users=all_users,
-        code=code,
-        on_table=on_table,
-        g=g,
-    )
-
+    return render_template("user.html", name=name, rating=rating, cards=cards,
+                           table_images=table_images, all_users=all_users, # передаем всех пользователей
+                           code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
@@ -395,10 +365,9 @@ def place_card(code, image_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for("user", code=code))
-
+    return redirect(url_for('user', code=code))
 
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)  # Убедитесь, что debug=True
+    app.run(host="0.0.0.0", port=port)
