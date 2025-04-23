@@ -168,12 +168,27 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
+    # Get guess counts by each user
+    guess_counts_by_user = {}
+    for user in users:
+        user_id = user[0]
+        guess_counts_by_user[user_id] = 0
+
+    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  # Only images with guesses
+    images_with_guesses = c.fetchall()
+    for image_guesses_row in images_with_guesses:
+        guesses = json.loads(image_guesses_row[0])
+        for guesser_id, guessed_user_id in guesses.items():
+            guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
+
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
-                           subfolders=subfolders, active_subfolder=active_subfolder)
+                           subfolders=subfolders, active_subfolder=active_subfolder,
+                           guess_counts=guess_counts_by_user)
+    
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
