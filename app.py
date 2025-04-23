@@ -229,26 +229,41 @@ def guess_image(code, image_id):
         conn.close()
         return "No user selected", 400
 
-    # Get the image's current guesses
+    guessed_user_id = int(guessed_user_id)  # Convert to integer
+
+    # Get all images on the table
+    c.execute("SELECT id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images_data = c.fetchall()
+    all_guesses = {}
+    for img_id, guesses_str in table_images_data:
+        guesses = json.loads(guesses_str) if guesses_str else {}
+        all_guesses[img_id] = {int(k): v for k, v in guesses.items()}  # Convert keys to int
+
+    # Get current user's guesses
+    user_guesses = {}
+    for img_id, guesses in all_guesses.items():
+        if user_id in guesses:
+            user_guesses[img_id] = guesses[user_id]
+
+    # Check if the user has already guessed this person for another card
+    for other_image_id, already_guessed_user_id in user_guesses.items():
+        if other_image_id != image_id and already_guessed_user_id == guessed_user_id:
+            conn.close()
+            return "You have already guessed this person for another card", 400
+
+    # Add/Update the guess
     c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
+    guesses[user_id] = guessed_user_id
 
-    # Check if the user has already guessed for this image
-    if str(user_id) in guesses:  # Convert user_id to string for consistency with keys
-        conn.close()
-        return "You have already guessed for this card", 400
-
-    # Add/Update the guess
-    guesses[str(user_id)] = int(guessed_user_id)  # Convert user_id to string
-
-    # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
 
     conn.commit()
     conn.close()
 
     return redirect(url_for('user', code=code))
+
 
 @app.route("/user/<code>")
 def user(code):
