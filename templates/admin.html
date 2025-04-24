@@ -14,6 +14,14 @@
         <div class="alert alert-info">{{ message }}</div>
     {% endif %}
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <h2>Добавить пользователя</h2>
     <form method="post" action="/admin">
         <div class="mb-3">
@@ -119,8 +127,8 @@
                     <td>{{ image[1] }}</td>
                     <td>{{ get_user_name(image[2]) }}</td>
                     <td>
-                        {% if image[3] %}
-                            {% for guesser_id, guessed_user_id in image[3].items() %}
+                        {% if image[4] %}
+                            {% for guesser_id, guessed_user_id in image[4].items() %}
                                 {{ get_user_name(guesser_id) }} -> {{ get_user_name(guessed_user_id) }}<br>
                             {% endfor %}
                         {% else %}
