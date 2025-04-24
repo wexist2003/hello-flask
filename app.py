@@ -1,5 +1,5 @@
 import json  # Import json for handling guesses
-from flask import Flask, render_template, request, redirect, url_for, g, flash
+from flask import Flask, render_template, request, redirect, url_for, g
 import sqlite3
 import os
 import string
@@ -7,7 +7,6 @@ import random
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
-app.secret_key = "super secret"  # Needed for flash messages
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -311,13 +310,11 @@ def user(code):
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
 
-    show_card_info = get_setting("show_card_info") == "true"
-
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, all_users=all_users, # передаем всех пользователей
-                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
+                           code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
@@ -348,10 +345,9 @@ def place_card(code, image_id):
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
-    flash("Карточки открыты", "success")  # Use flash message
     return redirect(url_for("admin"))  # Redirect back to admin page
 
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
