@@ -170,11 +170,20 @@ def admin():
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
-    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images = c.fetchall()
-
-    c.execute("SELECT subfolder, image, status FROM images")
-    images = c.fetchall()
+    # Fetch images with guesses, and ensure guesses are loaded as dictionaries
+    c.execute("SELECT id, subfolder, image, status, guesses FROM images")
+    images_data = c.fetchall()
+    images = []
+    for img in images_data:
+        guesses = img[4]
+        if guesses:
+            try:
+                guesses = json.loads(guesses)
+            except json.JSONDecodeError:
+                guesses = {}  # Or handle the error as appropriate
+        else:
+            guesses = {}
+        images.append((img[0], img[1], img[2], guesses))
 
     #   Get guess counts by each user  -- Moved outside the POST block
     guess_counts_by_user = {}
@@ -195,7 +204,7 @@ def admin():
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user, table_images=table_images)
+                           guess_counts_by_user=guess_counts_by_user)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
