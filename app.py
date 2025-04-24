@@ -13,7 +13,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Удаляем таблицы и создаем заново
+    #   Удаляем таблицы и создаем заново
     c.execute("DROP TABLE IF EXISTS users")
     c.execute("DROP TABLE IF EXISTS images")
     c.execute("DROP TABLE IF EXISTS settings")
@@ -45,7 +45,7 @@ def init_db():
         )
     """)
 
-    # Загрузка изображений из static/images
+    #   Загрузка изображений из static/images
     image_folders = ['koloda1', 'koloda2']
     for folder in image_folders:
         folder_path = os.path.join('static', 'images', folder)
@@ -54,7 +54,7 @@ def init_db():
                 if filename.endswith('.jpg'):
                     c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
 
-    # Удаляем статусы "Занято" (при новом запуске)
+    #   Удаляем статусы "Занято" (при новом запуске)
     c.execute("UPDATE images SET status = 'Свободно'")
 
     conn.commit()
@@ -131,7 +131,7 @@ def admin():
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                 user_id = c.lastrowid
 
-                # Назначаем карточки пользователю из активной колоды в случайном порядке
+                #   Назначаем карточки пользователю из активной колоды в случайном порядке
                 active_subfolder = get_setting("active_subfolder")
                 if active_subfolder:
                     c.execute("""
@@ -145,8 +145,8 @@ def admin():
                     if len(available_cards) < num_cards:
                         message = f"Недостаточно свободных карточек в колоде {active_subfolder}."
                     else:
-                        random.shuffle(available_cards)  # Перемешиваем карточки
-                        selected_cards = available_cards[:num_cards]  # Выбираем нужное количество
+                        random.shuffle(available_cards)  #   Перемешиваем карточки
+                        selected_cards = available_cards[:num_cards]  #   Выбираем нужное количество
 
                         for card in selected_cards:
                             c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
@@ -160,34 +160,34 @@ def admin():
         elif "active_subfolder" in request.form:
             selected = request.form.get("active_subfolder")
             set_setting("active_subfolder", selected)
-            # Сделать все другие изображения занятыми
+            #   Сделать все другие изображения занятыми
             c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
             conn.commit()
             message = f"Выбран подкаталог: {selected}"
 
-    # Получение данных
+    #   Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
-    c.execute("SELECT subfolder, image, status, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
     table_images = c.fetchall()
 
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    # Get guess counts by each user  -- Moved outside the POST block
+    #   Get guess counts by each user  -- Moved outside the POST block
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
         guess_counts_by_user[user_id] = 0
 
-    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  # Only images with guesses
+    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  #   Only images with guesses
     images_with_guesses = c.fetchall()
     for image_guesses_row in images_with_guesses:
         guesses = json.loads(image_guesses_row[0])
         for guesser_id, guessed_user_id in guesses.items():
-            guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
+            guess_counts_by_user[int(guesser_id)] += 1  #   Increment count for the guesser
 
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
@@ -242,7 +242,7 @@ def guess_image(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Get user ID
+    #   Get user ID
     c.execute("SELECT id FROM users WHERE code = ?", (code,))
     user_row = c.fetchone()
     if not user_row:
@@ -255,21 +255,21 @@ def guess_image(code, image_id):
         conn.close()
         return "No user selected", 400
 
-    # Get the image's current guesses
+    #   Get the image's current guesses
     c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
     image_data = c.fetchone()
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
-    # Add/Update the guess
-    guesses[str(user_id)] = int(guessed_user_id)  # Store user_id as string key
+    #   Add/Update the guess
+    guesses[str(user_id)] = int(guessed_user_id)  #   Store user_id as string key
 
-    # Update the image with the guess
+    #   Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
 
     conn.commit()
     conn.close()
 
-    return redirect(url_for('user', code=code)) # Redirect back to user page
+    return redirect(url_for('user', code=code)) #   Redirect back to user page
 
 @app.route("/user/<code>")
 def user(code):
@@ -284,11 +284,11 @@ def user(code):
 
     user_id, name, rating = row
 
-    # Get user's cards
+    #   Get user's cards
     c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
     cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
 
-    # Get images on the table
+    #   Get images on the table
     c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
     table_images_data = c.fetchall()
     table_images = []
@@ -303,18 +303,18 @@ def user(code):
         }
         table_images.append(table_image)
 
-    # Get all users for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users", )  # Fetch all users
+    #   Get all users for the dropdown (excluding the current user - will handle exclusion in template)
+    c.execute("SELECT id, name FROM users", )  #   Fetch all users
     all_users = c.fetchall()
 
-    # Check if the user has a card on the table
+    #   Check if the user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
 
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, # передаем всех пользователей
+                           table_images=table_images, all_users=all_users, #   передаем всех пользователей
                            code=code, on_table=on_table, g=g)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
@@ -322,7 +322,7 @@ def place_card(code, image_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Get user ID
+    #   Get user ID
     c.execute("SELECT id FROM users WHERE code = ?", (code,))
     user_row = c.fetchone()
     if not user_row:
@@ -330,13 +330,13 @@ def place_card(code, image_id):
         return "User not found", 404
     user_id = user_row[0]
 
-    # Check if the user already has a card on the table
+    #   Check if the user already has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     if c.fetchone() is not None:
         conn.close()
         return "You already have a card on the table", 400
 
-    # Update the image
+    #   Update the image
     c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
     conn.commit()
     conn.close()
@@ -346,7 +346,7 @@ def place_card(code, image_id):
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
-    return redirect(url_for("admin"))  # Redirect back to admin page
+    return redirect(url_for("admin"))  #   Redirect back to admin page
 
 if __name__ == "__main__":
     init_db()
