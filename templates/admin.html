@@ -101,6 +101,36 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <h2>Карточки на столе</h2>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Подкаталог</th>
+                <th>Изображение</th>
+                <th>Владелец</th>
+                <th>Предположения</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for image in table_images %}
+                <tr>
+                    <td>{{ image[0] }}</td>
+                    <td>{{ image[1] }}</td>
+                    <td>{{ get_user_name(image[2]) }}</td>
+                    <td>
+                        {% if image[3] %}
+                            {% for guesser_id, guessed_user_id in image[3].items() %}
+                                {{ get_user_name(guesser_id) }} -> {{ get_user_name(guessed_user_id) }}<br>
+                            {% endfor %}
+                        {% else %}
+                            Нет предположений
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 
 </html>
