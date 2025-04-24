@@ -20,7 +20,7 @@
             <label for="name" class="form-label">Имя:</label>
             <input type="text" id="name" name="name" class="form-control" required>
         </div>
-        
+
         <div class="mb-3">
             <label for="num_cards" class="form-label">Количество карточек:</label>
             <input type="number" id="num_cards" name="num_cards" class="form-control" value="3" required>
@@ -34,7 +34,6 @@
             <label for="active_subfolder" class="form-label">Активная колода:</label>
             <select id="active_subfolder" name="active_subfolder" class="form-select">
                 {% for subfolder in subfolders %}
-{% for subfolder in subfolders %}
                     <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
                 {% endfor %}
             </select>
@@ -114,4 +113,4 @@
     </table>
 </body>
 
-</html>                
+</html>
