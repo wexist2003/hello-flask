@@ -170,41 +170,39 @@ def admin():
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
-    # Fetch images with guesses, and ensure guesses are loaded as dictionaries
-    c.execute("SELECT id, subfolder, image, status, guesses FROM images")
-    images_data = c.fetchall()
-    images = []
-    for img in images_data:
-        guesses = img[4]
-        if guesses:
-            try:
-                guesses = json.loads(guesses)
-            except json.JSONDecodeError:
-                guesses = {}  # Or handle the error as appropriate
-        else:
-            guesses = {}
-        images.append((img[0], img[1], img[2], guesses))
+    c.execute("SELECT subfolder, image, status FROM images")
+    images = c.fetchall()
 
-    #   Get guess counts by each user  -- Moved outside the POST block
+    #   Get guess counts by each user
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
         guess_counts_by_user[user_id] = 0
 
-    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")  #   Only images with guesses
+    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")
     images_with_guesses = c.fetchall()
     for image_guesses_row in images_with_guesses:
         guesses = json.loads(image_guesses_row[0])
         for guesser_id, guessed_user_id in guesses.items():
-            guess_counts_by_user[int(guesser_id)] += 1  #   Increment count for the guesser
+            guess_counts_by_user[int(guesser_id)] += 1
+
+    #   Get all guesses
+    all_guesses = {}
+    c.execute("SELECT id, guesses FROM images WHERE guesses != '{}'")
+    all_guesses_data = c.fetchall()
+    for image_id, guesses_str in all_guesses_data:
+        all_guesses[image_id] = json.loads(guesses_str)
 
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
+    show_card_info = get_setting("show_card_info") == "true"
+
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+                           guess_counts_by_user=guess_counts_by_user, all_guesses=all_guesses,
+                           show_card_info=show_card_info)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
