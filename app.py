@@ -169,6 +169,9 @@ def admin():
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
+    c.execute("SELECT subfolder, image, status, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images = c.fetchall()
+
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
@@ -191,7 +194,7 @@ def admin():
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user)
+                           guess_counts_by_user=guess_counts_by_user, table_images=table_images)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
