@@ -1,5 +1,5 @@
 import json  # Import json for handling guesses
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, redirect, url_for, g, flash
 import sqlite3
 import os
 import string
@@ -7,6 +7,7 @@ import random
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
+app.secret_key = "super secret"  # Needed for flash messages
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -260,7 +261,7 @@ def guess_image(code, image_id):
     guesses = json.loads(image_data[0]) if image_data and image_data[0] else {}
 
     # Add/Update the guess
-    guesses[user_id] = int(guessed_user_id)
+    guesses[str(user_id)] = int(guessed_user_id)  # Store user_id as string key
 
     # Update the image with the guess
     c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(guesses), image_id))
@@ -310,11 +311,13 @@ def user(code):
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
 
+    show_card_info = get_setting("show_card_info") == "true"
+
     conn.close()
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, all_users=all_users, # передаем всех пользователей
-                           code=code, on_table=on_table, g=g)
+                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
@@ -345,9 +348,10 @@ def place_card(code, image_id):
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
+    flash("Карточки открыты", "success")  # Use flash message
     return redirect(url_for("admin"))  # Redirect back to admin page
 
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
