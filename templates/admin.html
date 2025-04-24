@@ -20,6 +20,7 @@
             <label for="name" class="form-label">Имя:</label>
             <input type="text" id="name" name="name" class="form-control" required>
         </div>
+        
         <div class="mb-3">
             <label for="num_cards" class="form-label">Количество карточек:</label>
             <input type="number" id="num_cards" name="num_cards" class="form-control" value="3" required>
@@ -47,15 +48,59 @@
                 <th>ID</th>
                 <th>Имя</th>
                 <th>Код</th>
-                <th>Ссылка на профиль</th>  <th>Рейтинг</th>
+                <th>Ссылка на профиль</th>
+                <th>Рейтинг</th>
                 <th>Предположений</th>
                 <th>Действия</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users %}
+                <tr>
+                    <td>{{ user[0] }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>{{ user[2] }}</td>
+                    <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>
+                    <td>{{ user[3] }}</td>
+                    <td>{{ guess_counts_by_user[user[0]] }}</td>
+                    <td>
+                        <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
+                            <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Открыть карточки</h2>
+    <form action="{{ url_for('open_cards') }}" method="post">
+        <button class="btn btn-success" type="submit">Открыть карточки</button>
+    </form>
+
+    <h2>Список изображений</h2>
+    <table class="table table-bordered">
+        <thead>
             <tr>
-                <td>{{ user[0] }}</td>
-                <td>{{ user[1] }}</td>
-                <td>{{ user[2] }}</td>
-                <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>  <td>
+                <th>Подкаталог</th>
+                <th>Изображение</th>
+                <th>Статус</th>
+                <th>Превью</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for image in images %}
+                <tr>
+                    <td>{{ image[0] }}</td>
+                    <td>{{ image[1] }}</td>
+                    <td>{{ image[2] or 'Отсутствует' }}</td>
+                    <td>
+                        <img src="{{ url_for('static', filename='images/' + image[0] + '/' + image[1]) }}" alt="img" style="max-width: 100px;">
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>
