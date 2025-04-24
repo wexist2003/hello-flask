@@ -165,14 +165,14 @@ def admin():
             conn.commit()
             message = f"Выбран подкаталог: {selected}"
 
-    # Получение данных (ВЫНЕСЕНО ИЗ POST-блока - КРИТИЧНО!)
+    # Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
     users = c.fetchall()
 
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    # Get guess counts by each user
+    # Get guess counts by each user  -- Moved outside the POST block
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
@@ -185,29 +185,13 @@ def admin():
         for guesser_id, guessed_user_id in guesses.items():
             guess_counts_by_user[int(guesser_id)] += 1  # Increment count for the guesser
 
-    # Get user guesses for cards on the table (CORRECTED LOGIC)
-    user_guesses = {}
-    c.execute("SELECT owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    owners_and_guesses = c.fetchall()
-    for owner_id, guesses_json in owners_and_guesses:
-        if owner_id:
-            guesses = json.loads(guesses_json) if guesses_json else {}
-            guessed_names = []
-            for guesser_id, guessed_user_id in guesses.items():
-                guesser_name = get_user_name(int(guesser_id))  # Get the name of the guesser
-                if guesser_name:
-                    guessed_names.append(guesser_name)
-            user_guesses[owner_id] = ", ".join(guessed_names)
-
     subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
 
     conn.close()
     return render_template("admin.html", users=users, images=images, message=message,
                            subfolders=subfolders, active_subfolder=active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user,
-                           user_guesses=user_guesses)
-    
+                           guess_counts_by_user=guess_counts_by_user)
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
