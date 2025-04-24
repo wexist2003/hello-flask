@@ -28,7 +28,8 @@
         <button type="submit" class="btn btn-primary">Добавить</button>
     </form>
 
-    <h2>Выбрать активную колоду</h2>
+    <h2>Выбрать активную колоду
+</form>
     <form method="post" action="/admin">
         <div class="mb-3">
             <label for="active_subfolder" class="form-label">Активная колода:</label>
@@ -62,7 +63,17 @@
                     <td>{{ user[2] }}</td>
                     <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>
                     <td>{{ user[3] }}</td>
-                    <td>{{ guess_counts_by_user[user[0]] }}</td>
+                    <td>
+                        {% if all_guesses %}
+                            {% for image_id, guesses in all_guesses.items() %}
+                                {% if guesses[user[0]|string] %}
+                                    Карточка {{ image_id }}: {{ get_user_name(guesses[user[0]|string]|int) }}<br>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Нет предположений
+                        {% endif %}
+                    </td>
                     <td>
                         <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
                             <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
@@ -86,26 +97,16 @@
                 <th>Изображение</th>
                 <th>Статус</th>
                 <th>Превью</th>
-                <th>Предположения</th>
             </tr>
         </thead>
         <tbody>
-            {% for image_id, subfolder, image_name, guesses in images %}
+            {% for image in images %}
                 <tr>
-                    <td>{{ subfolder }}</td>
-                    <td>{{ image_name }}</td>
-                    <td>{{ status }}</td>
+                    <td>{{ image[0] }}</td>
+                    <td>{{ image[1] }}</td>
+                    <td>{{ image[2] or 'Отсутствует' }}</td>
                     <td>
-                        <img src="{{ url_for('static', filename='images/' + subfolder + '/' + image_name) }}" alt="img" style="max-width: 100px;">
-                    </td>
-                    <td>
-                        {% if guesses %}
-                            {% for guesser_id, guessed_user_id in guesses.items() %}
-                                {{ get_user_name(guesser_id|int) }} -> {{ get_user_name(guessed_user_id|int) }}<br>
-                            {% endfor %}
-                        {% else %}
-                            Нет предположений
-                        {% endif %}
+                        <img src="{{ url_for('static', filename='images/' + image[0] + '/' + image[1]) }}" alt="img" style="max-width: 100px;">
                     </td>
                 </tr>
             {% endfor %}
@@ -113,4 +114,4 @@
     </table>
 </body>
 
-</html>
+</html>        
