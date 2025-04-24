@@ -339,6 +339,11 @@ def place_card(code, image_id):
 
     return redirect(url_for('user', code=code))
 
+@app.route("/open_cards", methods=["POST"])
+def open_cards():
+    set_setting("show_card_info", "true")
+    return redirect(url_for("admin"))  # Redirect back to admin page
+
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
