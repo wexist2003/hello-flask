@@ -34,6 +34,7 @@
             <label for="active_subfolder" class="form-label">Активная колода:</label>
             <select id="active_subfolder" name="active_subfolder" class="form-select">
                 {% for subfolder in subfolders %}
+{% for subfolder in subfolders %}
                     <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
                 {% endfor %}
             </select>
@@ -90,17 +91,17 @@
             </tr>
         </thead>
         <tbody>
-            {% for image in images %}
+            {% for image_id, subfolder, image_name, guesses in images %}
                 <tr>
-                    <td>{{ image[0] }}</td>
-                    <td>{{ image[1] }}</td>
-                    <td>{{ image[2] or 'Отсутствует' }}</td>
+                    <td>{{ subfolder }}</td>
+                    <td>{{ image_name }}</td>
+                    <td>{{ status }}</td>
                     <td>
-                        <img src="{{ url_for('static', filename='images/' + image[0] + '/' + image[1]) }}" alt="img" style="max-width: 100px;">
+                        <img src="{{ url_for('static', filename='images/' + subfolder + '/' + image_name) }}" alt="img" style="max-width: 100px;">
                     </td>
                     <td>
-                        {% if image[4] %}
-                            {% for guesser_id, guessed_user_id in image[4].items() %}
+                        {% if guesses %}
+                            {% for guesser_id, guessed_user_id in guesses.items() %}
                                 {{ get_user_name(guesser_id|int) }} -> {{ get_user_name(guessed_user_id|int) }}<br>
                             {% endfor %}
                         {% else %}
@@ -113,4 +114,4 @@
     </table>
 </body>
 
-</html>
+</html>                
