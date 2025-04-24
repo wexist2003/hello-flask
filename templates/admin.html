@@ -60,7 +60,8 @@
                     <td>{{ user[0] }}</td>
                     <td>{{ user[1] }}</td>
                     <td>{{ user[2] }}</td>
-                    <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>  <td>{{ user[3] }}</td>
+                    <td><a href="{{ url_for('user', code=user[2]) }}">{{ request.host_url }}{{ url_for('user', code=user[2]) }}</a></td>
+                    <td>{{ user[3] }}</td>
                     <td>{{ guess_counts_by_user[user[0]] }}</td>
                     <td>
                         <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post">
@@ -71,6 +72,11 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <h2>Открыть карточки</h2>
+    <form action="{{ url_for('open_cards') }}" method="post">
+        <button class="btn btn-success" type="submit">Открыть карточки</button>
+    </form>
 
     <h2>Список изображений</h2>
     <table class="table table-bordered">
