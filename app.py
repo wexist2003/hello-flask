@@ -179,18 +179,16 @@ def admin():
             conn.commit()
             message = f"Выбран подкаталог: {selected}"
 
-    #   Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
-    all_users_data = c.fetchall()  # Changed variable name
-    users = [{"id": row[0], "name": row[1], "code": row[2], "rating": row[3]} for row in all_users_data]  # Explicitly create the users list
+    all_users_data = c.fetchall()
+    users = [{"id": row[0], "name": row[1], "code": row[2], "rating": row[3]} for row in all_users_data]
 
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    #   Get guess counts by each user
     guess_counts_by_user = {}
     for user in users:
-        user_id = user["id"]  # Access user ID from the dictionary
+        user_id = user["id"]
         guess_counts_by_user[user_id] = 0
 
     c.execute("SELECT guesses FROM images WHERE guesses != '{}'")
@@ -200,7 +198,6 @@ def admin():
         for guesser_id, guessed_user_id in guesses.items():
             guess_counts_by_user[int(guesser_id)] += 1
 
-    #   Get all guesses
     all_guesses = {}
     c.execute("SELECT id, guesses FROM images WHERE guesses != '{}'")
     all_guesses_data = c.fetchall()
@@ -353,44 +350,37 @@ def calculate_and_update_ratings():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    #   Получаем всех пользователей и их текущие рейтинги
     c.execute("SELECT id, rating FROM users")
     users = c.fetchall()
     user_ratings = {user[0]: user[1] for user in users}
 
-    #   Получаем все карточки на столе с их предположениями
     c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
     table_images = c.fetchall()
 
-    leading_user_id = get_leading_user_id()
+    user_id = get_leading_user_id()
 
-    #   Проходим по каждой карточке на столе
     for image_id, owner_id, guesses_str in table_images:
         guesses = json.loads(guesses_str) if guesses_str else {}
         guesser_ids = [int(guesser_id) for guesser_id in guesses.keys()]
         num_users = len(users)
 
-        #   1, 2, 3. Расчет очков для ведущего
         if owner_id == leading_user_id:
-            if len(guesser_ids) == num_users - 1:  #   Все угадали (кроме самого себя)
+            if len(guesser_ids) == num_users - 1:
                 user_ratings[owner_id] -= 3
-            elif not guesser_ids:  #   Никто не угадал
+            elif not guesser_ids:
                 user_ratings[owner_id] -= 2
             else:
                 user_ratings[owner_id] += 3 + len(guesser_ids)
 
-        #   3. Расчет очков для угадавших
         for guesser_id in guesser_ids:
             user_ratings[guesser_id] += 3
 
-    #   4. Расчет очков за угадывания чужих карточек
-        for image_id, owner_id, guesses_str in table_images:
-            guesses = json.loads(guesses_str) if guesses_str else {}
-            for guesser_id, guessed_user_id in guesses.items():
-                if int(guesser_id) != leading_user_id:
-                    user_ratings[guessed_user_id] += 1
+    for image_id, owner_id, guesses_str in table_images:
+        guesses = json.loads(guesses_str) if guesses_str else {}
+        for guesser_id, guessed_user_id in guesses.items():
+            if int(guesser_id) != leading_user_id:
+                user_ratings[guessed_user_id] += 1
 
-    #   Обновляем рейтинги пользователей в базе данных
     for user_id, new_rating in user_ratings.items():
         c.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, user_id))
 
@@ -401,7 +391,6 @@ def calculate_and_update_ratings():
 def open_cards():
     set_setting("show_card_info", "true")
 
-    #   Определяем следующего ведущего
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
         set_leading_user_id(1)
@@ -423,3 +412,5 @@ if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+    
+    
