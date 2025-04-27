@@ -78,6 +78,23 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
+def get_leading_user_id():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+    result = c.fetchone()
+    conn.close()
+    if result:
+        return int(result[0])
+    return None
+
+def set_leading_user_id(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (user_id,))
+    conn.commit()
+    conn.close()
+
 @app.before_request
 def before_request():
     conn = sqlite3.connect(DB_PATH)
@@ -96,6 +113,11 @@ def before_request():
             g.user_id = None
     else:
         g.user_id = None
+
+    # Get the show_card_info setting and make it available globally
+    show_card_info = get_setting("show_card_info")
+    g.show_card_info = show_card_info == "true"
+
     conn.close()
 
 def get_user_name(user_id):
@@ -108,7 +130,7 @@ def get_user_name(user_id):
         return user_name[0]
     return None
 
-app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
+app.jinja_env.globals.update(get_user_name=get_user_name, g=g, get_leading_user_id=get_leading_user_id) # Make the function globally available
 
 
 @app.route("/")
@@ -306,7 +328,8 @@ def user(code):
         }
         table_images.append(table_image)
 
-    #   Get all users for the dropdown (excluding the current user - will handle exclusion in template)
+    #   Get all users 
+    # for the dropdown (excluding the current user - will handle exclusion in template)
     c.execute("SELECT id, name FROM users", )  #   Fetch all users
     all_users = c.fetchall()
 
@@ -320,7 +343,7 @@ def user(code):
 
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                           code=code, on_table=on_table, g=g, show_card_info=show_card_info) # Pass to template
+                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
     
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
@@ -352,7 +375,23 @@ def place_card(code, image_id):
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
-    return redirect(url_for("admin"))  #   Redirect back to admin page
+
+    #   Определяем следующего ведущего
+    current_leading_user_id = get_leading_user_id()
+    if current_leading_user_id is None:
+        set_leading_user_id(1)  #   Первый ведущий - пользователь с ID 1
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT MAX(id) FROM users")
+        max_user_id = c.fetchone()[0]
+        next_leading_user_id = current_leading_user_id + 1
+        if next_leading_user_id > max_user_id:
+            next_leading_user_id = 1  #   Если дошли до последнего, возвращаемся к первому
+        set_leading_user_id(next_leading_user_id)
+        conn.close()
+
+    return redirect(url_for("admin"))
 
 if __name__ == "__main__":
     init_db()
