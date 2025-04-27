@@ -23,8 +23,7 @@
             <div class="border p-2">
                 {% if g.show_card_info %}
                     <p>Чья: {{ get_user_name(table_image.owner_id) }}</p>
-                    <p>Предположения:</p>
-                
+                    <p>Предположения:</p>             
     <ul>
                         {% for guesser_id, guessed_user_id in table_image.guesses.items() %}
                             <li>
