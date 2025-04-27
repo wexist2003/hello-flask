@@ -1,4 +1,5 @@
 <!doctype html>
+<!doctype html>
 <html lang="ru">
 
 <head>
@@ -19,13 +20,13 @@
         <div class="d-flex flex-wrap gap-3">
             {% if table_images %}
          
-[cite: 46, 47]   {% for table_image in table_images %}
+    {% for table_image in table_images %}
             <div class="border p-2">
                 {% if g.show_card_info %}
                     <p>Чья: {{ get_user_name(table_image.owner_id) }}</p>
                     <p>Предположения:</p>
                 
-[cite: 47, 48, 49, 50]     <ul>
+    <ul>
                         {% for guesser_id, guessed_user_id in table_image.guesses.items() %}
                             <li>
                                 {{ get_user_name(guesser_id|int) }}: {{ get_user_name(guessed_user_id|int) }}
@@ -34,7 +35,7 @@
                     </ul>
                 {% endif %}
          
-[cite: 50, 51, 52, 53, 54, 55, 56]       <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
                     alt="card" style="max-width: 150px;">
                 {% if table_image.owner_id != g.user_id and not g.show_card_info %}
                 <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
@@ -78,7 +79,7 @@
             {% else %}
             <p>На столе нет карточек.</p>
        
-[cite: 56, 57, 58, 59, 60]      {% endif %}
+        {% endif %}
         </div>
     </div>
 
