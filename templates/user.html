@@ -20,9 +20,9 @@
             {% if table_images %}
             {% for table_image in table_images %}
             <div class="border p-2">
-                <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                <p>Чья: {{ get_user_name(table_image.owner_id) }}</p>  <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
                     alt="card" style="max-width: 150px;">
-                <p>Чья: {{ get_user_name(table_image.owner_id) }}</p>  {% if table_image.owner_id != g.user_id %}
+                {% if table_image.owner_id != g.user_id %}
                 <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
                     <select name="guessed_user_id" class="form-select form-select-sm">
                         <option value="">-- Выберите игрока --</option>
