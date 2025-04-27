@@ -1,5 +1,4 @@
 <!doctype html>
-<!doctype html>
 <html lang="ru">
 
 <head>
@@ -69,7 +68,7 @@
                 <p>
                     {% for guesser_id, owner_id in table_image.guesses.items() %}
                     {% if guesser_id|int == g.user_id|int %}
-                    Ваше предположение: {{ get_user_name(owner_id) }}
+                    Ваше предположение: это от {{ get_user_name(owner_id) }}
                     {% endif %}
                     {% endfor %}
                 </p>
