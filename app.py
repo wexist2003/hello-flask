@@ -179,15 +179,18 @@ def admin():
             conn.commit()
             message = f"Выбран подкаталог: {selected}"
 
+    #   Получение данных
     c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
-    users = c.fetchall()
+    all_users_data = c.fetchall()  # Changed variable name
+    users = [{"id": row[0], "name": row[1], "code": row[2], "rating": row[3]} for row in all_users_data]  # Explicitly create the users list
 
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
+    #   Get guess counts by each user
     guess_counts_by_user = {}
     for user in users:
-        user_id = user[0]
+        user_id = user["id"]  # Access user ID from the dictionary
         guess_counts_by_user[user_id] = 0
 
     c.execute("SELECT guesses FROM images WHERE guesses != '{}'")
@@ -197,6 +200,7 @@ def admin():
         for guesser_id, guessed_user_id in guesses.items():
             guess_counts_by_user[int(guesser_id)] += 1
 
+    #   Get all guesses
     all_guesses = {}
     c.execute("SELECT id, guesses FROM images WHERE guesses != '{}'")
     all_guesses_data = c.fetchall()
