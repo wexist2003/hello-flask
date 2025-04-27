@@ -28,7 +28,7 @@
     <ul>
                         {% for guesser_id, guessed_user_id in table_image.guesses.items() %}
                             <li>
-                                {{ get_user_name(guesser_id|int) }}: {{ get_user_name(guessed_user_id|int) }}
+                                {{ get_user_name(guesser_id|int) }}: это от {{ get_user_name(guessed_user_id|int) }}
                             </li>
                         {% endfor %}
                     </ul>
@@ -68,7 +68,7 @@
                 <p>
                     {% for guesser_id, owner_id in table_image.guesses.items() %}
                     {% if guesser_id|int == g.user_id|int %}
-                    Ваше предположение: это от {{ get_user_name(owner_id) }}
+                    Ваше предположение: {{ get_user_name(owner_id) }}
                     {% endif %}
                     {% endfor %}
                 </p>
