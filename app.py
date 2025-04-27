@@ -232,17 +232,12 @@ def before_request():
             g.user_id = None
     else:
         g.user_id = None
-    conn.close()
 
-def get_user_name(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
-    user_name = c.fetchone()
+    # Get the show_card_info setting and make it available globally
+    show_card_info = get_setting("show_card_info")
+    g.show_card_info = show_card_info == "true"
+
     conn.close()
-    if user_name:
-        return user_name[0]
-    return None
 
 @app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
 def guess_image(code, image_id):
