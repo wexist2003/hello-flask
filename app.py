@@ -291,7 +291,8 @@ def user(code):
 
     user_id, name, rating = row
 
-    #   Get user's cards
+    #  
+    #  Get user's cards
     c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
     cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
 
@@ -320,9 +321,12 @@ def user(code):
 
     conn.close()
 
+    show_card_info = get_setting("show_card_info") == "true" # Get the setting
+
     return render_template("user.html", name=name, rating=rating, cards=cards,
                            table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                           code=code, on_table=on_table, g=g)
+                           code=code, on_table=on_table, g=g, show_card_info=show_card_info) # Pass to template
+    
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
