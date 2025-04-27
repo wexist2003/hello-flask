@@ -110,6 +110,7 @@ def get_user_name(user_id):
 
 app.jinja_env.globals.update(get_user_name=get_user_name, g=g) # Make the function globally available
 
+
 @app.route("/")
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
