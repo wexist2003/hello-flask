@@ -1,4 +1,5 @@
 <!doctype html>
+<!doctype html>
 <html lang="ru">
 
 <head>
@@ -22,8 +23,13 @@
     {% for table_image in table_images %}
             <div class="border p-2">
                 {% if g.show_card_info %}
-                    <p>Чья: {{ get_user_name(table_image.owner_id) }}</p>
-                    <p>Предположения:</p>             
+                    <p>Чья: {{ get_user_name(table_image.owner_id) }}
+                    {% if get_leading_user_id() == table_image.owner_id %}
+                        <span class="badge bg-success">Ведущий</span>
+                    {% endif %}
+                    </p>
+                    <p>Предположения:</p>
+                
     <ul>
                         {% for guesser_id, guessed_user_id in table_image.guesses.items() %}
                             <li>
@@ -32,7 +38,7 @@
                         {% endfor %}
                     </ul>
                 {% endif %}
-         
+
         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
                     alt="card" style="max-width: 150px;">
                 {% if table_image.owner_id != g.user_id and not g.show_card_info %}
