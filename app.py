@@ -389,6 +389,7 @@ def open_cards():
     # Получаем ID всех пользователей
     c.execute("SELECT id FROM users")
     all_users = [user[0] for user in c.fetchall()]
+    other_users = [user_id for user_id in all_users if user_id != leading_user_id] # Все, кроме ведущего
 
     # Словарь для хранения очков пользователей
     user_points = {user_id: 0 for user_id in all_users}
@@ -403,25 +404,18 @@ def open_cards():
                 correct_guesses += 1
 
         # Подсчет очков для ведущего
-        if correct_guesses == len(all_users) - 1:  # Все угадали (кроме самого себя)
-            user_points[owner_id] -= 3
-        elif correct_guesses == 0:  # Никто не угадал
-            user_points[owner_id] -= 2
-        else:  # Кто-то угадал
-            user_points[owner_id] += 3 + correct_guesses
+        if owner_id == leading_user_id:  # Только для карточки ведущего считаем
+            if correct_guesses == len(other_users):  # Все угадали (кроме самого себя)
+                user_points[owner_id] -= 3
+            elif correct_guesses == 0:  # Никто не угадал
+                user_points[owner_id] -= 2
+            else:  # Кто-то угадал
+                user_points[owner_id] += 3 + correct_guesses
 
-            # Подсчет очков для угадавших
-            for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id:
-                    user_points[int(guesser_id)] += 3
-
-        # Подсчет очков для остальных пользователей за их карты
-        for image in table_images:
-            owner_id = image[1]
-            guesses = json.loads(image[2]) if image[2] else {}
-            for _, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id and owner_id != leading_user_id:
-                    user_points[owner_id] += 1
+        # Подсчет очков для остальных пользователей за угаданные карточки
+        for guesser_id, guessed_user_id in guesses.items():
+            if guessed_user_id == owner_id and owner_id != leading_user_id: # Исключаем ведущего из этого подсчета
+                user_points[int(guesser_id)] += 1
 
     # Обновление рейтинга пользователей в базе данных
     for user_id, points in user_points.items():
