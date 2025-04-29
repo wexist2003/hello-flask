@@ -394,6 +394,7 @@ def open_cards():
     # Словарь для хранения очков пользователей
     user_points = {user_id: 0 for user_id in all_users}
 
+    # Сначала считаем очки для ведущего и угадавших его карту
     for image in table_images:
         owner_id = image[1]
         guesses = json.loads(image[2]) if image[2] else {}
@@ -404,8 +405,8 @@ def open_cards():
                 correct_guesses += 1
 
         # Подсчет очков для ведущего
-        if owner_id == leading_user_id:  # Только для карточки ведущего считаем
-            if correct_guesses == len(other_users):  # Все угадали (кроме самого себя)
+        if owner_id == leading_user_id:  # Только для карточки ведущего
+            if correct_guesses == len(other_users):  # Все угадали
                 user_points[owner_id] -= 3
             elif correct_guesses == 0:  # Никто не угадал
                 user_points[owner_id] -= 2
@@ -414,11 +415,14 @@ def open_cards():
 
             # Подсчет очков для угадавших карточку ведущего
             for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == leading_user_id and int(guesser_id) != leading_user_id:  # Даем 3 очка угадавшим
+                if guessed_user_id == leading_user_id and int(guesser_id) != leading_user_id:
                     user_points[int(guesser_id)] += 3
 
-        # Подсчет очков для остальных пользователей за их карты (кроме ведущего)
-        if owner_id != leading_user_id:
+    # Затем считаем очки для остальных пользователей за их карты
+    for image in table_images:
+        owner_id = image[1]
+        guesses = json.loads(image[2]) if image[2] else {}
+        if owner_id != leading_user_id:  # Кроме ведущего
             for _, guessed_user_id in guesses.items():
                 user_points[owner_id] += 1
 
@@ -432,7 +436,7 @@ def open_cards():
     # Определяем следующего ведущего
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
-        set_leading_user_id(1)  # Первый ведущий - пользователь с ID 1
+        set_leading_user_id(1)  # Первый ведущий
     else:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -440,7 +444,7 @@ def open_cards():
         max_user_id = c.fetchone()[0]
         next_leading_user_id = current_leading_user_id + 1
         if next_leading_user_id > max_user_id:
-            next_leading_user_id = 1  # Если дошли до последнего, возвращаемся к первому
+            next_leading_user_id = 1
         set_leading_user_id(next_leading_user_id)
         conn.close()
 
