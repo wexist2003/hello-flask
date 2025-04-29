@@ -12,57 +12,59 @@ app.secret_key = "super secret"  # Needed for flash messages
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    try:
+        c = conn.cursor()
 
-    # Enable Write-Ahead Logging (WAL)
-    c.execute("PRAGMA journal_mode=WAL")
+        # Enable Write-Ahead Logging (WAL)
+        c.execute("PRAGMA journal_mode=WAL")
 
-    #   Удаляем таблицы и создаем заново
-    c.execute("DROP TABLE IF EXISTS users")
-    c.execute("DROP TABLE IF EXISTS images")
-    c.execute("DROP TABLE IF EXISTS settings")
+        #   Удаляем таблицы и создаем заново
+        c.execute("DROP TABLE IF EXISTS users")
+        c.execute("DROP TABLE IF EXISTS images")
+        c.execute("DROP TABLE IF EXISTS settings")
 
-    c.execute("""
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            code TEXT UNIQUE NOT NULL,
-            rating INTEGER DEFAULT 0
-        )
-    """)  #
+        c.execute("""
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                code TEXT UNIQUE NOT NULL,
+                rating INTEGER DEFAULT 0
+            )
+        """)  #
 
-    c.execute("""
-        CREATE TABLE images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            subfolder TEXT NOT NULL,
-            image TEXT NOT NULL,
-            status TEXT,
-            owner_id INTEGER,  -- New column
-            guesses TEXT       -- New column
-        )
-    """)  #
+        c.execute("""
+            CREATE TABLE images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subfolder TEXT NOT NULL,
+                image TEXT NOT NULL,
+                status TEXT,
+                owner_id INTEGER,  -- New column
+                guesses TEXT       -- New column
+            )
+        """)  #
 
-    c.execute("""
-        CREATE TABLE settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    """)  #
+        c.execute("""
+            CREATE TABLE settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)  #
 
-    #   Загрузка изображений из static/images
-    image_folders = ['koloda1', 'koloda2']
-    for folder in image_folders:
-        folder_path = os.path.join('static', 'images', folder)
-        if os.path.exists(folder_path):
-            for filename in os.listdir(folder_path):
-                if filename.endswith('.jpg'):
-                    c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
+        #   Загрузка изображений из static/images
+        image_folders = ['koloda1', 'koloda2']
+        for folder in image_folders:
+            folder_path = os.path.join('static', 'images', folder)
+            if os.path.exists(folder_path):
+                for filename in os.listdir(folder_path):
+                    if filename.endswith('.jpg'):
+                        c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))  # Initialize new columns
 
-    #   Удаляем статусы "Занято" (при новом запуске)
-    c.execute("UPDATE images SET status = 'Свободно'")  #
+        #   Удаляем статусы "Занято" (при новом запуске)
+        c.execute("UPDATE images SET status = 'Свободно'")  #
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))  #
@@ -114,7 +116,6 @@ def get_user_name(user_id):
         c = conn.cursor()
         c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
         user_name = c.fetchone()
-        conn.close()
         if user_name:
             return user_name[0]
         return None  #
@@ -284,8 +285,15 @@ def user(code):
 
         #
         #  Get user's cards
-        c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-        cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
+        c.execute("SELECT id, subfolder, image, owner_id FROM images WHERE status = ?", (f"Занято:{user_id}",)) # added owner_id
+        cards = []
+        for r in c.fetchall():
+            cards.append({
+                "id": r[0],
+                "subfolder": r[1],
+                "image": r[2],
+                "owner_id": r[3], # added owner_id to the card dict
+            })
 
         #   Get images on the table
         c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
