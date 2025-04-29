@@ -356,7 +356,7 @@ def place_card(code, image_id):
     c = conn.cursor()
 
     #   Get user ID
-    c.execute("SELECT id FROM users WHERE code = ?", (code,))
+    c.execute("SELECT id FROM users WHERE code  = ?", (code,))
     user_row = c.fetchone()
     if not user_row:
         conn.close()
@@ -367,7 +367,7 @@ def place_card(code, image_id):
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     if c.fetchone() is not None:
         conn.close()
-        return "You already have a card on the table", 400
+        return "You already have a card on  the table", 400
 
     #   Update the image
     c.execute("UPDATE images SET owner_id = ?, status = 'На столе' WHERE id = ?", (user_id, image_id))
@@ -376,16 +376,53 @@ def place_card(code, image_id):
 
     return redirect(url_for('user', code=code))
 
+@app.route("/open_cards", methods=["POST"])
+def open_cards():
+    set_setting("show_card_info", "true")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Получаем ID ведущего
+    leading_user_id = get_leading_user_id()
+
+    # Получаем все карточки на столе с предположениями
+    c.execute("SELECT id, owner_id, guesses FROM images")
+    table_images = c.fetchall()
+
+    # Получаем ID всех пользователей
+    c.execute("SELECT id FROM users")
+    all_users = [user[0] for user in c.fetchall()]
+
+    # Словарь для хранения очков пользователей
+    user_points = {user_id: 0 for user_id in all_users}
+
+    for image in table_images:
+        owner_id = image[1]
+        guesses = json.loads(image[2]) if image[2] else {}
+        correct_guesses = 0
+
+        # Проверяем, была ли карточка выложена на стол
+        if owner_id is not None:
+            for guesser_id, guessed_user_id in guesses.items():
+                if guessed_user_id == owner_id and owner_id == leading_user_id:
+                    correct_guesses += 1
+
+            # Подсчет очков для ведущего
+            if owner_id == leading_user_id:
+                if correct_guesses == len(all_users) - 1:
+                    user_points[owner_id] -= 3
+                elif correct_guesses == 0:
+                    user_points[owner_id] -= 2
+                else:
+                    user_points[owner_id] += 3 + correct_guesses
 
             # Подсчет очков для угадавших
             if owner_id == leading_user_id:
                 for guesser_id, guessed_user_id in guesses.items():
                     if guessed_user_id == owner_id:
                         user_points[int(guesser_id)] += 3
-                        app.logger.debug(f"  Игроку {guesser_id} начислено 3 очка")  # Отладка
-        else:
-            app.logger.debug(f"  Карточка не выложена")  # Отладка
-    app.logger.debug(f"\nОчки перед обновлением БД: {user_points}")  # Отладка
+        
 
     # Обновление рейтинга пользователей в базе данных
     for user_id, points in user_points.items():
