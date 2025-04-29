@@ -309,11 +309,11 @@ def user(code):
     table_images_data = c.fetchall()
     table_images = []
     for img in table_images_data:
-        owner_id = img[0]
         table_image = {
-            "id": img[1],
+            "id": img[0],
+            "subfolder": img[1],
             "image": img[2],
-            "owner_id": owner_id,
+            "owner_id": img[3],
             "guesses": json.loads(img[4]) if img[4] else {},
         }
         table_images.append(table_image)
