@@ -1,5 +1,5 @@
 import json
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 import os
 import string
@@ -104,38 +104,6 @@ def set_leading_user_id(user_id):
     finally:
         conn.close()  #
 
-@app.before_request
-def before_request():
-    conn = sqlite3.connect(DB_PATH)
-    g.conn = conn  # Store the connection in the global object
-    c = conn.cursor()
-    code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
-    if code:
-        c.execute("SELECT id FROM users WHERE code = ?", (code,))
-        user_id = c.fetchone()
-        if user_id:
-            g.user_id = user_id[0]
-        else:
-            g.user_id = None
-    else:
-        g.user_id = None
-
-    # Get the show_card_info setting and make it available globally
-    show_card_info = get_setting("show_card_info")
-    g.show_card_info = show_card_info == "true"
-
-
-
-@app.teardown_request
-def teardown_request(exception):
-    if hasattr(g, 'conn') and g.conn is not None:
-        g.conn.close()  # Close the connection at the end of the request
-
-
 
 def get_user_name(user_id):
     conn = sqlite3.connect(DB_PATH)
@@ -143,13 +111,14 @@ def get_user_name(user_id):
         c = conn.cursor()
         c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
         user_name = c.fetchone()
+        conn.close()
         if user_name:
             return user_name[0]
         return None  #
     finally:
         conn.close()
 
-app.jinja_env.globals.update(get_user_name=get_user_name, g=g, get_leading_user_id=get_leading_user_id) # Make the function globally available
+app.jinja_env.globals.update(get_user_name=get_user_name, g=None, get_leading_user_id=get_leading_user_id) # Make the function globally available
 
 @app.route("/")
 def index():
@@ -343,7 +312,7 @@ def user(code):
 
         return render_template("user.html", name=name, rating=rating, cards=cards,
                                table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                               code=code, on_table=on_table, g=g, show_card_info=show_card_info)  #
+                               code=code, on_table=on_table, g=None, show_card_info=show_card_info)  #
     finally:
         conn.close()
 
