@@ -394,7 +394,7 @@ def open_cards():
     # Словарь для хранения очков пользователей
     user_points = {user_id: 0 for user_id in all_users}
 
-    # Сначала считаем очки для ведущего и угадавших его карту
+    # Сначала считаем очки за угаданные карточки
     for image in table_images:
         owner_id = image[1]
         guesses = json.loads(image[2]) if image[2] else {}
@@ -418,11 +418,8 @@ def open_cards():
                 if guessed_user_id == leading_user_id and int(guesser_id) != leading_user_id:
                     user_points[int(guesser_id)] += 3
 
-    # Затем считаем очки для остальных пользователей за их карты
-    for image in table_images:
-        owner_id = image[1]
-        guesses = json.loads(image[2]) if image[2] else {}
-        if owner_id != leading_user_id:  # Кроме ведущего
+        # Подсчет очков для остальных пользователей за их карты
+        if owner_id != leading_user_id:
             for _, guessed_user_id in guesses.items():
                 user_points[owner_id] += 1
 
