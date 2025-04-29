@@ -403,27 +403,21 @@ def open_cards():
         guesses = json.loads(image[2]) if image[2] else {}
         correct_guesses = 0
 
-        # Проверяем, была ли карточка выложена на стол
-        if owner_id is not None:
+        if owner_id is not None and owner_id == leading_user_id:  # Only for leading user's cards
             for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id and owner_id == leading_user_id:
+                if guessed_user_id == owner_id:
                     correct_guesses += 1
 
-            # Подсчет очков для ведущего
-            if owner_id == leading_user_id:
-                if correct_guesses == len(all_users) - 1:
-                    user_points[owner_id] -= 3
-                elif correct_guesses == 0:
-                    user_points[owner_id] -= 2
-                else:
-                    user_points[owner_id] += 3 + correct_guesses
+            if correct_guesses == len(all_users) - 1:
+                user_points[owner_id] -= 3
+            elif correct_guesses == 0:
+                user_points[owner_id] -= 2
+            else:
+                user_points[owner_id] += 3 + correct_guesses
 
-            # Подсчет очков для угадавших
-            if owner_id == leading_user_id:
-                for guesser_id, guessed_user_id in guesses.items():
-                    if guessed_user_id == owner_id:
-                        user_points[int(guesser_id)] += 3
-        
+            for guesser_id, guessed_user_id in guesses.items():
+                if guessed_user_id == owner_id:
+                    user_points[int(guesser_id)] += 3
 
     # Обновление рейтинга пользователей в базе данных
     for user_id, points in user_points.items():
