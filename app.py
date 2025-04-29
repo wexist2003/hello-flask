@@ -406,25 +406,22 @@ def open_cards():
                 correct_guesses += 1
 
         # Подсчет очков для ведущего
-        if correct_guesses == len(all_users) - 1:  # Все угадали (кроме самого себя)
-            user_points[owner_id] -= 3
-        elif correct_guesses == 0:  # Никто не угадал
-            user_points[owner_id] -= 2
-        else:  # Кто-то угадал
-            user_points[owner_id] += 3 + correct_guesses
+        if owner_id == leading_user_id:
+            if correct_guesses == len(all_users) - 1:  # Все угадали (кроме самого себя)
+                user_points[owner_id] -= 3
+            elif correct_guesses == 0:  # Никто не угадал
+                user_points[owner_id] -= 2
+            else:  # Кто-то угадал
+                user_points[owner_id] += 3 + correct_guesses
+        else:
+            # Подсчет очков для остальных пользователей за их карты
+            if any(guessed_user_id == owner_id for _, guessed_user_id in guesses.items()):
+                user_points[owner_id] += 1
 
-            # Подсчет очков для угадавших
-            for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id:
-                    user_points[int(guesser_id)] += 3
-
-        # Подсчет очков для остальных пользователей за их карты
-        for image in table_images:
-            owner_id = image[1]
-            guesses = json.loads(image[2]) if image[2] else {}
-            for _, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id and owner_id != leading_user_id:
-                    user_points[owner_id] += 1
+        # Подсчет очков для угадавших
+        for guesser_id, guessed_user_id in guesses.items():
+            if guessed_user_id == owner_id:
+                user_points[int(guesser_id)] += 3
 
     # Обновление рейтинга пользователей в базе данных
     for user_id, points in user_points.items():
