@@ -413,12 +413,19 @@ def open_cards():
             else:  # Кто-то угадал
                 user_points[owner_id] += 3 + correct_guesses
 
-            # Подсчет очков для угадавших карточку ведущего
+    # Подсчет очков для угадавших карточку ведущего
+    for image in table_images:
+        owner_id = image[1]
+        guesses = json.loads(image[2]) if image[2] else {}
+        if owner_id == leading_user_id:
             for guesser_id, guessed_user_id in guesses.items():
                 if guessed_user_id == leading_user_id and int(guesser_id) != leading_user_id:
                     user_points[int(guesser_id)] += 3
 
-        # Подсчет очков для остальных пользователей за их карты
+    # Подсчет очков для остальных пользователей за их карты
+    for image in table_images:
+        owner_id = image[1]
+        guesses = json.loads(image[2]) if image[2] else {}
         if owner_id != leading_user_id:
             for _, guessed_user_id in guesses.items():
                 user_points[owner_id] += 1
