@@ -384,43 +384,57 @@ def open_cards():
 
     # Получаем ID ведущего
     leading_user_id = get_leading_user_id()
+    print(f"Ведущий: {leading_user_id}")  # Отладка
 
-    # Получаем все карточки на столе с предположениями (теперь без проверки owner_id)
+    # Получаем все карточки на столе с предположениями
     c.execute("SELECT id, owner_id, guesses FROM images")
     table_images = c.fetchall()
 
     # Получаем ID всех пользователей
     c.execute("SELECT id FROM users")
     all_users = [user[0] for user in c.fetchall()]
+    print(f"Все пользователи: {all_users}")  # Отладка
 
     # Словарь для хранения очков пользователей
     user_points = {user_id: 0 for user_id in all_users}
+    print(f"Начальные очки: {user_points}")  # Отладка
 
     for image in table_images:
+        image_id = image[0]
         owner_id = image[1]
         guesses = json.loads(image[2]) if image[2] else {}
         correct_guesses = 0
 
-        # Проверяем, была ли карточка выложена на стол
+        print(f"\nКарточка {image_id}, Владелец: {owner_id}, Предположения: {guesses}")  # Отладка
+
         if owner_id is not None:
             for guesser_id, guessed_user_id in guesses.items():
                 if guessed_user_id == owner_id and owner_id == leading_user_id:
                     correct_guesses += 1
+                    print(f"  Игрок {guesser_id} угадал карточку ведущего")  # Отладка
 
             # Подсчет очков для ведущего
             if owner_id == leading_user_id:
+                print(f"  Это карточка ведущего")  # Отладка
                 if correct_guesses == len(all_users) - 1:
                     user_points[owner_id] -= 3
+                    print(f"  Все угадали, очки ведущего: -3")  # Отладка
                 elif correct_guesses == 0:
                     user_points[owner_id] -= 2
+                    print(f"  Никто не угадал, очки ведущего: -2")  # Отладка
                 else:
                     user_points[owner_id] += 3 + correct_guesses
+                    print(f"  Кто-то угадал, очки ведущего: +{3 + correct_guesses}")  # Отладка
 
             # Подсчет очков для угадавших
             if owner_id == leading_user_id:
                 for guesser_id, guessed_user_id in guesses.items():
                     if guessed_user_id == owner_id:
                         user_points[int(guesser_id)] += 3
+                        print(f"  Игроку {guesser_id} начислено 3 очка")  # Отладка
+        else:
+            print(f"  Карточка не выложена")  # Отладка
+    print(f"\nОчки перед обновлением БД: {user_points}")  # Отладка
 
     # Обновление рейтинга пользователей в базе данных
     for user_id, points in user_points.items():
