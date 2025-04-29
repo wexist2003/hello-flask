@@ -376,6 +376,60 @@ def place_card(code, image_id):
 def open_cards():
     set_setting("show_card_info", "true")
 
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Получаем ID ведущего
+    leading_user_id = get_leading_user_id()
+
+    # Получаем все карточки на столе с предположениями
+    c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images = c.fetchall()
+
+    # Получаем ID всех пользователей
+    c.execute("SELECT id FROM users")
+    all_users = [user[0] for user in c.fetchall()]
+
+    # Словарь для хранения очков пользователей
+    user_points = {user_id: 0 for user_id in all_users}
+
+    for image in table_images:
+        owner_id = image[1]
+        guesses = json.loads(image[2]) if image[2] else {}
+        correct_guesses = 0
+
+        for guesser_id, guessed_user_id in guesses.items():
+            if guessed_user_id == owner_id:
+                correct_guesses += 1
+
+        # Подсчет очков для ведущего
+        if correct_guesses == len(all_users) - 1:  # Все угадали (кроме самого себя)
+            user_points[owner_id] -= 3
+        elif correct_guesses == 0:  # Никто не угадал
+            user_points[owner_id] -= 2
+        else:  # Кто-то угадал
+            user_points[owner_id] += 3 + correct_guesses
+
+            # Подсчет очков для угадавших
+            for guesser_id, guessed_user_id in guesses.items():
+                if guessed_user_id == owner_id:
+                    user_points[int(guesser_id)] += 3
+
+        # Подсчет очков для остальных пользователей за их карты
+        for image in table_images:
+            owner_id = image[1]
+            guesses = json.loads(image[2]) if image[2] else {}
+            for _, guessed_user_id in guesses.items():
+                if guessed_user_id == owner_id and owner_id != leading_user_id:
+                    user_points[owner_id] += 1
+
+    # Обновление рейтинга пользователей в базе данных
+    for user_id, points in user_points.items():
+        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+
+    conn.commit()
+    conn.close()
+
     #   Определяем следующего ведущего
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
