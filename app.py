@@ -63,6 +63,13 @@ def init_db():
                         c.execute("INSERT INTO images (subfolder, image, status, owner_id, guesses) VALUES (?, ?, 'Свободно', NULL, '{}')", (folder, filename))
 
         c.execute("UPDATE images SET status = 'Свободно'")
+
+        # Initialize leading_user_id (e.g., set the first user as the leader)
+        c.execute("SELECT id FROM users ORDER BY id ASC LIMIT 1")
+        first_user = c.fetchone()
+        if first_user:
+            c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (first_user[0],))
+
         conn.commit()
     except sqlite3.Error as e:
         conn.rollback()
