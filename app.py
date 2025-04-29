@@ -195,7 +195,7 @@ def admin():
     c.execute("SELECT subfolder, image, status FROM images")
     images = c.fetchall()
 
-    #   Get guess counts by each user
+#   Get guess counts by each user
     guess_counts_by_user = {}
     for user in users:
         user_id = user[0]
@@ -206,7 +206,10 @@ def admin():
     for image_guesses_row in images_with_guesses:
         guesses = json.loads(image_guesses_row[0])
         for guesser_id, guessed_user_id in guesses.items():
-            guess_counts_by_user[int(guesser_id)] += 1
+            # Ensure guesser_id is an integer and exists in the dictionary
+            guesser_id_int = int(guesser_id)
+            if guesser_id_int in guess_counts_by_user:
+                guess_counts_by_user[guesser_id_int] += 1
 
     #   Get all guesses
     all_guesses = {}
