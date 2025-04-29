@@ -96,8 +96,11 @@ def get_leading_user_id():
     result = c.fetchone()
     conn.close()
     if result:
+        logger.info(f"Leading user ID from DB: {result[0]}")
         return int(result[0])
-    return None
+    else:
+        logger.info("leading_user_id not found in DB")
+        return None
 
 def set_leading_user_id(user_id):
     conn = sqlite3.connect(DB_PATH)
@@ -162,12 +165,12 @@ def admin():
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                 user_id = c.lastrowid
 
-                # Set the first user as the leading user
+                # Set the first user as the leading user (CRITICAL FIX)
                 c.execute("SELECT COUNT(*) FROM users")
                 user_count = c.fetchone()[0]
-                if user_count == 1:  # If this is the first user
+                if user_count == 0:  # Changed from 1 to 0.  This is the key!
                     set_leading_user_id(user_id)
-                    logger.info(f"User {user_id} set as the leading user.")  # Add logging
+                    logger.info(f"User {user_id} set as the leading user.")
 
                 active_subfolder = get_setting("active_subfolder")
                 if active_subfolder:
