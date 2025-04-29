@@ -373,74 +373,66 @@ def place_card(code, image_id):
     return redirect(url_for('user', code=code))
 
 @app.route("/open_cards", methods=["POST"])
+@app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Получаем ID ведущего
-    leading_user_id = get_leading_user_id()
-
-    # Получаем все карточки на столе с предположениями
+    # 1. Получить данные об игре
+    c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")  # Предполагаем, что есть поле is_leading
+    ведущий = c.fetchone()[0]
     c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images = c.fetchall()
-
-    # Получаем ID всех пользователей
+    карточки_на_столе = c.fetchall()
     c.execute("SELECT id FROM users")
-    all_users = [user[0] for user in c.fetchall()]
-    other_users = [user_id for user_id in all_users if user_id != leading_user_id]  # Все, кроме ведущего
+    все_игроки = [row[0] for row in c.fetchall()]
+    очки_игроков = {игрок: 0 for игрок in все_игроки}
 
-    # Словарь для хранения очков пользователей
-    user_points = {user_id: 0 for user_id in all_users}
+    # 2. Обработка карточек
+    for карточка in карточки_на_столе:
+        владелец_карточки = карточка[1]
+        угадывания = json.loads(карточка[2]) if карточка[2] else {}
+        количество_правильных_угадываний = 0
 
-    # Сначала считаем очки за угаданные карточки
-    for image in table_images:
-        owner_id = image[1]
-        guesses = json.loads(image[2]) if image[2] else {}
-        correct_guesses = 0
+        # 2.1 Подсчет правильных угадываний
+        for угадавший, выбранный in угадывания.items():
+            if int(выбранный) == владелец_карточки:
+                количество_правильных_угадываний += 1
 
-        for guesser_id, guessed_user_id in guesses.items():
-            if guessed_user_id == owner_id:
-                correct_guesses += 1
+        # 2.2 Начисление очков ведущему
+        if владелец_карточки == ведущий:
+            другие_игроки = [игрок for игрок in все_игроки if игрок != ведущий]
+            if количество_правильных_угадываний == len(другие_игроки):
+                очки_игроков[ведущий] -= 3
+            elif количество_правильных_угадываний == 0:
+                очки_игроков[ведущий] -= 2
+            else:
+                очки_игроков[ведущий] += 3 + количество_правильных_угадываний
 
-        # Подсчет очков для ведущего
-        if owner_id == leading_user_id:  # Только для карточки ведущего
-            if correct_guesses == len(other_users):  # Все угадали
-                user_points[owner_id] -= 3
-            elif correct_guesses == 0:  # Никто не угадал
-                user_points[owner_id] -= 2
-            else:  # Кто-то угадал
-                user_points[owner_id] += 3 + correct_guesses
+        # 2.3 Начисление очков угадавшим карточку ведущего
+        if владелец_карточки == ведущий:
+            for угадавший, выбранный in угадывания.items():
+                if int(выбранный) == ведущий and int(угадавший) != ведущий:
+                    очки_игроков[int(угадавший)] += 3
 
-    # Подсчет очков для угадавших карточку ведущего
-    for image in table_images:
-        owner_id = image[1]
-        guesses = json.loads(image[2]) if image[2] else {}
-        if owner_id == leading_user_id:
-            for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == leading_user_id and int(guesser_id) != leading_user_id:
-                    user_points[int(guesser_id)] += 3
+        # 2.4 Начисление очков владельцам карт (кроме ведущего)
+        if владелец_карточки != ведущий:
+            for угадавший, выбранный in угадывания.items():
+                if int(выбранный) == владелец_карточки:
+                    очки_игроков[владелец_карточки] += 1
 
-    # Подсчет очков для остальных пользователей за их карты
-    for image in table_images:
-        owner_id = image[1]
-        guesses = json.loads(image[2]) if image[2] else {}
-        if owner_id != leading_user_id:
-            for _, guessed_user_id in guesses.items():
-                user_points[owner_id] += 1
-
-    # Обновление рейтинга пользователей в базе данных
-    for user_id, points in user_points.items():
-        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+    # 3. Обновление рейтинга игроков в базе данных
+    for игрок, очки in очки_игроков.items():
+        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (очки, игрок))
 
     conn.commit()
     conn.close()
 
-    # Определяем следующего ведущего
+    #   Определяем следующего ведущего
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
-        set_leading_user_id(1)  # Первый ведущий
+        set_leading_user_id(1)  #   Первый ведущий - пользователь с ID 1
     else:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -448,7 +440,7 @@ def open_cards():
         max_user_id = c.fetchone()[0]
         next_leading_user_id = current_leading_user_id + 1
         if next_leading_user_id > max_user_id:
-            next_leading_user_id = 1
+            next_leading_user_id = 1  #   Если дошли до последнего, возвращаемся к первому
         set_leading_user_id(next_leading_user_id)
         conn.close()
 
