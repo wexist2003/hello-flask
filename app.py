@@ -64,12 +64,6 @@ def init_db():
 
         c.execute("UPDATE images SET status = 'Свободно'")
 
-        # Initialize leading_user_id (e.g., set the first user as the leader)
-        c.execute("SELECT id FROM users ORDER BY id ASC LIMIT 1")
-        first_user = c.fetchone()
-        if first_user:
-            c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (first_user[0],))
-
         conn.commit()
     except sqlite3.Error as e:
         conn.rollback()
@@ -168,6 +162,13 @@ def admin():
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                 user_id = c.lastrowid
 
+                # Set the first user as the leading user
+                c.execute("SELECT COUNT(*) FROM users")
+                user_count = c.fetchone()[0]
+                if user_count == 1:  # If this is the first user
+                    set_leading_user_id(user_id)
+                    logger.info(f"User {user_id} set as the leading user.")  # Add logging
+
                 active_subfolder = get_setting("active_subfolder")
                 if active_subfolder:
                     c.execute("""
@@ -236,6 +237,7 @@ def admin():
                            subfolders=subfolders, active_subfolder=active_subfolder,
                            guess_counts_by_user=guess_counts_by_user, all_guesses=all_guesses,
                            show_card_info=show_card_info)
+    
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
