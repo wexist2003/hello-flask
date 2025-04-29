@@ -1,5 +1,6 @@
 import json  # Import json for handling guesses
 from flask import Flask, render_template, request, redirect, url_for, g
+from collections import defaultdict # Import defaultdict
 import sqlite3
 import os
 import string
@@ -376,20 +377,57 @@ def place_card(code, image_id):
 def open_cards():
     set_setting("show_card_info", "true")
 
-    #   Определяем следующего ведущего
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    #   Calculate scores
+    c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+    table_images_data = c.fetchall()
+    user_guesses = {}
+    for img_id, owner_id, guesses_str in table_images_data:
+        guesses = json.loads(guesses_str) if guesses_str else {}
+        user_guesses[img_id] = {"owner": owner_id, "guesses": guesses}
+
+    user_points = defaultdict(int)
+
+    for img_data in user_guesses.values():
+        owner_id = img_data["owner"]
+        guesses = img_data["guesses"]
+        correct_guessers = [guesser_id for guesser_id, guessed_owner_id in guesses.items() if guessed_owner_id == owner_id]
+        num_correct_guessers = len(correct_guessers)
+
+         ведущий
+        if num_correct_guessers == len(user_guesses) - 1:  # All others guessed correctly
+            user_points[owner_id] -= 3
+        elif num_correct_guessers == 0:  # No one guessed correctly
+            user_points[owner_id] -= 2
+        else:
+            user_points[owner_id] += 3 + num_correct_guessers
+            for guesser_id in correct_guessers:
+                user_points[int(guesser_id)] += 3
+
+         остальные игроки
+        for guesser_id, guessed_owner_id in guesses.items():
+            user_points[guessed_owner_id] += 1  # +1 point for each guesser
+
+    #   Update user ratings in the database
+    for user_id, points in user_points.items():
+        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+
+    #   Determine the next leading user
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
-        set_leading_user_id(1)  #   Первый ведущий - пользователь с ID 1
+        set_leading_user_id(1)  # First leading user - user with ID 1
     else:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
         c.execute("SELECT MAX(id) FROM users")
         max_user_id = c.fetchone()[0]
         next_leading_user_id = current_leading_user_id + 1
         if next_leading_user_id > max_user_id:
-            next_leading_user_id = 1  #   Если дошли до последнего, возвращаемся к первому
+            next_leading_user_id = 1  # If it's the last one, go back to the first
         set_leading_user_id(next_leading_user_id)
-        conn.close()
+
+    conn.commit()
+    conn.close()
 
     return redirect(url_for("admin"))
 
