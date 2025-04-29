@@ -373,66 +373,70 @@ def place_card(code, image_id):
     return redirect(url_for('user', code=code))
 
 @app.route("/open_cards", methods=["POST"])
-@app.route("/open_cards", methods=["POST"])
 def open_cards():
     set_setting("show_card_info", "true")
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # 1. Получить данные об игре
-    c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")  # Предполагаем, что есть поле is_leading
-    ведущий = c.fetchone()[0]
+    # 1. Получение данных об игре
+    c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+    leading_user_row = c.fetchone()
+    if leading_user_row:
+        leading_user_id = int(leading_user_row[0])
+    else:
+        leading_user_id = None  # Обработка случая отсутствия ведущего
+
     c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    карточки_на_столе = c.fetchall()
+    table_cards = c.fetchall()
     c.execute("SELECT id FROM users")
-    все_игроки = [row[0] for row in c.fetchall()]
-    очки_игроков = {игрок: 0 for игрок in все_игроки}
+    all_users = [row[0] for row in c.fetchall()]
+    users_points = {user_id: 0 for user_id in all_users}
 
     # 2. Обработка карточек
-    for карточка in карточки_на_столе:
-        владелец_карточки = карточка[1]
-        угадывания = json.loads(карточка[2]) if карточка[2] else {}
-        количество_правильных_угадываний = 0
+    for card in table_cards:
+        card_owner_id = card[1]
+        card_guesses = json.loads(card[2]) if card[2] else {}
+        correct_guesses_count = 0
 
         # 2.1 Подсчет правильных угадываний
-        for угадавший, выбранный in угадывания.items():
-            if int(выбранный) == владелец_карточки:
-                количество_правильных_угадываний += 1
+        for guesser_id, guessed_user_id in card_guesses.items():
+            if int(guessed_user_id) == card_owner_id:
+                correct_guesses_count += 1
 
         # 2.2 Начисление очков ведущему
-        if владелец_карточки == ведущий:
-            другие_игроки = [игрок for игрок in все_игроки if игрок != ведущий]
-            if количество_правильных_угадываний == len(другие_игроки):
-                очки_игроков[ведущий] -= 3
-            elif количество_правильных_угадываний == 0:
-                очки_игроков[ведущий] -= 2
+        if card_owner_id == leading_user_id and leading_user_id is not None:
+            other_users = [user_id for user_id in all_users if user_id != leading_user_id]
+            if correct_guesses_count == len(other_users):
+                users_points[leading_user_id] -= 3
+            elif correct_guesses_count == 0:
+                users_points[leading_user_id] -= 2
             else:
-                очки_игроков[ведущий] += 3 + количество_правильных_угадываний
+                users_points[leading_user_id] += 3 + correct_guesses_count
 
         # 2.3 Начисление очков угадавшим карточку ведущего
-        if владелец_карточки == ведущий:
-            for угадавший, выбранный in угадывания.items():
-                if int(выбранный) == ведущий and int(угадавший) != ведущий:
-                    очки_игроков[int(угадавший)] += 3
+        if card_owner_id == leading_user_id and leading_user_id is not None:
+            for guesser_id, guessed_user_id in card_guesses.items():
+                if int(guessed_user_id) == leading_user_id and int(guesser_id) != leading_user_id:
+                    users_points[int(guesser_id)] += 3
 
         # 2.4 Начисление очков владельцам карт (кроме ведущего)
-        if владелец_карточки != ведущий:
-            for угадавший, выбранный in угадывания.items():
-                if int(выбранный) == владелец_карточки:
-                    очки_игроков[владелец_карточки] += 1
+        if card_owner_id != leading_user_id:
+            for guesser_id, guessed_user_id in card_guesses.items():
+                if int(guessed_user_id) == card_owner_id:
+                    users_points[card_owner_id] += 1
 
     # 3. Обновление рейтинга игроков в базе данных
-    for игрок, очки in очки_игроков.items():
-        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (очки, игрок))
+    for user_id, points in users_points.items():
+        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
 
     conn.commit()
     conn.close()
 
-    #   Определяем следующего ведущего
+    # 4. Определение следующего ведущего
     current_leading_user_id = get_leading_user_id()
     if current_leading_user_id is None:
-        set_leading_user_id(1)  #   Первый ведущий - пользователь с ID 1
+        set_leading_user_id(1)  # Первый ведущий - пользователь с ID 1
     else:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -440,7 +444,7 @@ def open_cards():
         max_user_id = c.fetchone()[0]
         next_leading_user_id = current_leading_user_id + 1
         if next_leading_user_id > max_user_id:
-            next_leading_user_id = 1  #   Если дошли до последнего, возвращаемся к первому
+            next_leading_user_id = 1  # Если дошли до последнего, возвращаемся к первому
         set_leading_user_id(next_leading_user_id)
         conn.close()
 
