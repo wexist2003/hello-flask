@@ -4,6 +4,7 @@ import sqlite3
 import os
 import string
 import random
+import logging
 
 app = Flask(__name__)
 DB_PATH = 'database.db'
