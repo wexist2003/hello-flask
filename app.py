@@ -181,24 +181,36 @@ def admin():
                     else:
                         # --- Если все проверки пройдены, пытаемся добавить пользователя и раздать карты ---
                         try:
-                            # Начинаем транзакцию с основным соединением 'conn'
+                            # 1. Добавляем пользователя
+                            code = generate_unique_code() # Генерируем код
+                            print(f"DEBUG: Генерирован код '{code}' для пользователя '{name}'") # <-- ОТЛАДКА
+            
                             c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                             user_id = c.lastrowid # Получаем ID добавленного пользователя
-
-                            # Раздаем карты
+                            print(f"DEBUG: Пользователь '{name}' (ID: {user_id}) вставлен в users (ДО commit)") # <-- ОТЛАДКА
+            
+                            # 2. Раздаем карты
                             random.shuffle(available_cards_ids)
                             selected_card_ids = available_cards_ids[:num_cards]
+                            print(f"DEBUG: Пытаемся раздать карты {selected_card_ids} пользователю ID {user_id}") # <-- ОТЛАДКА
                             for card_id in selected_card_ids:
+                                print(f"DEBUG: Обновляем карту ID {card_id} для пользователя ID {user_id}") # <-- ОТЛАДКА
                                 c.execute("UPDATE images SET status = ?, owner_id = NULL, guesses = '{}' WHERE id = ?", (f"Занято:{user_id}", card_id))
-
-                            # Коммитим ВСЕ изменения (пользователь + карты) только если все успешно
+                                print(f"DEBUG: Карта ID {card_id} обновлена (ДО commit)") # <-- ОТЛАДКА
+            
+            
+                            # 3. Коммитим ВСЕ изменения (пользователь + карты)
+                            print(f"DEBUG: Выполняем conn.commit() для пользователя ID {user_id}") # <-- ОТЛАДКА
                             conn.commit()
+                            print(f"DEBUG: conn.commit() выполнен успешно для пользователя ID {user_id}") # <-- ОТЛАДКА
                             flash(f"Пользователь '{name}' добавлен. Карты розданы.", "success")
-
+            
                         except sqlite3.IntegrityError:
+                            print(f"DEBUG: Ошибка IntegrityError для пользователя '{name}' - имя занято?") # <-- ОТЛАДКА
                             conn.rollback() # Откатываем транзакцию
                             flash(f"Имя пользователя '{name}' уже занято.", "danger")
                         except Exception as e:
+                            print(f"DEBUG: Исключение в try-блоке добавления пользователя: {e}") # <-- ОТЛАДКА
                             conn.rollback() # Откатываем транзакцию
                             flash(f"Произошла ошибка при добавлении/раздаче карт: {e}", "danger")
 
