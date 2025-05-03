@@ -16,12 +16,16 @@
 <body class="p-4">
     <h1>Админка</h1>
 
-    {% if message %}
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
     <h2>Добавить пользователя</h2>
     <form method="post" action="{{ url_for('admin') }}"> {# Явно указываем action #}
