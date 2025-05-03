@@ -117,7 +117,10 @@
     <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите открыть карты и подсчитать очки? Это действие запустит новый раунд.');">
         <button class="btn btn-success" type="submit">Открыть карточки и подсчитать очки</button>
     </form>
-
+    <h2>Начать новый раунд</h2>
+    <form action="{{ url_for('new_round') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите начать новый раунд? Текущие предположения и карты на столе будут сброшены, ведущий сменится, и всем будут розданы новые карты.');">
+        <button class="btn btn-warning" type="submit">Новый раунд</button>
+    </form>
     <h2>Список изображений</h2>
      <div class="table-responsive"> {# Обертка для адаптивности таблицы #}
         <table class="table table-bordered table-sm"> {# Уменьшен размер таблицы #}
