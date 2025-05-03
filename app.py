@@ -535,7 +535,118 @@ def open_cards():
     # --- ПЕРЕНАПРАВЛЕНИЕ С ID ЗАВЕРШИВШЕГО ВЕДУЩЕГО ---
     # Передаем ID ведущего, чей раунд только что закончился, как параметр
     return redirect(url_for("admin", displayed_leader_id=leader_just_finished))
-    
+
+@app.route("/new_round", methods=["POST"])
+def new_round():
+    """Обрабатывает начало нового раунда."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row # Используем Row factory
+    c = conn.cursor()
+
+    try:
+        # === Шаг 1: Определяем и устанавливаем следующего ведущего ===
+        c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+        leader_row = c.fetchone()
+        current_leader_id = int(leader_row['value']) if leader_row and leader_row['value'] else None
+
+        next_leader_id = None
+        c.execute("SELECT id FROM users ORDER BY id")
+        user_rows = c.fetchall()
+        user_ids_ordered = [row['id'] for row in user_rows]
+
+        if not user_ids_ordered:
+            flash("Нет пользователей для начала нового раунда.", "warning")
+        else:
+            if current_leader_id is None:
+                # Если ведущего нет (самый первый раунд), назначаем первого
+                next_leader_id = user_ids_ordered[0]
+            else:
+                try:
+                    current_index = user_ids_ordered.index(current_leader_id)
+                    next_index = (current_index + 1) % len(user_ids_ordered)
+                    next_leader_id = user_ids_ordered[next_index]
+                except ValueError:
+                    # Текущий ведущий не найден в списке (удален?), назначаем первого
+                    next_leader_id = user_ids_ordered[0]
+
+            if next_leader_id is not None:
+                # Используем вспомогательную функцию для установки (она уже есть)
+                set_leading_user_id(next_leader_id)
+                # Сообщаем, кто стал новым ведущим
+                new_leader_name = get_user_name(next_leader_id) or f"ID {next_leader_id}"
+                flash(f"Новый раунд начат. Новый ведущий: {new_leader_name}.", "info")
+            else:
+                # Этого не должно произойти, если есть пользователи
+                flash("Не удалось определить следующего ведущего.", "warning")
+
+        # === Шаг 2: Сбрасываем все предыдущие предположения ===
+        c.execute("UPDATE images SET guesses = '{}' WHERE guesses IS NOT NULL AND guesses != '{}'")
+        if c.rowcount > 0:
+             flash(f"Сброшены предположения для {c.rowcount} карт.", "info")
+
+        # === Шаг 3: Убираем карты с общего стола ===
+        # Возвращаем статус 'Свободно' и убираем владельца
+        c.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status = 'На столе'")
+        if c.rowcount > 0:
+            flash(f"Убраны карты со стола ({c.rowcount} шт.).", "info")
+
+        # === Шаг 4: Раздаем по одной новой карте каждому пользователю ===
+        if not user_ids_ordered:
+            flash("Нет пользователей для раздачи карт.", "warning") # Повторное сообщение, если вдруг
+        else:
+            # Получаем активную колоду
+            c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'")
+            subfolder_row = c.fetchone()
+            active_subfolder = subfolder_row['value'] if subfolder_row else None
+
+            if not active_subfolder:
+                flash("Активная колода не установлена. Новые карты не розданы.", "warning")
+            else:
+                # Получаем список ID свободных карт из активной колоды
+                c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
+                available_cards_rows = c.fetchall()
+                available_cards_ids = [row['id'] for row in available_cards_rows]
+                random.shuffle(available_cards_ids) # Перемешиваем свободные карты
+
+                num_users = len(user_ids_ordered)
+                num_available = len(available_cards_ids)
+
+                if num_available < num_users:
+                    flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{active_subfolder}' для раздачи всем пользователям ({num_users}). Карты получат не все.", "warning")
+
+                num_dealt = 0
+                # Раздаем по одной карте каждому пользователю, пока есть карты
+                for i, user_id in enumerate(user_ids_ordered):
+                    if i < num_available:
+                        card_id_to_deal = available_cards_ids[i]
+                        # Назначаем карту пользователю
+                        c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id_to_deal))
+                        num_dealt += 1
+                    else:
+                        break # Карты закончились
+
+                if num_dealt > 0:
+                    flash(f"Роздано {num_dealt} новых карт.", "info")
+                elif num_users > 0: # Если есть юзеры, но ничего не роздано
+                    flash(f"Свободных карт в колоде '{active_subfolder}' нет. Новые карты не розданы.", "warning")
+
+
+        # === Фиксируем все изменения ===
+        conn.commit()
+
+    except sqlite3.Error as e:
+        conn.rollback() # Откатываем изменения в случае ошибки БД
+        flash(f"Ошибка базы данных при начале нового раунда: {e}", "danger")
+    except Exception as e:
+        conn.rollback() # Откатываем изменения в случае другой ошибки
+        flash(f"Непредвиденная ошибка при начале нового раунда: {e}", "danger")
+    finally:
+        # Закрываем соединение в любом случае
+        if conn:
+            conn.close()
+
+    # Перенаправляем обратно на страницу администратора
+    return redirect(url_for('admin'))
 
 if __name__ == "__main__":
     init_db()
