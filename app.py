@@ -156,12 +156,12 @@ def admin():
                 user_id = c.lastrowid
 
                 #   Назначаем карточки пользователю из активной колоды в случайном порядке
-                active_subfolder = get_setting("active_subfolder") # 
+                active_subfolder = get_setting("active_subfolder") 
                 if active_subfolder:
                     c.execute("""
                         SELECT id, subfolder, image
                         FROM images
-                        WHERE subfolder = ? AND status = 'Свободно' # 
+                        WHERE subfolder = ? AND status = 'Свободно' 
                     """, (active_subfolder,))
                     available_cards = c.fetchall()
 
