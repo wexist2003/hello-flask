@@ -140,106 +140,119 @@ def index():
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # Позволяет обращаться к столбцам по именам
     c = conn.cursor()
 
     # --- Обработка POST-запросов ---
     if request.method == "POST":
         if "name" in request.form:
+            # --- Логика добавления пользователя ---
             name = request.form.get("name").strip()
             num_cards = int(request.form.get("num_cards", 3))
             code = generate_unique_code()
             active_subfolder = get_setting("active_subfolder")
 
+            if not active_subfolder:
+                 flash("Не выбрана активная колода! Невозможно раздать карты.", "warning")
+                 conn.close()
+                 return redirect(url_for('admin'))
+
             try:
-                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
-                user_id = c.lastrowid
+                # Проверяем наличие достаточного количества карт ПЕРЕД добавлением пользователя
+                c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
+                available_cards_ids = [row['id'] for row in c.fetchall()]
 
-                # --- Раздача карт ---
-                if active_subfolder:
-                    c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
-                    available_cards_ids = [row[0] for row in c.fetchall()] # Получаем только ID
+                if len(available_cards_ids) < num_cards:
+                    flash(f"Недостаточно свободных карточек ({len(available_cards_ids)}) в колоде {active_subfolder} для раздачи {num_cards}.", "warning")
+                else:
+                    # Добавляем пользователя
+                    c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
+                    user_id = c.lastrowid
+                    conn.commit() # Коммитим пользователя
 
-                    if len(available_cards_ids) >= num_cards:
-                        random.shuffle(available_cards_ids)
-                        selected_card_ids = available_cards_ids[:num_cards]
-                        for card_id in selected_card_ids:
-                            # Обновляем и статус, и guesses (инициализируем пустым JSON)
-                            c.execute("UPDATE images SET status = ?, owner_id = NULL, guesses = '{}' WHERE id = ?", (f"Занято:{user_id}", card_id))
-                    else:
-                        # Откатываем добавление пользователя, если карт не хватает
-                        conn.rollback()
-                        flash(f"Недостаточно свободных карточек ({len(available_cards_ids)}) в колоде {active_subfolder} для раздачи {num_cards}.", "warning")
-                        # Предотвращаем переход к flash сообщению об успехе
-                        conn.close()
-                        return redirect(url_for('admin')) # Редирект, чтобы избежать дальнейшего кода
-
-                conn.commit() # Коммит после успешной раздачи карт
-                flash(f"Пользователь '{name}' добавлен.", "success")
+                    # Раздаем карты
+                    random.shuffle(available_cards_ids)
+                    selected_card_ids = available_cards_ids[:num_cards]
+                    for card_id in selected_card_ids:
+                        # Обновляем статус и guesses (пустой JSON)
+                        c.execute("UPDATE images SET status = ?, owner_id = NULL, guesses = '{}' WHERE id = ?", (f"Занято:{user_id}", card_id))
+                    conn.commit() # Коммитим обновление карт
+                    flash(f"Пользователь '{name}' добавлен. Карты розданы.", "success")
 
             except sqlite3.IntegrityError:
                 flash(f"Имя '{name}' уже существует.", "warning")
-            except Exception as e: # Ловим другие возможные ошибки
-                flash(f"Ошибка при добавлении пользователя: {e}", "danger")
-                conn.rollback() # Откатываем транзакцию при любой ошибке
+                conn.rollback() # Откатываем, если имя занято
+            except Exception as e:
+                flash(f"Ошибка при добавлении пользователя или раздаче карт: {e}", "danger")
+                conn.rollback() # Откатываем при любой другой ошибке
 
         elif "active_subfolder" in request.form:
+             # --- Логика выбора активной колоды ---
             selected = request.form.get("active_subfolder")
             set_setting("active_subfolder", selected)
-            # Сделать все другие изображения недоступными (НЕ удаляя владельца/угадывания)
-            # c.execute("UPDATE images SET status = 'Недоступно' WHERE subfolder != ?", (selected,)) # Пример статуса
-            # А изображения активной колоды сделать доступными (если они не заняты/на столе)
+            # Сбрасываем статус только свободных карт в НЕАКТИВНЫХ колодах (если нужно)
+            # c.execute("UPDATE images SET status = 'Недоступно' WHERE subfolder != ? AND status = 'Свободно'", (selected,))
+            # Сбрасываем статус карт в АКТИВНОЙ колоде на 'Свободно', если они не заняты и не на столе
             c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ? AND status NOT LIKE 'Занято:%' AND status != 'На столе'", (selected,))
             conn.commit()
             flash(f"Выбран активный подкаталог: {selected}", "info")
 
-
     # --- Получение данных для отображения ---
-    c.execute("SELECT id, name, code, rating FROM users ORDER BY id ASC") # Сортируем по ID для логики ведущего
-    users = c.fetchall()
-    # ... (получение images, guess_counts_by_user, all_guesses - как было) ...
-    c.execute("SELECT subfolder, image, status, id, owner_id FROM images") # Добавим id и owner_id
-    images_raw = c.fetchall()
+    # Пользователи
+    c.execute("SELECT id, name, code, rating FROM users ORDER BY id ASC")
+    users = c.fetchall() # Будут объекты Row
 
-    # Получаем ID и имена пользователей для отображения статуса карт
-    c.execute("SELECT id, name FROM users")
-    user_names = {row[0]: row[1] for row in c.fetchall()}
+    # Изображения
+    c.execute("SELECT id, subfolder, image, status, owner_id FROM images ORDER BY subfolder, id")
+    images_raw = c.fetchall() # Будут объекты Row
 
-    # Формируем список изображений с обработанным статусом
+    # Имена пользователей для отображения статуса карт
+    user_names = {user['id']: user['name'] for user in users}
+
+    # Обработка статусов изображений
     images = []
     for img in images_raw:
-        subfolder, image_name, status, img_id, owner_id = img
-        display_status = status
-        if status and status.startswith('Занято:'):
-            try:
-                user_id = int(status.split(':')[1])
-                display_status = f"Занято: {user_names.get(user_id, 'Неизвестный')}"
-            except (ValueError, IndexError):
-                display_status = "Занято (ошибка ID)"
-        elif status == 'На столе':
-             # Пытаемся найти владельца в данных изображения (owner_id)
-             if owner_id and owner_id in user_names:
-                 display_status = f"На столе ({user_names[owner_id]})"
-             else:
-                 display_status = "На столе (владелец ?)" # Если owner_id не найден
-        elif not status:
-             display_status = 'Свободно'
+        display_status = img['status'] if img['status'] else 'Свободно' # Статус по умолчанию
+        owner_name = None
+        if img['status']:
+            if img['status'].startswith('Занято:'):
+                try:
+                    user_id = int(img['status'].split(':')[1])
+                    owner_name = user_names.get(user_id)
+                    display_status = f"Занято: {owner_name}" if owner_name else "Занято: ID?"
+                except (ValueError, IndexError):
+                    display_status = "Занято (ошибка ID)"
+            elif img['status'] == 'На столе':
+                 owner_name = user_names.get(img['owner_id'])
+                 display_status = f"На столе ({owner_name})" if owner_name else "На столе (ID?)"
 
-        images.append((subfolder, image_name, display_status, img_id)) # Передаем кортеж
+        images.append({
+            "id": img['id'],
+            "subfolder": img['subfolder'],
+            "image": img['image'],
+            "display_status": display_status
+        })
 
 
-    subfolders = ['koloda1', 'koloda2'] # Или динамически
+    # Подкаталоги (можно сделать динамическим, если нужно)
+    # c.execute("SELECT DISTINCT subfolder FROM images")
+    # subfolders = [row['subfolder'] for row in c.fetchall()]
+    subfolders = ['koloda1', 'koloda2'] # Пока статически
+
     active_subfolder = get_setting("active_subfolder") or ''
     show_card_info = get_setting("show_card_info") == "true"
 
-    # ID ведущего больше не передаем для ручного управления
     conn.close()
-    return render_template("admin.html", users=users, images=images,
-                           subfolders=subfolders, active_subfolder=active_subfolder,
-                           # guess_counts_by_user=guess_counts_by_user, # Можно убрать, если не используется
-                           # all_guesses=all_guesses, # Можно убрать, если не используется
+
+    # Передаем все необходимые переменные
+    return render_template("admin.html",
+                           users=users,
+                           images=images,
+                           subfolders=subfolders,
+                           active_subfolder=active_subfolder,
                            show_card_info=show_card_info,
-                           get_user_name=get_user_name, # Передаем функцию в шаблон
-                           user_names=user_names) # Передаем словарь имен
+                           get_user_name=get_user_name # Функция все еще нужна для user.html
+                           )
     
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
