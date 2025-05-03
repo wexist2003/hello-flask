@@ -375,15 +375,36 @@ def place_card(code, image_id):
 
     return redirect(url_for('user', code=code))
 
+import json
+from flask import Flask, render_template, request, redirect, url_for, g
+import sqlite3
+import os
+# ... (предполагается, что остальные импорты и настройки Flask/DB на месте)
+# ... (функции get_setting, set_setting, get_leading_user_id тоже существуют)
+
+# ЗАМЕНИТЕ ВАШУ ТЕКУЩУЮ ФУНКЦИЮ open_cards НА ЭТУ:
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
-    set_setting("show_card_info", "true")
+    set_setting("show_card_info", "true") # Показываем информацию о картах
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
     # Получаем ID ведущего
     leading_user_id = get_leading_user_id()
+    if leading_user_id is None:
+         # Обработка случая, если ведущий не назначен (например, установить первого или вернуть ошибку)
+         # Для примера установим первого пользователя, если ведущего нет
+         c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+         first_user = c.fetchone()
+         if first_user:
+             leading_user_id = first_user[0]
+             set_leading_user_id(leading_user_id)
+         else:
+             # Обработка случая, если пользователей нет совсем
+             conn.close()
+             # Можно вернуть сообщение об ошибке или редирект
+             return redirect(url_for("admin")) # Пример
 
     # Получаем все карточки на столе с предположениями
     c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
@@ -392,62 +413,76 @@ def open_cards():
     # Получаем ID всех пользователей
     c.execute("SELECT id FROM users")
     all_users = [user[0] for user in c.fetchall()]
+    num_all_users = len(all_users) # Количество всех пользователей
 
-    # Словарь для хранения очков пользователей
+    # Словарь для хранения очков пользователей (инициализируем нулями)
     user_points = {user_id: 0 for user_id in all_users}
 
-    for image in table_images:
-        owner_id = image[1]
-        guesses = json.loads(image[2]) if image[2] else {}
-        correct_guesses = 0
+    # --- ОСНОВНОЙ ЦИКЛ ОБРАБОТКИ КАРТ НА СТОЛЕ ---
+    for image_data in table_images: # Используем другое имя переменной, чтобы не конфликтовать ниже
+        image_id = image_data[0]
+        owner_id = image_data[1] # Владелец ТЕКУЩЕЙ карты
+        guesses = json.loads(image_data[2]) if image_data[2] else {} # Угадывания для ТЕКУЩЕЙ карты
+        correct_guesses_count = 0 # Счетчик правильных угадываний для ТЕКУЩЕЙ карты
 
-        for guesser_id, guessed_user_id in guesses.items():
+        # --- ВНУТРЕННИЙ ЦИКЛ ОБРАБОТКИ УГАДЫВАНИЙ ДЛЯ ТЕКУЩЕЙ КАРТЫ ---
+        for guesser_id_str, guessed_user_id in guesses.items():
+            guesser_id = int(guesser_id_str) # ID того, кто угадывал
+
+            # Проверяем, правильно ли угадали владельца ТЕКУЩЕЙ карты
             if guessed_user_id == owner_id:
-                correct_guesses += 1
+                correct_guesses_count += 1 # Увеличиваем счетчик для Правила 3
 
-        # Подсчет очков для ведущего
-        if correct_guesses == len(all_users) - 1:  # Все угадали (кроме самого себя)
-            user_points[owner_id] -= 3
-        elif correct_guesses == 0:  # Никто не угадал
-            user_points[owner_id] -= 2
-        else:  # Кто-то угадал
-            user_points[owner_id] += 3 + correct_guesses
+                # Применяем Правило 4 (Модифицированное):
+                # Если ТЕКУЩАЯ карта принадлежит Ведущему, угадавший получает +3
+                if owner_id == leading_user_id:
+                    user_points[guesser_id] += 3
 
-        # Подсчет очков для угадавших КАРТУ ВЕДУЩЕГО
-        for guesser_id, guessed_user_id in guesses.items():
-            # Проверяем, что угадали правильно И что угаданная карта принадлежит Ведущему
-            if guessed_user_id == owner_id and owner_id == leading_user_id:
-                    user_points[int(guesser_id)] += 3
+                # Применяем Правило 5:
+                # Если ТЕКУЩАЯ карта НЕ принадлежит Ведущему, ее ВЛАДЕЛЕЦ получает +1
+                elif owner_id != leading_user_id:
+                    user_points[owner_id] += 1 # +1 очко ВЛАДЕЛЬЦУ карты
 
-        # Подсчет очков для остальных пользователей за их карты
-        for image in table_images:
-            owner_id = image[1]
-            guesses = json.loads(image[2]) if image[2] else {}
-            for _, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id and owner_id != leading_user_id:
-                    user_points[owner_id] += 1
+        # --- ПРИМЕНЯЕМ ПРАВИЛО 3 (Очки для Ведущего) ---
+        # Делаем это после подсчета ВСЕХ угадываний для карты Ведущего
+        if owner_id == leading_user_id:
+            # Проверяем, все ли остальные угадали
+            if num_all_users > 1 and correct_guesses_count == num_all_users - 1:
+                user_points[owner_id] -= 3 # Штраф, если все угадали
+            elif correct_guesses_count == 0: # Никто не угадал
+                user_points[owner_id] -= 2 # Штраф, если никто не угадал
+            else: # Кто-то угадал (но не все) или только 1 игрок
+                # Проверяем, были ли вообще другие игроки, чтобы угадывать
+                if num_all_users > 1:
+                     user_points[owner_id] += 3 + correct_guesses_count # Бонус + очки за угадавших
+                # Если игрок один, очки ему не меняются по этому правилу
 
-    # Обновление рейтинга пользователей в базе данных
+    # --- ОБНОВЛЕНИЕ РЕЙТИНГА В БАЗЕ ДАННЫХ ---
     for user_id, points in user_points.items():
-        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+        if points != 0: # Обновляем только если очки изменились
+            c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
 
-    conn.commit()
-    conn.close()
+    conn.commit() # Сохраняем изменения в БД
 
-    #   Определяем следующего ведущего
-    current_leading_user_id = get_leading_user_id()
-    if current_leading_user_id is None:
-        set_leading_user_id(1)  #   Первый ведущий - пользователь с ID 1
-    else:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("SELECT MAX(id) FROM users")
-        max_user_id = c.fetchone()[0]
-        next_leading_user_id = current_leading_user_id + 1
-        if next_leading_user_id > max_user_id:
-            next_leading_user_id = 1  #   Если дошли до последнего, возвращаемся к первому
-        set_leading_user_id(next_leading_user_id)
-        conn.close()
+    # --- ОПРЕДЕЛЯЕМ СЛЕДУЮЩЕГО ВЕДУЩЕГО ---
+    # (Этот блок кода у вас был корректным, оставляем его)
+    current_leading_user_id = get_leading_user_id() # Получаем текущего еще раз (мог быть установлен выше, если был None)
+    if current_leading_user_id is not None: # Проверяем, что ведущий есть
+        c.execute("SELECT id FROM users ORDER BY id") # Получаем ID всех юзеров по порядку
+        user_ids_ordered = [user[0] for user in c.fetchall()]
+
+        if user_ids_ordered: # Если есть пользователи
+             try:
+                 current_index = user_ids_ordered.index(current_leading_user_id)
+                 next_index = (current_index + 1) % len(user_ids_ordered) # Циклический переход
+                 next_leading_user_id = user_ids_ordered[next_index]
+             except ValueError:
+                 # Если текущего ведущего нет в списке (удалили?), назначаем первого
+                 next_leading_user_id = user_ids_ordered[0]
+
+             set_leading_user_id(next_leading_user_id)
+
+    conn.close() # Закрываем соединение с БД
 
     return redirect(url_for("admin"))
 
