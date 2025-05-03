@@ -375,12 +375,7 @@ def place_card(code, image_id):
 
     return redirect(url_for('user', code=code))
 
-import json
-from flask import Flask, render_template, request, redirect, url_for, g
-import sqlite3
-import os
-# ... (предполагается, что остальные импорты и настройки Flask/DB на месте)
-# ... (функции get_setting, set_setting, get_leading_user_id тоже существуют)
+
 
 # ЗАМЕНИТЕ ВАШУ ТЕКУЩУЮ ФУНКЦИЮ open_cards НА ЭТУ:
 @app.route("/open_cards", methods=["POST"])
