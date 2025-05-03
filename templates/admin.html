@@ -61,7 +61,7 @@
                     <th>Код</th>
                     <th>Ссылка на профиль</th>
                     <th>Рейтинг</th>
-                    <th>Предположений сделано</th> {# Уточнено название колонки #}
+                    <th>Предположения пользователя</th> {# ИЗМЕНЕНО НАЗВАНИЕ КОЛОНКИ #}
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -80,8 +80,23 @@
                         <td><a href="{{ url_for('user', code=user[2]) }}" target="_blank">{{ url_for('user', code=user[2], _external=True) }}</a></td> {# Ссылка с _external=True и target=_blank #}
                         <td>{{ user[3] }}</td>
                         <td>
-                            {# Отображение количества сделанных пользователем предположений #}
-                            {{ guess_counts_by_user.get(user[0], 0) }}
+                            {# --- НАЧАЛО ВОССТАНОВЛЕННОГО БЛОКА --- #}
+                            {% set user_guesses_found = false %} {# Флаг для отслеживания, нашлись ли предположения #}
+                            {% if all_guesses %}
+                                {% for image_id, guesses_for_image in all_guesses.items() %}
+                                    {# Проверяем, есть ли предположение текущего пользователя (user[0]) для данной карты (image_id) #}
+                                    {% if user[0]|string in guesses_for_image %}
+                                        {# Отображаем: Карта [ID]: [Имя угаданного пользователя] #}
+                                        <small>Карта {{ image_id }}: {{ get_user_name(guesses_for_image[user[0]|string]|int) or ('ID ' + guesses_for_image[user[0]|string]) }}</small><br>
+                                        {% set user_guesses_found = true %} {# Ставим флаг, что нашли хотя бы одно #}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {# Если цикл завершился, а флаг не установлен, значит предположений не было #}
+                            {% if not user_guesses_found %}
+                                <small class="text-muted">Нет</small>
+                            {% endif %}
+                            {# --- КОНЕЦ ВОССТАНОВЛЕННОГО БЛОКА --- #}
                         </td>
                         <td>
                             <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user[1] }}? Это действие необратимо!');">
@@ -117,7 +132,6 @@
                 </tr>
             </thead>
             <tbody>
-                 {# --- НАЧАЛО ИСПРАВЛЕННОГО БЛОКА --- #}
                 {% for image in images %} {# Теперь image - это словарь #}
                     <tr>
                         <td>{{ image.id }}</td> {# Добавили ID карты #}
@@ -169,7 +183,6 @@
                         <td colspan="6" class="text-center">Изображения не найдены или не загружены.</td> {# Сообщение, если нет изображений #}
                     </tr>
                 {% endfor %}
-                 {# --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА --- #}
             </tbody>
         </table>
     </div>
