@@ -137,110 +137,164 @@ app.jinja_env.globals.update(get_user_name=get_user_name, g=g, get_leading_user_
 def index():
     return "<h1>Hello, world!</h1><p><a href='/admin'>Перейти в админку</a></p>"
 
+
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
-    conn = sqlite3.connect(DB_PATH)
+    # Увеличим таймаут на всякий случай, хотя основная проблема не в нем
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     message = ""
-    # ДОБАВЛЕНО: Получаем ID текущего ведущего
-    leading_user_id = get_leading_user_id()
 
+    # --- Читаем нужные настройки ВНАЧАЛЕ через основной курсор ---
+    try:
+        c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+        leading_user_row = c.fetchone()
+        # Сохраняем ID ведущего (или None) для использования в POST и в конце для GET
+        current_leading_user_id = int(leading_user_row[0]) if leading_user_row and leading_user_row[0] else None
+
+        c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'")
+        active_subfolder_row = c.fetchone()
+        # Сохраняем активную папку для использования в POST и в конце для GET
+        current_active_subfolder = active_subfolder_row[0] if active_subfolder_row else ''
+
+        c.execute("SELECT value FROM settings WHERE key = 'show_card_info'")
+        show_card_info_row = c.fetchone()
+        # Сохраняем настройку показа карт для использования в конце для GET
+        show_card_info = show_card_info_row[0] == "true" if show_card_info_row else False
+
+    except sqlite3.Error as e:
+        # Если ошибка даже при чтении настроек, сообщаем и закрываем
+        message = f"Ошибка чтения начальных настроек: {e}"
+        conn.close()
+        # Можно отобразить страницу ошибки или пустую админку
+        return render_template("admin.html", message=message, users=[], images=[], subfolders=['koloda1', 'koloda2'], active_subfolder='', guess_counts_by_user={}, all_guesses={}, show_card_info=False, leading_user_id=None)
+
+
+    # --- Обработка POST-запросов ---
     if request.method == "POST":
-        if "name" in request.form:
-            name = request.form.get("name").strip()
-            num_cards = int(request.form.get("num_cards", 3))
-            code = generate_unique_code() # 
+        try:
+            if "name" in request.form:
+                # --- Создание пользователя ---
+                name = request.form.get("name").strip()
+                num_cards = int(request.form.get("num_cards", 3))
+                code = generate_unique_code()
 
-            try:
+                # Выполняем INSERT пользователя
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
-                user_id = c.lastrowid # ID только что созданного пользователя
+                user_id = c.lastrowid
+                message = f"Пользователь '{name}' добавлен." # Начальное сообщение
 
-                # Проверяем, есть ли уже ведущий
-                current_leader = get_leading_user_id()
-                if current_leader is None:
-                    # Если ведущего нет, назначаем только что созданного пользователя
-                    set_leading_user_id(user_id)
-                    # Обновляем переменную для отображения на странице после редиректа (если нужно)
-                    # В данном случае страница админки все равно перезагрузится GET-запросом,
-                    # так что leading_user_id будет прочитан заново.
-                    # Но если бы логика была другой, нужно было бы обновить и локальную переменную.
-                    message += f" Пользователь '{name}' назначен Ведущим." # Добавим сообщение
+                # --- Проверка и установка ведущего (ИСПОЛЬЗУЯ ТЕКУЩИЙ КУРСОР) ---
+                # Используем current_leading_user_id, прочитанный ранее
+                if current_leading_user_id is None:
+                    # Выполняем REPLACE настройки ведущего
+                    c.execute("REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (user_id,))
+                    message += f" Назначен Ведущим."
+                    current_leading_user_id = user_id # Обновляем для передачи в шаблон в конце
 
-                #   Назначаем карточки пользователю из активной колоды в случайном порядке
-                active_subfolder = get_setting("active_subfolder") 
-                if active_subfolder:
+                # --- Назначение карточек (ИСПОЛЬЗУЯ ТЕКУЩИЙ КУРСОР и настройку) ---
+                # Используем current_active_subfolder, прочитанный ранее
+                if current_active_subfolder:
                     c.execute("""
                         SELECT id, subfolder, image
                         FROM images
-                        WHERE subfolder = ? AND status = 'Свободно' 
-                    """, (active_subfolder,))
+                        WHERE subfolder = ? AND status = 'Свободно'
+                    """, (current_active_subfolder,))
                     available_cards = c.fetchall()
 
                     if len(available_cards) < num_cards:
-                        message = f"Недостаточно свободных карточек в колоде {active_subfolder}." # 
+                        message += f" Недостаточно свободных карточек в колоде {current_active_subfolder}."
                     else:
-                        random.shuffle(available_cards)  #   Перемешиваем карточки
-                        selected_cards = available_cards[:num_cards]  #   Выбираем нужное количество
-
-                        for card in selected_cards: # 
+                        random.shuffle(available_cards)
+                        selected_cards = available_cards[:num_cards]
+                        for card in selected_cards:
+                            # Выполняем UPDATE статуса карт
                             c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card[0]))
+                        message += " Карточки назначены."
+                else:
+                     message += " Активная колода не выбрана, карточки не назначены."
 
-                    conn.commit()
-                    message = f"Пользователь '{name}' добавлен."
+                # --- Фиксация всех изменений этого блока ---
+                conn.commit()
 
-            except sqlite3.IntegrityError: # 
-                message = f"Имя '{name}' уже существует."
+            elif "active_subfolder" in request.form:
+                # --- Смена активной колоды ---
+                selected = request.form.get("active_subfolder")
+                # Выполняем REPLACE настройки и UPDATE статусов карт
+                c.execute("REPLACE INTO settings (key, value) VALUES ('active_subfolder', ?)", (selected,))
+                c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
+                c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,))
+                conn.commit() # Фиксируем эти изменения
+                message = f"Выбран подкаталог: {selected}"
+                current_active_subfolder = selected # Обновляем локальную переменную
 
-        elif "active_subfolder" in request.form:
-            selected = request.form.get("active_subfolder")
-            set_setting("active_subfolder", selected)
-            #   Сделать все другие изображения занятыми
-            c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,)) # 
-            c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected,)) # 
-            conn.commit()
-            message = f"Выбран подкаталог: {selected}"
+        except sqlite3.IntegrityError:
+             message = f"Имя пользователя '{name}' уже существует или другая ошибка целостности."
+             conn.rollback() # Откатываем транзакцию в случае ошибки
+        except sqlite3.OperationalError as e:
+             message = f"Ошибка базы данных: {e}"
+             conn.rollback() # Откатываем транзакцию в случае ошибки
+        except Exception as e:
+             message = f"Произошла непредвиденная ошибка: {e}"
+             conn.rollback() # Откатываем транзакцию в случае ошибки
 
-    #   Получение данных
-    c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
-    users = c.fetchall()
 
-    c.execute("SELECT subfolder, image, status FROM images")
-    images = c.fetchall()
+    # --- Получение данных для отображения (для GET или после POST) ---
+    # Используем тот же курсор 'c'
+    try:
+        c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
+        users = c.fetchall()
 
-    # Get guess counts by each user # 
-    guess_counts_by_user = {}
-    for user in users:
-        user_id = user[0]
-        guess_counts_by_user[user_id] = 0
+        c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images") # Запросим больше данных для админки
+        images_data = c.fetchall()
+        # Преобразуем для удобства в шаблоне, если нужно (например, owner_id и guesses)
+        images = []
+        for img_row in images_data:
+            img_dict = {
+                "id": img_row[0],
+                "subfolder": img_row[1],
+                "image": img_row[2],
+                "status": img_row[3],
+                "owner_id": img_row[4],
+                "guesses": json.loads(img_row[5]) if img_row[5] else {}
+            }
+            images.append(img_dict)
 
-    c.execute("SELECT guesses FROM images WHERE guesses != '{}'")
-    images_with_guesses = c.fetchall()
-    for image_guesses_row in images_with_guesses:
-        guesses = json.loads(image_guesses_row[0])
-        for guesser_id, guessed_user_id in guesses.items():
-            # Ensure guesser_id is an integer and exists in the dictionary # 
-            guesser_id_int = int(guesser_id)
-            if guesser_id_int in guess_counts_by_user:
-                guess_counts_by_user[guesser_id_int] += 1
 
-    #   Get all guesses
-    all_guesses = {}
-    c.execute("SELECT id, guesses FROM images WHERE guesses != '{}'")
-    all_guesses_data = c.fetchall()
-    for image_id, guesses_str in all_guesses_data:
-        all_guesses[image_id] = json.loads(guesses_str) # 
+        # Get guess counts by each user
+        guess_counts_by_user = {}
+        for user_data in users: # Используем уже полученных users
+            user_id = user_data[0]
+            guess_counts_by_user[user_id] = 0
 
-    subfolders = ['koloda1', 'koloda2']
-    active_subfolder = get_setting("active_subfolder") or ''
+        # Перебираем обработанные images
+        for img in images:
+            for guesser_id_str in img["guesses"]:
+                 guesser_id_int = int(guesser_id_str)
+                 if guesser_id_int in guess_counts_by_user:
+                      guess_counts_by_user[guesser_id_int] += 1
 
-    show_card_info = get_setting("show_card_info") == "true"
 
-    conn.close()
+        # Get all guesses (уже есть в переменной images)
+        all_guesses = {img['id']: img['guesses'] for img in images if img['guesses']}
+
+        subfolders = ['koloda1', 'koloda2']
+        # Используем настройки, прочитанные в начале
+
+    except sqlite3.Error as e:
+        message += f" Ошибка чтения данных для отображения: {e}"
+        # Устанавливаем пустые значения, чтобы шаблон не упал
+        users, images, guess_counts_by_user, all_guesses = [], [], {}, {}
+
+
+    # --- Закрываем соединение и рендерим шаблон ---
+    conn.close() # Закрываем единственное соединение в самом конце
+
     return render_template("admin.html", users=users, images=images, message=message,
-                           subfolders=subfolders, active_subfolder=active_subfolder,
+                           subfolders=subfolders, active_subfolder=current_active_subfolder,
                            guess_counts_by_user=guess_counts_by_user, all_guesses=all_guesses,
                            show_card_info=show_card_info,
-                           leading_user_id=leading_user_id) # <--- ДОБАВЛЕНО: Передача ID ведущего в шаблон #
+                           leading_user_id=current_leading_user_id) # Передаем ID ведущего
     
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
