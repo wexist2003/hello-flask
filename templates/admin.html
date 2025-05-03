@@ -75,8 +75,8 @@
                         <td>{{ user[0] }}</td>
                         <td>
                             {{ user[1] }}
-                            {# Отображение пометки "Ведущий" #}
-                            {% if leading_user_id is not none and user[0] == leading_user_id %}
+                            {# Используем leader_to_display для отображения значка #}
+                            {% if leader_to_display is not none and user[0] == leader_to_display %}
                                 <span class="badge bg-success ms-2">Ведущий</span>
                             {% endif %}
                         </td>
