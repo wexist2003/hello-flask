@@ -143,59 +143,104 @@ def admin():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    # --- Обработка POST-запросов ---
+# --- Обработка POST-запросов ---
     if request.method == "POST":
+        # Флаг, чтобы знать, нужно ли делать редирект в конце
+        should_redirect = True
+
         if "name" in request.form:
-            # --- Логика добавления пользователя (как была исправлена) ---
-            # ... (код добавления пользователя и раздачи карт) ...
-            pass # Оставляем здесь существующий код
+            # --- Логика добавления пользователя ---
+            name = request.form.get("name", "").strip() # Добавим default и strip
+            num_cards_str = request.form.get("num_cards", "0")
+
+            # Проверка входных данных
+            if not name:
+                flash("Имя пользователя не может быть пустым.", "warning")
+            elif not num_cards_str.isdigit() or int(num_cards_str) <= 0:
+                flash("Количество карт должно быть положительным числом.", "warning")
+            else:
+                num_cards = int(num_cards_str)
+                code = generate_unique_code()
+                active_subfolder = get_setting("active_subfolder")
+
+                # --- Предварительные проверки ---
+                if not active_subfolder:
+                     flash("Сначала выберите активную колоду!", "warning")
+                else:
+                    # Проверяем наличие достаточного количества карт
+                    # Используем новый курсор для этой проверки, чтобы не мешать возможной транзакции
+                    check_conn = sqlite3.connect(DB_PATH)
+                    check_conn.row_factory = sqlite3.Row
+                    check_c = check_conn.cursor()
+                    check_c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
+                    available_cards_ids = [row['id'] for row in check_c.fetchall()]
+                    check_conn.close() # Закрываем соединение для проверки
+
+                    if len(available_cards_ids) < num_cards:
+                        flash(f"Недостаточно свободных карт ({len(available_cards_ids)}) в '{active_subfolder}' для раздачи {num_cards}.", "warning")
+                    else:
+                        # --- Если все проверки пройдены, пытаемся добавить пользователя и раздать карты ---
+                        try:
+                            # Начинаем транзакцию с основным соединением 'conn'
+                            c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
+                            user_id = c.lastrowid # Получаем ID добавленного пользователя
+
+                            # Раздаем карты
+                            random.shuffle(available_cards_ids)
+                            selected_card_ids = available_cards_ids[:num_cards]
+                            for card_id in selected_card_ids:
+                                c.execute("UPDATE images SET status = ?, owner_id = NULL, guesses = '{}' WHERE id = ?", (f"Занято:{user_id}", card_id))
+
+                            # Коммитим ВСЕ изменения (пользователь + карты) только если все успешно
+                            conn.commit()
+                            flash(f"Пользователь '{name}' добавлен. Карты розданы.", "success")
+
+                        except sqlite3.IntegrityError:
+                            conn.rollback() # Откатываем транзакцию
+                            flash(f"Имя пользователя '{name}' уже занято.", "danger")
+                        except Exception as e:
+                            conn.rollback() # Откатываем транзакцию
+                            flash(f"Произошла ошибка при добавлении/раздаче карт: {e}", "danger")
 
         elif "active_subfolder" in request.form:
-             # --- Логика выбора активной колоды (ИСПРАВЛЕНО) ---
+             # --- Логика выбора активной колоды (как была исправлена) ---
             selected = request.form.get("active_subfolder")
-            set_setting("active_subfolder", selected) # Сохраняем настройку
+            set_setting("active_subfolder", selected)
 
-            if selected: # Если выбрана конкретная колода
-                # 1. Делаем карты НЕАКТИВНЫХ колод "Неактивна", если они не заняты/на столе
-                c.execute("""
-                    UPDATE images
-                    SET status = 'Неактивна'
-                    WHERE subfolder != ?
-                    AND status NOT LIKE 'Занято:%'
-                    AND status != 'На столе'
-                """, (selected,))
+            if selected:
+                c.execute("UPDATE images SET status = 'Неактивна' WHERE subfolder != ? AND status NOT LIKE 'Занято:%' AND status != 'На столе'", (selected,))
+                c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ? AND (status = 'Неактивна' OR status = 'Свободно' OR status IS NULL)", (selected,))
+            else:
+                 c.execute("UPDATE images SET status = 'Неактивна' WHERE status NOT LIKE 'Занято:%' AND status != 'На столе'")
 
-                # 2. Делаем карты АКТИВНОЙ колоды "Свободно", если они были свободны или неактивны
-                c.execute("""
-                    UPDATE images
-                    SET status = 'Свободно'
-                    WHERE subfolder = ?
-                    AND (status = 'Неактивна' OR status = 'Свободно' OR status IS NULL)
-                """, (selected,))
-            else: # Если выбрано "-- Не выбрана --" (пустое значение)
-                 # Можно сделать все свободные/неактивные карты неактивными
-                 c.execute("""
-                    UPDATE images
-                    SET status = 'Неактивна'
-                    WHERE status NOT LIKE 'Занято:%'
-                    AND status != 'На столе'
-                 """)
-
-            conn.commit()
+            conn.commit() # Коммитим изменения статусов
             flash(f"Статус колод обновлен. Активная колода: {selected if selected else 'Не выбрана'}", "info")
 
+        else:
+            # Если пришел POST-запрос, но не опознан (не 'name' и не 'active_subfolder')
+            should_redirect = False # Не делаем редирект, возможно это GET-запрос
 
+        # --->>> Выполняем редирект ПОСЛЕ обработки ЛЮБОГО POST запроса <<<---
+        # Это важно для паттерна Post/Redirect/Get, чтобы избежать повторной отправки формы
+        if should_redirect:
+             # Закрываем соединение перед редиректом, т.к. оно больше не нужно для этого запроса
+             conn.close()
+             return redirect(url_for('admin')) # Перенаправляем на GET /admin
+
+    # --- Если метод GET ---
     # --- Получение данных для отображения ---
-    # Пользователи
-    c.execute("SELECT id, name, code, rating FROM users ORDER BY id ASC")
-    users = c.fetchall()
-    user_names = {user['id']: user['name'] for user in users} # Словарь ID -> Имя
+    # (Этот блок остается как в предыдущем ответе: получение users, images, user_names и т.д.)
+    # ... (весь код получения users, images, user_names, subfolders, active_subfolder, show_card_info, all_guesses_processed) ...
+
+    # Получаем ID и имена пользователей для отображения статуса карт
+    c.execute("SELECT id, name FROM users ORDER BY id ASC")
+    users = c.fetchall() # users теперь содержит объекты Row
+    user_names = {user['id']: user['name'] for user in users}
 
     # Изображения (обработка статусов как раньше)
     c.execute("SELECT id, subfolder, image, status, owner_id FROM images ORDER BY subfolder, id")
     images_raw = c.fetchall()
     images = []
-    # ... (блок обработки статусов изображений остается как в предыдущем ответе) ...
     for img in images_raw:
         display_status = img['status'] if img['status'] else 'Свободно'
         owner_name = None
@@ -210,19 +255,11 @@ def admin():
              elif img['status'] == 'На столе':
                  owner_name = user_names.get(img['owner_id'])
                  display_status = f"На столе ({owner_name})" if owner_name else "На столе (ID?)"
-             # Добавим отображение статуса 'Неактивна'
              elif img['status'] == 'Неактивна':
                  display_status = 'Неактивна'
+        images.append({ "id": img['id'], "subfolder": img['subfolder'], "image": img['image'], "display_status": display_status })
 
-        images.append({
-            "id": img['id'],
-            "subfolder": img['subfolder'],
-            "image": img['image'],
-            "display_status": display_status
-        })
-
-
-    # --->>> ДОБАВЛЕНО: Получение всех предположений <<<---
+    # Предположения
     all_guesses_processed = {}
     c.execute("SELECT id, guesses FROM images WHERE guesses IS NOT NULL AND guesses != '{}'")
     guesses_raw = c.fetchall()
@@ -230,28 +267,27 @@ def admin():
         image_id = img_guess['id']
         try:
             guesses_dict = json.loads(img_guess['guesses'])
-            # Конвертируем ключи и значения в int для унификации
             all_guesses_processed[image_id] = {int(k): int(v) for k, v in guesses_dict.items()}
         except json.JSONDecodeError:
-            print(f"Ошибка декодирования JSON для guesses в image_id: {image_id}") # Логгирование ошибки
+            print(f"Ошибка декодирования JSON для guesses в image_id: {image_id}")
 
     # Подкаталоги и другие настройки
-    subfolders = ['koloda1', 'koloda2'] # Или динамически
+    subfolders = ['koloda1', 'koloda2']
     active_subfolder = get_setting("active_subfolder") or ''
     show_card_info = get_setting("show_card_info") == "true"
 
-    conn.close()
 
-    # --->>> ИЗМЕНЕНО: Передаем all_guesses_processed и user_names <<<---
+    conn.close() # Закрываем соединение ПЕРЕД рендерингом шаблона
+
     return render_template("admin.html",
                            users=users,
                            images=images,
                            subfolders=subfolders,
                            active_subfolder=active_subfolder,
                            show_card_info=show_card_info,
-                           get_user_name=get_user_name, # Оставляем на всякий случай
-                           all_guesses_processed=all_guesses_processed, # Передаем обработанные угадывания
-                           user_names=user_names # Передаем словарь имен
+                           get_user_name=get_user_name,
+                           all_guesses_processed=all_guesses_processed,
+                           user_names=user_names
                            )
     
 
