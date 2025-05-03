@@ -413,9 +413,10 @@ def open_cards():
         else:  # Кто-то угадал
             user_points[owner_id] += 3 + correct_guesses
 
-            # Подсчет очков для угадавших
-            for guesser_id, guessed_user_id in guesses.items():
-                if guessed_user_id == owner_id:
+        # Подсчет очков для угадавших КАРТУ ВЕДУЩЕГО
+        for guesser_id, guessed_user_id in guesses.items():
+            # Проверяем, что угадали правильно И что угаданная карта принадлежит Ведущему
+            if guessed_user_id == owner_id and owner_id == leading_user_id:
                     user_points[int(guesser_id)] += 3
 
         # Подсчет очков для остальных пользователей за их карты
