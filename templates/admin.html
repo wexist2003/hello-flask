@@ -13,8 +13,20 @@
     </style>
 </head>
 
-<body class="p-4">
-    <h1>Админка</h1>
+<body class="p-4"> {# Убедитесь, что у body есть отступы #}
+    <div class="d-flex justify-content-between align-items-center"> {# Контейнер для заголовка и кнопки #}
+        <h1>Админка</h1>
+        {# --- НАЧАЛО: Кнопка смены темы --- #}
+        <div>
+             <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                     <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/>
+                 </svg>
+                 <span id="theme-toggle-text">Сменить тему</span>
+             </button>
+        </div>
+         {# --- КОНЕЦ: Кнопка смены темы --- #}
+    </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
