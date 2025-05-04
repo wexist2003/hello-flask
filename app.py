@@ -538,38 +538,37 @@ def open_cards():
 
 @app.route("/new_round", methods=["POST"])
 def new_round():
-    """Обрабатывает начало нового раунда: сброс стола/догадок, раздача карт."""
+    """Обрабатывает начало нового раунда: сброс стола/догадок, раздача карт, скрытие инфо."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row # Используем Row factory
     c = conn.cursor()
 
     try:
         # === Шаг 1: Определение ведущего НЕ ТРЕБУЕТСЯ ===
-        # (Ведущий для нового раунда уже установлен функцией open_cards)
 
         # === Шаг 2: Сбрасываем все предыдущие предположения ===
         c.execute("UPDATE images SET guesses = '{}' WHERE guesses IS NOT NULL AND guesses != '{}'")
         guesses_cleared_count = c.rowcount # Запоминаем количество
 
-        # === Шаг 3: Возвращаем карты с общего стола в руки владельцев ===
-        # Статус меняется на 'Занято:ID_владельца', owner_id очищается
-        # ID владельца берем из owner_id карты на столе.
-        c.execute("""
-            UPDATE images
-            SET status = 'Занято:' || owner_id, owner_id = NULL
-            WHERE status = 'На столе' AND owner_id IS NOT NULL
-        """)
+        # === Шаг 3: Карты со стола получают статус "Занято" ===
+        c.execute("UPDATE images SET status = 'Занято', owner_id = NULL WHERE status = 'На столе'")
         table_cleared_count = c.rowcount # Запоминаем количество
+
+        # === Шаг 4: Скрываем информацию о картах (сбрасываем флаг) ===
+        # Это позволит пользователям снова угадывать и скроет владельцев карт на столе
+        c.execute("REPLACE INTO settings (key, value) VALUES ('show_card_info', 'false')")
+        # или можно использовать set_setting("show_card_info", "false"), если она работает с текущим соединением conn
 
         # Выводим сообщение о начале раунда и результатах очистки
         flash("Новый раунд начат.", "info")
         if guesses_cleared_count > 0:
              flash(f"Сброшены предыдущие предположения ({guesses_cleared_count} карт).", "info")
         if table_cleared_count > 0:
-            flash(f"Карты возвращены со стола в руки ({table_cleared_count} шт.).", "info")
+            flash(f"Карты со стола ({table_cleared_count} шт.) получили статус 'Занято'.", "info")
+        flash("Информация о картах скрыта, можно делать новые предположения.", "info") # Новое сообщение
 
 
-        # === Шаг 4: Раздаем по одной новой карте каждому пользователю ===
+        # === Шаг 5: Раздаем по одной новой карте каждому пользователю ===
         c.execute("SELECT id FROM users ORDER BY id") # Получаем актуальный список user ID
         user_rows = c.fetchall()
         user_ids_ordered = [row['id'] for row in user_rows]
@@ -629,6 +628,7 @@ def new_round():
 
     # Перенаправляем обратно на страницу администратора
     return redirect(url_for('admin'))
+
 
 if __name__ == "__main__":
     init_db()
