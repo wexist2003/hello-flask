@@ -141,121 +141,151 @@ def index():
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row # Удобно для доступа к колонкам по имени
+    conn.row_factory = sqlite3.Row # Use Row factory for dict-like access
     c = conn.cursor()
-    message = "" # Используем flash для сообщений
-    leader_to_display = None # ID ведущего для отображения на этой странице
+    leader_to_display = None # ID of the leader to display on this page load
+    current_active_subfolder = '' # Initialize defaults
+    show_card_info = False
+    free_image_count = 0 # Initialize free image count
 
-    # --- Читаем начальные настройки через основной курсор ---
+    # --- Read initial settings using the main cursor ---
     try:
-        # Получаем ID ТЕКУЩЕГО (следующего) ведущего из БД
-        c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
-        leading_user_row = c.fetchone()
-        current_actual_leader_id = int(leading_user_row['value']) if leading_user_row and leading_user_row['value'] else None
+        current_actual_leader_id = get_leading_user_id() # Already returns int or None
+        current_active_subfolder = get_setting('active_subfolder') or ''
+        show_card_info = get_setting('show_card_info') == "true"
 
-        # --- ОПРЕДЕЛЯЕМ КОГО ПОКАЗЫВАТЬ ---
+        # --- DETERMINE WHICH LEADER TO SHOW ---
         displayed_leader_id_from_url_str = request.args.get('displayed_leader_id')
         if displayed_leader_id_from_url_str:
             try:
                 leader_to_display = int(displayed_leader_id_from_url_str)
             except (ValueError, TypeError):
-                leader_to_display = current_actual_leader_id # Фоллбэк на текущего, если параметр некорректен
+                leader_to_display = current_actual_leader_id # Fallback to current if param is invalid
         else:
-            leader_to_display = current_actual_leader_id # Показываем текущего при обычном заходе
-
-        # Получаем остальные настройки
-        c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'")
-        active_subfolder_row = c.fetchone()
-        current_active_subfolder = active_subfolder_row['value'] if active_subfolder_row else ''
-
-        c.execute("SELECT value FROM settings WHERE key = 'show_card_info'")
-        show_card_info_row = c.fetchone()
-        show_card_info = show_card_info_row['value'] == "true" if show_card_info_row else False
+            leader_to_display = current_actual_leader_id # Show current on normal visit
 
     except sqlite3.Error as e:
         flash(f"Ошибка чтения начальных настроек: {e}", "danger")
-        conn.close()
-        return render_template("admin.html", users=[], images=[], subfolders=['koloda1', 'koloda2'], active_subfolder='', guess_counts_by_user={}, all_guesses={}, show_card_info=False, leader_to_display=None)
+        # Note: conn might be closed here if error occurred during connection
+        # Render template with empty data and default settings
+        # Ensure connection is closed if still open before returning
+        if conn:
+             conn.close()
+        return render_template("admin.html", users=[], images=[], subfolders=['koloda1', 'koloda2'],
+                               active_subfolder='', guess_counts_by_user={}, all_guesses={},
+                               show_card_info=False, leader_to_display=None, free_image_count=0)
 
-    # --- Обработка POST-запросов ---
+
+    # --- Handle POST requests ---
     if request.method == "POST":
         try:
             if "name" in request.form:
-                # --- Создание пользователя ---
+                # --- Create user ---
                 name = request.form.get("name", "").strip()
                 if not name:
                      flash("Имя пользователя не может быть пустым.", "warning")
-                     # Прерываем обработку этого POST и переходим к отображению GET
                 else:
-                    num_cards = int(request.form.get("num_cards", 3))
-                    code = generate_unique_code()
+                    num_cards = int(request.form.get("num_cards", 3)) # Default to 3
+                    if num_cards < 1:
+                        flash("Количество карточек должно быть не меньше 1.", "warning")
+                        num_cards = 1
 
+                    code = generate_unique_code()
                     c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
                     user_id = c.lastrowid
                     flash(f"Пользователь '{name}' добавлен.", "success")
 
-                    # --- Проверка и установка ведущего (при СОЗДАНИИ первого пользователя) ---
-                    if current_actual_leader_id is None:
-                        c.execute("REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (user_id,))
+                    if current_actual_leader_id is None: # Check was done before POST block
+                        set_leading_user_id(user_id)
                         flash(f"Пользователь '{name}' назначен Ведущим.", "info")
                         current_actual_leader_id = user_id
-                        leader_to_display = current_actual_leader_id # Обновляем и для отображения
+                        leader_to_display = current_actual_leader_id
 
-                    # --- Назначение карточек ---
                     if current_active_subfolder:
                         c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (current_active_subfolder,))
                         available_cards_rows = c.fetchall()
                         available_cards_ids = [row['id'] for row in available_cards_rows]
 
                         if len(available_cards_ids) < num_cards:
-                            flash(f"Недостаточно свободных карточек ({len(available_cards_ids)} шт.) в колоде {current_active_subfolder} для назначения {num_cards} шт.", "warning")
-                        else:
+                            flash(f"Недостаточно свободных карточек ({len(available_cards_ids)} шт.) в колоде '{current_active_subfolder}' для назначения {num_cards} шт.", "warning")
+                            num_cards = len(available_cards_ids)
+
+                        if num_cards > 0:
                             random.shuffle(available_cards_ids)
                             selected_cards_ids = available_cards_ids[:num_cards]
                             for card_id in selected_cards_ids:
                                 c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id))
-                            flash(f"Пользователю '{name}' назначено {num_cards} карт.", "info")
+                            flash(f"Пользователю '{name}' назначено {num_cards} карт(ы).", "info")
                     else:
                          flash("Активная колода не выбрана, карточки не назначены.", "warning")
 
-                    conn.commit() # Фиксируем создание пользователя, возможно ведущего, назначение карт
-                    # После успешного POST лучше сделать редирект на GET, чтобы избежать повторной отправки формы
-                    return redirect(url_for('admin'))
-
+                    conn.commit()
+                    return redirect(url_for('admin')) # Redirect after successful user creation
 
             elif "active_subfolder" in request.form:
-                # --- Смена активной колоды ---
+                # --- Change active subfolder ---
                 selected = request.form.get("active_subfolder")
-                c.execute("REPLACE INTO settings (key, value) VALUES ('active_subfolder', ?)", (selected,))
-                c.execute("UPDATE images SET status = 'Занято' WHERE subfolder != ?", (selected,))
-                c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ? AND owner_id IS NULL AND status != 'На столе'", (selected,)) # Не трогаем карты на столе или уже назначенные из этой колоды
+                set_setting('active_subfolder', selected)
+                c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected,))
+                c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ? AND owner_id IS NULL AND status != 'На столе' AND status LIKE 'Занято:%'", (selected,))
                 conn.commit()
                 flash(f"Выбрана активная колода: {selected}", "success")
-                current_active_subfolder = selected # Обновляем локальную переменную
-                return redirect(url_for('admin')) # Редирект после смены колоды
+                return redirect(url_for('admin'))
 
-        except sqlite3.IntegrityError:
-             flash(f"Имя пользователя '{name}' уже существует.", "danger")
+            elif "delete_user_id" in request.form:
+                # --- Delete user ---
+                user_id_to_delete = int(request.form.get("delete_user_id"))
+                c.execute("SELECT name FROM users WHERE id = ?", (user_id_to_delete,))
+                user_to_delete = c.fetchone()
+                if user_to_delete:
+                    user_name_deleted = user_to_delete['name']
+                    c.execute("DELETE FROM users WHERE id = ?", (user_id_to_delete,))
+                    c.execute("UPDATE images SET status = 'Свободно' WHERE status = ?", (f"Занято:{user_id_to_delete}",))
+                    c.execute("UPDATE images SET status = 'Свободно', owner_id = NULL, guesses = '{}' WHERE owner_id = ?", (user_id_to_delete,))
+                    conn.commit()
+                    flash(f"Пользователь '{user_name_deleted}' (ID: {user_id_to_delete}) удален.", "success")
+                    if current_actual_leader_id == user_id_to_delete:
+                        flash("Удаленный пользователь был Ведущим. Назначение нового Ведущего произойдет при следующем открытии карт или начале раунда.", "warning")
+                        # Optionally reset leader setting here if needed immediately
+                        # set_leading_user_id(None) # Or find next leader
+                else:
+                    flash(f"Пользователь с ID {user_id_to_delete} не найден.", "danger")
+                return redirect(url_for('admin'))
+
+        except sqlite3.IntegrityError as e:
+             if "UNIQUE constraint failed: users.name" in str(e):
+                 flash(f"Имя пользователя '{name}' уже существует.", "danger")
+             else:
+                 flash(f"Ошибка целостности базы данных: {e}", "danger")
              conn.rollback()
         except sqlite3.OperationalError as e:
              flash(f"Ошибка базы данных: {e}", "danger")
              conn.rollback()
-        except Exception as e:
-             flash(f"Произошла непредвиденная ошибка: {e}", "danger")
+        except ValueError:
+             flash("Неверное числовое значение (например, количество карточек или ID пользователя).", "danger")
              conn.rollback()
+        except Exception as e:
+              flash(f"Произошла непредвиденная ошибка: {e}", "danger")
+              conn.rollback()
+        # Fall through to GET rendering if POST had errors and didn't redirect
 
-    # --- Получение данных для отображения (для GET или после неудачного POST без редиректа) ---
+    # --- Get data for display (for GET or after failed POST without redirect) ---
     try:
         c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
-        users = c.fetchall() # Теперь это список объектов Row
+        users = c.fetchall()
 
-        # Запрашиваем все данные из images
         c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id")
         images_rows = c.fetchall()
-        images = [] # Список словарей для шаблона
-        all_guesses = {} # Словарь всех предположений {image_id: {guesser_id_str: guessed_owner_id}}
+        images = []
+        all_guesses = {}
+        free_image_count = 0 # Recalculate for GET request
         for img_row in images_rows:
-            guesses_dict = json.loads(img_row['guesses']) if img_row['guesses'] and img_row['guesses'] != '{}' else {}
+            guesses_json_str = img_row['guesses'] if img_row['guesses'] else '{}'
+            try:
+                guesses_dict = json.loads(guesses_json_str) if guesses_json_str and guesses_json_str != '{}' else {}
+            except json.JSONDecodeError:
+                guesses_dict = {}
+
             img_dict = {
                 "id": img_row['id'],
                 "subfolder": img_row['subfolder'],
@@ -265,37 +295,48 @@ def admin():
                 "guesses": guesses_dict
             }
             images.append(img_dict)
+
+            # Count free images again for GET display
+            if img_dict['status'] == 'Свободно':
+                free_image_count += 1
+
             if guesses_dict:
                  all_guesses[img_row['id']] = guesses_dict
 
-        # Считаем количество предположений КАЖДОГО пользователя
         guess_counts_by_user = {user['id']: 0 for user in users}
         for img_id, guesses_for_image in all_guesses.items():
             for guesser_id_str in guesses_for_image:
                  try:
                      guesser_id_int = int(guesser_id_str)
                      if guesser_id_int in guess_counts_by_user:
-                          guess_counts_by_user[guesser_id_int] += 1
+                         guess_counts_by_user[guesser_id_int] += 1
                  except (ValueError, TypeError):
-                     pass # Игнорируем невалидные ID угадывающих
+                     pass
 
-        subfolders = ['koloda1', 'koloda2'] # Можно получать динамически, если нужно
+        c.execute("SELECT DISTINCT subfolder FROM images")
+        subfolders_rows = c.fetchall()
+        subfolders = [row['subfolder'] for row in subfolders_rows] if subfolders_rows else ['koloda1', 'koloda2']
 
     except sqlite3.Error as e:
         flash(f"Ошибка чтения данных для отображения: {e}", "danger")
-        users, images, guess_counts_by_user, all_guesses = [], [], {}, {}
+        users, images, subfolders, guess_counts_by_user, all_guesses = [], [], [], {}, {}
+        free_image_count = 0
+        # Ensure settings have default values for rendering
+        current_active_subfolder = current_active_subfolder or ''
+        show_card_info = show_card_info or False
+        leader_to_display = leader_to_display or None
 
     finally:
-        # Закрываем соединение в любом случае (кроме случая раннего выхода из-за ошибки чтения настроек)
         if conn:
             conn.close()
 
-    # Отображаем шаблон с подготовленными данными
-    return render_template("admin.html", users=users, images=images, # message больше не передаем, используем flash
+    # Render the template with prepared data, including free_image_count
+    return render_template("admin.html", users=users, images=images,
                            subfolders=subfolders, active_subfolder=current_active_subfolder,
                            guess_counts_by_user=guess_counts_by_user, all_guesses=all_guesses,
                            show_card_info=show_card_info,
-                           leader_to_display=leader_to_display) # Передаем ID для отображения значка
+                           leader_to_display=leader_to_display,
+                           free_image_count=free_image_count) # Pass the count
     
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
