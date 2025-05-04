@@ -70,7 +70,7 @@
                      {# Если отображаемый слева - предыдущий, то показываем текущего (он же следующий) справа #}
                      {% set next_leader_name = get_user_name(next_leader_id) %}
                      <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
-                 {% endif %} {# Иначе (если next_leader_id == leader_for_display и карты не открыты), "Следующий" не показываем, т.к. он и есть текущий #}
+                 {% endif %}
             </span>
         </div>
         {# --- КОНЕЦ БЛОКА ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
@@ -142,14 +142,13 @@
 
                                 <hr class="my-1"> {# Разделитель, уменьшены отступы #}
 
-                                {# --- Блок "Ваше предположение" --- #}
+                                {# --- Блок "Ваше предположение" (с исправлением) --- #}
                                 <p class="card-text mb-0" style="font-size: 0.9em;"> {# Уменьшен шрифт #}
                                     <small>
-                                        Ваше предположение:
-                                        {# Получаем ID, которого выбрал ТЕКУЩИЙ пользователь #}
-                                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
+                                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %} {# Получаем ID, которого выбрал ТЕКУЩИЙ пользователь #}
                                         {% if my_guess_owner_id is not none %}
-                                            {# Отображаем имя выбранного и метку правильности #}
+                                            {# Если пользователь ДЕЛАЛ предположение #}
+                                            Ваше предположение:
                                             <strong>{{ get_user_name(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
                                             {% if my_guess_owner_id == table_image.owner_id %}
                                                 <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
@@ -157,8 +156,14 @@
                                                 <i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>
                                             {% endif %}
                                         {% else %}
-                                             {# Если текущий пользователь не делал предположение #}
-                                             <span class="text-muted">Вы не делали предположение.</span>
+                                            {# Если пользователь НЕ ДЕЛАЛ предположение #}
+                                            {% if table_image.owner_id == g.user_id %}
+                                                {# И это его собственная карта #}
+                                                <span class="text-primary fw-bold">Это ваша карточка.</span> {# Новый текст #}
+                                            {% else %}
+                                                {# И это чужая карта #}
+                                                Ваше предположение: <span class="text-muted">Вы не делали предположение.</span> {# Старый текст #}
+                                            {% endif %}
                                         {% endif %}
                                     </small>
                                 </p>
@@ -204,7 +209,7 @@
             </div> {# Конец card-container #}
         </div>
 
-        <h2>Мои карточки</h2>
+        <h2>Мои карточки</h2> {# Заголовок уже был исправлен ранее #}
         <div class="card-container mb-4"> {# Контейнер для карт на руках #}
             {% for card in cards %} {# cards - список карт пользователя, которые не на столе #}
             <div class="card">
