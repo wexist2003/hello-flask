@@ -545,20 +545,14 @@ def new_round():
 
     try:
         # === Шаг 1: Определение ведущего НЕ ТРЕБУЕТСЯ ===
-        # (Ведущий для нового раунда уже установлен функцией open_cards)
 
         # === Шаг 2: Сбрасываем все предыдущие предположения ===
         c.execute("UPDATE images SET guesses = '{}' WHERE guesses IS NOT NULL AND guesses != '{}'")
         guesses_cleared_count = c.rowcount # Запоминаем количество
 
-        # === Шаг 3: Возвращаем карты с общего стола в руки владельцев ===
-        # Статус меняется на 'Занято:ID_владельца', owner_id очищается
-        # ID владельца берем из owner_id карты на столе.
-        c.execute("""
-            UPDATE images
-            SET status = 'Занято:' || owner_id, owner_id = NULL
-            WHERE status = 'На столе' AND owner_id IS NOT NULL
-        """)
+        # === Шаг 3: Карты со стола получают статус "Занято" ===
+        # Статус меняется на 'Занято', owner_id очищается
+        c.execute("UPDATE images SET status = 'Занято', owner_id = NULL WHERE status = 'На столе'")
         table_cleared_count = c.rowcount # Запоминаем количество
 
         # Выводим сообщение о начале раунда и результатах очистки
@@ -566,7 +560,8 @@ def new_round():
         if guesses_cleared_count > 0:
              flash(f"Сброшены предыдущие предположения ({guesses_cleared_count} карт).", "info")
         if table_cleared_count > 0:
-            flash(f"Карты возвращены со стола в руки ({table_cleared_count} шт.).", "info")
+            # Изменяем сообщение в соответствии с новым статусом
+            flash(f"Карты со стола ({table_cleared_count} шт.) получили статус 'Занято'.", "info")
 
 
         # === Шаг 4: Раздаем по одной новой карте каждому пользователю ===
