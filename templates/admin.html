@@ -12,6 +12,7 @@
         /* Пользовательские стили */
         body { padding-bottom: 5rem; }
         h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+        h3 { margin-top: 1rem; font-size: 1.25rem; } /* Для заголовков внутри колонок */
         table { margin-top: 1rem; }
         .table th { background-color: #f8f9fa; } /* Светло-серый заголовок таблицы */
         .action-forms form { display: inline-block; margin-right: 5px; } /* Кнопки действий в строку */
@@ -26,7 +27,7 @@
              <div>
                  <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm" title="Сменить тему">
                      <i class="bi bi-circle-half"></i>
-                     <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span> {# Скрываем текст, оставляем для скринридеров #}
+                     <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
                  </button>
              </div>
         </div>
@@ -43,44 +44,50 @@
             {% endif %}
         {% endwith %}
 
-        {# --- Форма добавления пользователя --- #}
-        <h2>Добавить пользователя</h2>
-        <form method="post" action="{{ url_for('admin') }}" class="mb-4">
-            <div class="row g-3 align-items-end">
-                 <div class="col-md-4">
-                    <label for="name" class="form-label">Имя:</label>
-                    <input type="text" id="name" name="name" class="form-control" required>
-                 </div>
-                 <div class="col-md-3">
-                    <label for="num_cards" class="form-label">Начальное кол-во карт:</label>
-                    <input type="number" id="num_cards" name="num_cards" class="form-control" value="3" min="1" required>
-                 </div>
-                 <div class="col-auto">
-                     <button type="submit" class="btn btn-primary">Добавить</button>
-                 </div>
+        {# --- ОБЪЕДИНЕННЫЙ БЛОК ФОРМ: ВЫБОР КОЛОДЫ И ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ --- #}
+        <div class="row mb-4 g-4"> {# Строка с отступами между колонками (g-4) #}
+            {# --- Левая колонка: Выбор колоды --- #}
+            <div class="col-md-5">
+                <h3>Выбор колоды</h3> {# Переименованный заголовок #}
+                <form method="post" action="{{ url_for('admin') }}">
+                    <div class="mb-3"> {# Используем mb-3 для отступа под селектом #}
+                        <label for="active_subfolder" class="form-label">Активная колода:</label>
+                        <select id="active_subfolder" name="active_subfolder" class="form-select">
+                            <option value="">-- Не выбрана --</option>
+                            {% for subfolder in subfolders %}
+                                <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Сохранить колоду</button>
+                </form>
             </div>
-        </form>
 
-        {# --- Форма выбора активной колоды --- #}
-        <h2>Настройки Раунда</h2>
-        <form method="post" action="{{ url_for('admin') }}" class="mb-4">
-             <div class="row g-3 align-items-end">
-                 <div class="col-md-4">
-                    <label for="active_subfolder" class="form-label">Активная колода:</label>
-                    <select id="active_subfolder" name="active_subfolder" class="form-select">
-                        <option value="">-- Не выбрана --</option>
-                        {% for subfolder in subfolders %}
-                            <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
-                        {% endfor %}
-                    </select>
-                 </div>
-                  <div class="col-auto">
-                     <button type="submit" class="btn btn-secondary">Сохранить колоду</button>
-                 </div>
-             </div>
-        </form>
+            {# --- Правая колонка: Добавить пользователя --- #}
+            <div class="col-md-7">
+                 <h3>Добавить пользователя</h3>
+                 <form method="post" action="{{ url_for('admin') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-sm-6">
+                            <label for="name" class="form-label">Имя:</label>
+                            <input type="text" id="name" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-sm-4">
+                            <label for="num_cards" class="form-label">Кол-во карт:</label> {# Сокращенный текст #}
+                            <input type="number" id="num_cards" name="num_cards" class="form-control" value="3" min="1" required>
+                        </div>
+                        <div class="col-sm-2">
+                            <button type="submit" class="btn btn-primary w-100">Добавить</button> {# Кнопка на всю ширину колонки #}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {# --- КОНЕЦ ОБЪЕДИНЕННОГО БЛОКА ФОРМ --- #}
+
 
         {# --- Кнопки управления раундом --- #}
+        <h2>Управление раундом</h2> {# Добавлен общий заголовок для кнопок #}
         <div class="mb-4 action-forms">
             <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Открыть карты и подсчитать очки? Текущий раунд завершится, следующий ведущий будет назначен.');">
                 <button class="btn btn-success" type="submit"><i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки</button>
@@ -91,64 +98,51 @@
         </div>
 
 
-        {# --- Список пользователей (с изменениями) --- #}
+        {# --- Список пользователей (с изменениями ширины колонок) --- #}
         <h2>Список пользователей</h2>
         <div class="table-responsive mb-4">
             {# Добавлен table-layout: fixed для лучшего управления шириной колонок #}
             <table class="table table-bordered table-striped table-hover table-sm" style="table-layout: fixed; width: 100%;">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 5%;">ID</th>
-                        <th style="width: 20%;">Имя / Статус</th>
-                        {# УДАЛЕНА КОЛОНКА С КОДОМ #}
-                        <th style="width: 15%;">Ссылка</th> {# ЗАДАНА ШИРИНА #}
+                        <th style="width: 3%;" class="text-center">ID</th> {# Уменьшена ширина, центрировано #}
+                        <th style="width: 15%;">Имя / Статус</th>         {# Уменьшена ширина #}
+                        <th style="width: 15%;">Ссылка</th>
                         <th style="width: 7%;">Рейтинг</th>
                         <th>Предположения игрока</th> {# Авто ширина #}
                         <th style="width: 10%;">Действия</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for user in users %} {# user is now a Row object #}
+                    {% for user in users %}
                         <tr>
-                            <td>{{ user.id }}</td>
-                            <td>
+                            <td class="text-center">{{ user.id }}</td> {# Центрировано #}
+                            <td> {# Имя / Статус #}
                                 {{ user.name }}
-                                {# Отображаем метку Ведущего #}
                                 {% if leader_to_display is not none and user.id == leader_to_display %}
                                     <span class="badge bg-success ms-2" title="Ведущий этого (или только что завершенного) раунда"><i class="bi bi-star-fill"></i> Ведущий</span>
                                 {% endif %}
                             </td>
-
-                            {# УДАЛЕНА ЯЧЕЙКА С КОДОМ #}
-
-                            {# ЯЧЕЙКА ССЫЛКИ С ОГРАНИЧЕНИЕМ ШИРИНЫ И ОБРЕЗКОЙ #}
-                            <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> {# Ссылка #}
                                 <a href="{{ url_for('user', code=user.code) }}" target="_blank" title="{{ url_for('user', code=user.code, _external=True) }}">{{ user.code }} <i class="bi bi-box-arrow-up-right"></i></a>
                             </td>
-
-                            <td>{{ user.rating }}</td>
-
-                            {# ЯЧЕЙКА С ПРЕДПОЛОЖЕНИЯМИ В 3 КОЛОНКИ, БЕЗ "НЕТ" #}
-                            <td>
+                            <td>{{ user.rating }}</td> {# Рейтинг #}
+                            <td> {# Предположения в 3 колонки #}
                                 {% set user_guess_count = guess_counts_by_user.get(user.id, 0) %}
                                 {% if user_guess_count > 0 %}
-                                    {# Используем CSS columns для разбиения на 3 колонки #}
                                     <div style="column-count: 3; column-gap: 10px; font-size: 0.8rem;">
                                     {% for image_id, guesses_for_image in all_guesses.items() %}
-                                        {% if user.id|string in guesses_for_image %} {# Проверяем, угадывал ли этот пользователь эту карту #}
+                                        {% if user.id|string in guesses_for_image %}
                                             {% set guessed_owner_id = guesses_for_image[user.id|string] %}
-                                            {# Выводим каждое предположение как отдельный блок small #}
                                             <small style="display: block; margin-bottom: 2px; white-space: nowrap;">
                                               Карта {{ image_id }}: {{ get_user_name(guessed_owner_id) or ('ID ' + guessed_owner_id|string) }}
                                             </small>
                                         {% endif %}
                                     {% endfor %}
                                     </div>
-                                {% endif %} {# Если user_guess_count == 0, блок else удален, ничего не выводится #}
+                                {% endif %}
                             </td>
-
-                            <td class="action-forms text-center"> {# Центрируем кнопку удаления #}
-                                {# Форма удаления пользователя - POST на admin #}
+                            <td class="action-forms text-center"> {# Действия #}
                                 <form action="{{ url_for('admin') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.name }} (ID: {{ user.id }})? Это действие необратимо!');">
                                     <input type="hidden" name="delete_user_id" value="{{ user.id }}">
                                     <button class="btn btn-danger btn-sm" type="submit" title="Удалить пользователя {{ user.name }}">
@@ -159,7 +153,7 @@
                         </tr>
                     {% else %}
                         <tr>
-                            {# Обновлен colspan с 7 на 6 #}
+                            {# Colspan остается 6 #}
                             <td colspan="6" class="text-center text-muted">Пользователи еще не добавлены.</td>
                         </tr>
                     {% endfor %}
@@ -167,8 +161,9 @@
             </table>
         </div>
 
-        {# --- Список изображений --- #}
-        <h2>Список изображений ({{ images|length }} шт.)</h2>
+        {# --- Список изображений (обновлен заголовок, восстановлен статус без владельца) --- #}
+        {# Обновленный заголовок с количеством свободных карт #}
+        <h2>Список изображений ({{ images|length }} шт. / Свободно: {{ free_image_count }})</h2>
          <div class="table-responsive">
             <table class="table table-bordered table-sm">
                 <thead class="table-light">
@@ -176,70 +171,47 @@
                          <th>ID</th>
                          <th>Колода</th>
                          <th>Файл</th>
-                         <th>Статус / Владелец</th>
+                         <th>Статус</th> {# Восстановлена колонка, название изменено #}
                          <th>Превью</th>
-                         <th>Предположения по карте</th> {# Предположения ДЛЯ этой карты #}
+                         {# Колонка "Предположения по карте" остается скрытой #}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for image in images %} {# image - это словарь #}
-                        <tr class="{{ 'table-secondary' if image.subfolder != active_subfolder else '' }}"> {# Затеняем неактивные колоды #}
+                    {% for image in images %}
+                        <tr class="{{ 'table-secondary' if image.subfolder != active_subfolder else '' }}">
                             <td>{{ image.id }}</td>
                             <td>{{ image.subfolder }}</td>
                             <td>{{ image.image }}</td>
+
+                            {# Восстановлена ячейка статуса, но без информации о владельце #}
                             <td>
                                 {% if image.status and image.status.startswith('Занято:') %}
-                                    {% set assigned_user_id_str = image.status.split(':')[1] %}
-                                    <span class="badge bg-secondary" title="Карта назначена игроку">Занято:</span>
-                                    {{ get_user_name(assigned_user_id_str|int) or 'ID ' + assigned_user_id_str }}
+                                    <span class="badge bg-secondary" title="Карта назначена игроку">Занято</span>
                                 {% elif image.status == 'На столе' %}
-                                     <span class="badge bg-info" title="Карта выложена на стол">На столе:</span>
-                                     {% if image.owner_id %}
-                                        {{ get_user_name(image.owner_id) or 'ID ' + image.owner_id|string }}
-                                        {# Добавляем звездочку, если это карта ведущего #}
-                                        {% if leader_to_display is not none and image.owner_id == leader_to_display %}
-                                             <i class="bi bi-star-fill text-success" title="Карта ведущего"></i>
-                                        {% endif %}
-                                     {% else %}
-                                        (владелец неизвестен)
-                                     {% endif %}
+                                     <span class="badge bg-info" title="Карта выложена на стол">На столе</span>
                                 {% elif image.status == 'Свободно' %}
                                     {% if image.subfolder == active_subfolder %}
                                          <span class="badge bg-light text-dark">Свободно</span>
                                     {% else %}
-                                         <span class="badge bg-light text-muted">Свободно (неактивна)</span>
+                                         <span class="badge bg-light text-muted" title="Карта в неактивной колоде">Свободно</span>
                                     {% endif %}
                                 {% else %}
                                     {{ image.status or 'N/A' }} {# Отображаем другие статусы, если есть #}
                                 {% endif %}
                             </td>
-                            <td>
+
+                            <td> {# Превью #}
                                 <img src="{{ url_for('static', filename='images/' + image.subfolder + '/' + image.image) }}"
-                                     alt="{{ image.image }}" style="max-width: 60px; height: auto;" loading="lazy"> {# Маленькое превью, ленивая загрузка #}
+                                     alt="{{ image.image }}" style="max-width: 60px; height: auto;" loading="lazy">
                             </td>
-                            <td>
-                                {# Отображаем предположения, сделанные ДЛЯ этой карты #}
-                                {% if image.guesses %}
-                                    <ul class="list-unstyled mb-0">
-                                        {% for guesser_id, guessed_owner_id in image.guesses.items() %}
-                                            <li><small>
-                                                {{ get_user_name(guesser_id|int) or 'ID ' + guesser_id }}: {# Кто угадал #}
-                                                {{ get_user_name(guessed_owner_id) or 'ID ' + guessed_owner_id|string }} {# Чья карта (по мнению) #}
-                                                {# Отмечаем правильность, если информация открыта #}
-                                                {% if g.show_card_info and image.owner_id and guessed_owner_id == image.owner_id %}
-                                                    <i class="bi bi-check-circle-fill text-success" title="Верно"></i>
-                                                {% endif %}
-                                            </small></li>
-                                        {% endfor %}
-                                    </ul>
-                                {% else %}
-                                    <small class="text-muted">Нет</small>
-                                {% endif %}
-                            </td>
+
+                            {# Ячейка "Предположения по карте" остается скрытой #}
+
                         </tr>
                     {% else %}
                          <tr>
-                             <td colspan="6" class="text-center text-muted">Изображения не найдены или не загружены.</td>
+                             {# Обновлен colspan с 4 на 5 #}
+                             <td colspan="5" class="text-center text-muted">Изображения не найдены или не загружены.</td>
                         </tr>
                     {% endfor %}
                 </tbody>
