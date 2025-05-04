@@ -367,55 +367,74 @@ def guess_image(code, image_id):
 
     return redirect(url_for('user', code=code)) #   Redirect back to user page
 
-@app.route("/user/<code>")
+@app.route("/user/<code>", methods=["GET", "POST"]) # Добавим методы, т.к. есть формы
 def user(code):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT id, name, rating FROM users WHERE code = ?", (code,))
-    row = c.fetchone()
 
-    if not row:
-        conn.close()
-        return "<h1>Пользователь не найден</h1>", 404
+    # Используем g.user, как договорились
+    if not g.user or g.user['code'] != code: # Проверка, что g.user тот, кто нужен
+        # Если нет, или код не совпадает, возможно, стоит перезагрузить?
+        # Но пока оставим так, предполагая, что load_user отработал для нужного кода
+         return "Ошибка: Пользователь не загружен или код не совпадает.", 403
 
-    user_id, name, rating = row
+    # --- Определяем статус показа карт и ID ведущего завершенного раунда ---
+    cards_are_revealed = False
+    leader_of_revealed_round = None
+    c.execute("SELECT value FROM settings WHERE key = 'show_card_info'")
+    show_card_info_setting = c.fetchone()
+    if show_card_info_setting and show_card_info_setting['value']:
+        setting_value = show_card_info_setting['value']
+        if setting_value.lower() != 'false': # Если не 'false'
+             try:
+                 # Пытаемся преобразовать значение в ID ведущего
+                 leader_of_revealed_round = int(setting_value)
+                 cards_are_revealed = True # Считаем, что карты открыты
+             except (ValueError, TypeError):
+                 # Не удалось преобразовать в число, считаем, что карты скрыты
+                 cards_are_revealed = False
 
-    #  
-    #  Get user's cards
-    c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-    cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
 
-    #   Get images on the table
-    c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images_data = c.fetchall()
-    table_images = []
-    for img in table_images_data:
-        owner_id = img[3]
-        table_image = {
-            "id": img[0],
-            "subfolder": img[1],
-            "image": img[2],
-            "owner_id": owner_id,
-            "guesses": json.loads(img[4]) if img[4] else {},
-        }
-        table_images.append(table_image)
+    # --- Получаем остальные данные ---
+    # Карты пользователя
+    c.execute("SELECT id, subfolder, image, status FROM images WHERE status = ?", (f"Занято:{g.user['id']}",))
+    user_cards_rows = c.fetchall()
+    user_cards = [dict(row) for row in user_cards_rows] # Преобразуем в словари
 
-    #   Get all users 
-    # for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users", )  #   Fetch all users
-    all_users = c.fetchall()
+    # Карты на столе
+    c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images WHERE status = 'На столе'")
+    table_images_rows = c.fetchall()
+    table_images = [] # Список словарей
+    for img_row in table_images_rows:
+         guesses_dict = json.loads(img_row['guesses']) if img_row['guesses'] and img_row['guesses'] != '{}' else {}
+         img_dict = dict(img_row) # Копируем Row в dict
+         img_dict['guesses'] = guesses_dict
+         table_images.append(img_dict)
 
-    #   Check if the user has a card on the table
-    c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
-    on_table = c.fetchone() is not None
+    # Все пользователи для списка угадывания
+    c.execute("SELECT id, name FROM users")
+    all_users = c.fetchall() # Список Row
+
+    # ID текущего (следующего) ведущего - может понадобиться где-то еще
+    c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+    leading_user_row = c.fetchone()
+    current_leading_user_id = int(leading_user_row['value']) if leading_user_row and leading_user_row['value'] else None
 
     conn.close()
 
-    show_card_info = get_setting("show_card_info") == "true" # Get the setting
-
-    return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
+    # --- Передаем переменные в шаблон ---
+    return render_template("user.html",
+                           code=code,                 # Код текущего пользователя
+                           # user=g.user,           # Передаем g.user как user
+                           # Теперь используем g.user НАПРЯМУЮ в шаблоне, как было в оригинале user.html
+                           user_cards=user_cards,     # Карты пользователя
+                           table_images=table_images,   # Карты на столе
+                           all_users=all_users,         # Все пользователи
+                           cards_are_revealed=cards_are_revealed, # Флаг показа карт (True/False)
+                           leader_of_revealed_round=leader_of_revealed_round # ID ведущего для показа метки (или None)
+                           # current_leading_user_id=current_leading_user_id # Если нужен ID следующего ведущего
+                           )
     
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
@@ -468,6 +487,8 @@ def open_cards():
              conn.close()
              return redirect(url_for("admin")) # Нет пользователей - нечего делать
 
+
+    
     # --- Подсчет очков (основной код остается без изменений) ---
     c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
     table_images = c.fetchall()
@@ -508,6 +529,14 @@ def open_cards():
 
     conn.commit() # Сохраняем ИЗМЕНЕНИЯ РЕЙТИНГА
 
+    # --- УСТАНОВКА ФЛАГА ПОКАЗА ИНФО С ID ВЕДУЩЕГО ---
+    # Вместо просто "true" записываем ID ведущего (как строку)
+    if leader_just_finished is not None:
+        set_setting("show_card_info", str(leader_just_finished))
+    else:
+        # На всякий случай, если ведущий не определен
+        set_setting("show_card_info", "false")
+    
     # --- ОПРЕДЕЛЯЕМ И СОХРАНЯЕМ СЛЕДУЮЩЕГО ВЕДУЩЕГО ---
     # Используем leader_just_finished как отправную точку
     next_leading_user_id = None # Инициализация
