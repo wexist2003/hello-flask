@@ -538,7 +538,7 @@ def open_cards():
 
 @app.route("/new_round", methods=["POST"])
 def new_round():
-    """Обрабатывает начало нового раунда: сброс стола/догадок, раздача карт."""
+    """Обрабатывает начало нового раунда: сброс стола/догадок, раздача карт, скрытие инфо."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row # Используем Row factory
     c = conn.cursor()
@@ -551,20 +551,24 @@ def new_round():
         guesses_cleared_count = c.rowcount # Запоминаем количество
 
         # === Шаг 3: Карты со стола получают статус "Занято" ===
-        # Статус меняется на 'Занято', owner_id очищается
         c.execute("UPDATE images SET status = 'Занято', owner_id = NULL WHERE status = 'На столе'")
         table_cleared_count = c.rowcount # Запоминаем количество
+
+        # === Шаг 4: Скрываем информацию о картах (сбрасываем флаг) ===
+        # Это позволит пользователям снова угадывать и скроет владельцев карт на столе
+        c.execute("REPLACE INTO settings (key, value) VALUES ('show_card_info', 'false')")
+        # или можно использовать set_setting("show_card_info", "false"), если она работает с текущим соединением conn
 
         # Выводим сообщение о начале раунда и результатах очистки
         flash("Новый раунд начат.", "info")
         if guesses_cleared_count > 0:
              flash(f"Сброшены предыдущие предположения ({guesses_cleared_count} карт).", "info")
         if table_cleared_count > 0:
-            # Изменяем сообщение в соответствии с новым статусом
             flash(f"Карты со стола ({table_cleared_count} шт.) получили статус 'Занято'.", "info")
+        flash("Информация о картах скрыта, можно делать новые предположения.", "info") # Новое сообщение
 
 
-        # === Шаг 4: Раздаем по одной новой карте каждому пользователю ===
+        # === Шаг 5: Раздаем по одной новой карте каждому пользователю ===
         c.execute("SELECT id FROM users ORDER BY id") # Получаем актуальный список user ID
         user_rows = c.fetchall()
         user_ids_ordered = [row['id'] for row in user_rows]
