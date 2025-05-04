@@ -370,53 +370,81 @@ def guess_image(code, image_id):
 @app.route("/user/<code>")
 def user(code):
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # Use Row factory
     c = conn.cursor()
     c.execute("SELECT id, name, rating FROM users WHERE code = ?", (code,))
-    row = c.fetchone()
+    user_data = c.fetchone()
 
-    if not row:
+    if not user_data:
         conn.close()
-        return "<h1>Пользователь не найден</h1>", 404
+        flash("Пользователь с таким кодом не найден.", "warning")
+        return redirect(url_for('index'))
 
-    user_id, name, rating = row
+    user_id = user_data['id']
+    name = user_data['name']
+    rating = user_data['rating']
 
-    #  
-    #  Get user's cards
+    # Get user's cards
     c.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f"Занято:{user_id}",))
-    cards = [{"id": r[0], "subfolder": r[1], "image": r[2]} for r in c.fetchall()]
+    cards = c.fetchall()
 
-    #   Get images on the table
+    # Get images on the table
     c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
     table_images_data = c.fetchall()
     table_images = []
-    for img in table_images_data:
-        owner_id = img[3]
+    for img_row in table_images_data:
+        guesses_json_str = img_row['guesses'] if img_row['guesses'] else '{}'
+        try:
+            guesses_dict = json.loads(guesses_json_str)
+        except json.JSONDecodeError:
+            guesses_dict = {}
         table_image = {
-            "id": img[0],
-            "subfolder": img[1],
-            "image": img[2],
-            "owner_id": owner_id,
-            "guesses": json.loads(img[4]) if img[4] else {},
+            "id": img_row['id'],
+            "subfolder": img_row['subfolder'],
+            "image": img_row['image'],
+            "owner_id": img_row['owner_id'],
+            "guesses": {str(k): v for k, v in guesses_dict.items()},
         }
         table_images.append(table_image)
 
-    #   Get all users 
-    # for the dropdown (excluding the current user - will handle exclusion in template)
-    c.execute("SELECT id, name FROM users", )  #   Fetch all users
+    # Get all users for the dropdown (ordered by name for display)
+    c.execute("SELECT id, name FROM users ORDER BY name ASC")
     all_users = c.fetchall()
 
-    #   Check if the user has a card on the table
+    # Check if the current user has a card on the table
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
 
+    # --- Определение ID ведущего для отображения ---
+    current_leader_id = get_leading_user_id()
+    leader_to_display = current_leader_id # По умолчанию показываем текущего
+
+    if g.show_card_info and current_leader_id is not None:
+        # Если карты открыты, вычисляем предыдущего ведущего
+        # Нужен список пользователей, отсортированный по ID (как в логике смены ведущего)
+        c.execute("SELECT id FROM users ORDER BY id")
+        user_rows_by_id = c.fetchall()
+        user_ids_ordered = [row['id'] for row in user_rows_by_id]
+
+        if user_ids_ordered: # Если список пользователей не пуст
+            try:
+                current_index = user_ids_ordered.index(current_leader_id)
+                # Вычисляем индекс предыдущего с зацикливанием
+                previous_index = (current_index - 1 + len(user_ids_ordered)) % len(user_ids_ordered)
+                leader_to_display = user_ids_ordered[previous_index] # Отображаем предыдущего
+            except ValueError:
+                # Текущий ведущий не найден в списке (маловероятно, но возможно при удалении)
+                # В этом случае оставляем leader_to_display равным current_leader_id (или None)
+                pass
+
+    # --- Закрываем соединение после всех запросов ---
     conn.close()
 
-    show_card_info = get_setting("show_card_info") == "true" # Get the setting
-
+    # Передаем leader_to_display в шаблон
     return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
-    
+                           table_images=table_images, all_users=all_users,
+                           code=code, on_table=on_table, g=g,
+                           leader_for_display=leader_to_display) # Используем новое имя переменной
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
