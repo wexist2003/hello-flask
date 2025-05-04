@@ -47,19 +47,32 @@
         <h1>Привет, {{ name }}!</h1>
         <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
 
-        {# --- Удален блок с кодом доступа --- #}
+        {# --- ЯВНОЕ ОТОБРАЖЕНИЕ ВЕДУЩЕГО И СЛЕДУЮЩЕГО --- #}
+        <div class="d-flex justify-content-between align-items-baseline mb-2"> {# Flexbox для выравнивания #}
+            {# Левая часть: Ведущий (текущий или предыдущий раунд) #}
+            <span class="text-muted">
+                {% if leader_for_display %} {# ID ведущего для отображения #}
+                    {% set displayed_leader_name = get_user_name(leader_for_display) %}
+                    <i class="bi bi-star-fill text-success"></i> {# Иконка ведущего #}
+                    Ведущий: <strong>{{ displayed_leader_name or ('ID ' + leader_for_display|string) }}</strong>
+                {% else %}
+                    Ведущий еще не определен.
+                {% endif %}
+            </span>
 
-        {# --- ЯВНОЕ ОТОБРАЖЕНИЕ ВЕДУЩЕГО --- #}
-        {% if leader_for_display %} {# Используем ID, переданный из app.py #}
-            {% set leader_name = get_user_name(leader_for_display) %}
-            <p class="text-muted">
-                <i class="bi bi-star-fill text-success"></i>
-                Ведущий {{ "(предыдущего раунда)" if g.show_card_info else "(текущий)" }}:
-                <strong>{{ leader_name or ('ID ' + leader_for_display|string) }}</strong>
-            </p>
-        {% else %}
-            <p class="text-muted">Ведущий еще не определен.</p>
-        {% endif %}
+            {# Правая часть: Следующий ведущий #}
+            <span class="text-muted">
+                {% set next_leader_id = get_leading_user_id() %} {# Получаем ID реального СЛЕДУЮЩЕГО ведущего из настроек #}
+                {% if next_leader_id and next_leader_id != leader_for_display %} {# Показываем, только если он отличается от отображаемого слева #}
+                     {% set next_leader_name = get_user_name(next_leader_id) %}
+                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                {% elif next_leader_id and next_leader_id == leader_for_display and g.show_card_info %}
+                     {# Если отображаемый слева - предыдущий, то показываем текущего (он же следующий) справа #}
+                     {% set next_leader_name = get_user_name(next_leader_id) %}
+                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                 {% endif %} {# Иначе (если next_leader_id == leader_for_display и карты не открыты), "Следующий" не показываем, т.к. он и есть текущий #}
+            </span>
+        </div>
         {# --- КОНЕЦ БЛОКА ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
 
 
@@ -91,7 +104,7 @@
                                     Чья: {{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}
                                     {# Метка Ведущего НА КАРТЕ (появляется при совпадении ID и если карты открыты) #}
                                     {% if leader_for_display == table_image.owner_id %}
-                                         <span class="badge bg-success ms-1" title="Ведущий (предыдущий раунд)"><i class="bi bi-star-fill"></i></span>
+                                         <span class="badge bg-success ms-1" title="Ведущий"><i class="bi bi-star-fill"></i></span>
                                     {% endif %}
                                 </h6>
                                 <p class="card-text"><small>Предположения:</small></p>
