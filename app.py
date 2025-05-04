@@ -413,9 +413,15 @@ def user(code):
 
     show_card_info = get_setting("show_card_info") == "true" # Get the setting
 
-    return render_template("user.html", name=name, rating=rating, cards=cards,
-                           table_images=table_images, all_users=all_users, #   передаем всех пользователей
-                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
+    return render_template("user.html",
+                           code=code,
+                           user=user_data,          # <--- Ключевой момент
+                           user_cards=user_cards,
+                           table_images=table_images,
+                           all_users=all_users,
+                           show_card_info=show_card_info,
+                           leading_user_id=leading_user_id
+                           )
     
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
