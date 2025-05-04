@@ -11,7 +11,7 @@ DB_PATH = 'database.db'
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "a_default_super_secret_key") # Лучше использовать переменную окружения
 
 # --- Управление соединением с БД ---
-was_leader = 1
+was_leader = True
 
 def get_db():
     """Открывает новое соединение с БД, если его еще нет для текущего контекста."""
