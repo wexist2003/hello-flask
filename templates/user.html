@@ -46,9 +46,22 @@
 
         <h1>Привет, {{ name }}!</h1>
         <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
-        {% if g.user_id %} {# Проверка наличия контекста пользователя #}
-            <p><small>Ваш код доступа: <code>{{ code }}</code></small></p>
+
+        {# --- Удален блок с кодом доступа --- #}
+
+        {# --- ЯВНОЕ ОТОБРАЖЕНИЕ ВЕДУЩЕГО --- #}
+        {% if leader_for_display %} {# Используем ID, переданный из app.py #}
+            {% set leader_name = get_user_name(leader_for_display) %}
+            <p class="text-muted">
+                <i class="bi bi-star-fill text-success"></i>
+                Ведущий {{ "(предыдущего раунда)" if g.show_card_info else "(текущий)" }}:
+                <strong>{{ leader_name or ('ID ' + leader_for_display|string) }}</strong>
+            </p>
+        {% else %}
+            <p class="text-muted">Ведущий еще не определен.</p>
         {% endif %}
+        {# --- КОНЕЦ БЛОКА ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
+
 
         {# --- Flash-сообщения --- #}
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -76,7 +89,7 @@
                             {% if g.show_card_info %} {# Если информация о картах открыта #}
                                 <h6 class="card-subtitle mb-2 text-muted">
                                     Чья: {{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}
-                                    {# Отображаем метку Ведущего на основе leader_for_display #}
+                                    {# Метка Ведущего НА КАРТЕ (появляется при совпадении ID и если карты открыты) #}
                                     {% if leader_for_display == table_image.owner_id %}
                                          <span class="badge bg-success ms-1" title="Ведущий (предыдущий раунд)"><i class="bi bi-star-fill"></i></span>
                                     {% endif %}
@@ -148,7 +161,7 @@
                       class="card-img-top" alt="Карта {{ card.id }}" loading="lazy">
                  <div class="card-body text-center">
                     {% if not on_table %} {# Показываем кнопку, только если пользователь еще не выложил карту #}
-                        {# Проверяем, является ли текущий пользователь ведущим в этом раунде #}
+                        {# Проверяем, является ли текущий пользователь ведущим в этом раунде (используем ТЕКУЩЕГО ведущего для этой логики) #}
                         {% if get_leading_user_id() == g.user_id %} {# Если пользователь - ведущий #}
                            <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
                                <button type="submit" class="btn btn-success btn-sm w-100">
