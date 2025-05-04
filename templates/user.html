@@ -9,7 +9,7 @@
     {# Иконки Bootstrap (опционально) #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        /* Пользовательские стили  */
+        /* Пользовательские стили */
         .card-img-top {
             max-width: 150px; /* Ограничение ширины изображения карты */
             height: auto;
@@ -88,6 +88,14 @@
             {% endif %}
         {% endwith %}
 
+        {# --- Сообщение о конце игры (если применимо) --- #}
+        {% if g.game_over %}
+            <div class="alert alert-warning mt-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! Новые действия недоступны.
+            </div>
+        {% endif%}
+
+
         <hr>
 
         <h2>Общий стол</h2>
@@ -99,9 +107,10 @@
                     <div class="card">
                         {# --- Блок с информацией о владельце (над картинкой) --- #}
                         {% if g.show_card_info %}
-                        <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2"> {# Убрал фон, границу снизу, уменьшил отступы #}
-                              <h6 class="card-subtitle text-muted text-center mb-1"> {# Центрированный подзаголовок #}
-                                 <small>Чья:</small> <strong>{{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
+                        <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
+                              <h6 class="card-subtitle text-muted text-center mb-1">
+                                 <small>Чья:</small>
+                                 <strong>{{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
                                  {% if leader_for_display == table_image.owner_id %}
                                       <span class="badge bg-success ms-1" title="Ведущий"><i class="bi bi-star-fill"></i></span>
                                  {% endif %}
@@ -112,22 +121,21 @@
 
                         {# --- Изображение карты --- #}
                         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-                             class="card-img-top px-3" {# Добавлены горизонтальные отступы #}
+                             class="card-img-top px-3"
                              alt="Карта {{ table_image.id }}" loading="lazy"
-                             style="max-width: 180px; margin-top: 0.5rem;"> {# Увеличен max-width, добавлен верхний отступ #}
+                             style="max-width: 180px; margin-top: 0.5rem;">
                         {# --- Конец изображения карты --- #}
 
                         {# --- Тело карточки (Предположения и форма) --- #}
-                        <div class="card-body pt-2"> {# Уменьшен верхний отступ #}
+                        <div class="card-body pt-2">
                             {% if g.show_card_info %}
                                 {# --- Блок общих предположений --- #}
                                 <p class="card-text mb-1"><small>Предположения:</small></p>
-                                <ul class="list-unstyled mb-2" style="font-size: 0.85em;"> {# Уменьшен шрифт и нижний отступ #}
+                                <ul class="list-unstyled mb-2" style="font-size: 0.85em;">
                                     {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
                                         <li><small>
-                                            {{ get_user_name(guesser_id_str|int) or 'ID ' + guesser_id_str }}: {# Кто угадывал #}
-                                            {{ get_user_name(guessed_user_id) or 'ID ' + guessed_user_id|string }} {# Кого выбрал #}
-                                            {# Метка правильности #}
+                                            {{ get_user_name(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
+                                            {{ get_user_name(guessed_user_id) or 'ID ' + guessed_user_id|string }}
                                             {% if guessed_user_id == table_image.owner_id %}
                                                 <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
                                             {% else %}
@@ -140,12 +148,12 @@
                                 </ul>
                                 {# --- Конец блока общих предположений --- #}
 
-                                <hr class="my-1"> {# Разделитель, уменьшены отступы #}
+                                <hr class="my-1">
 
-                                {# --- Блок "Ваше предположение" (с исправлением) --- #}
-                                <p class="card-text mb-0" style="font-size: 0.9em;"> {# Уменьшен шрифт #}
+                                {# --- Блок "Ваше предположение" --- #}
+                                <p class="card-text mb-0" style="font-size: 0.9em;">
                                     <small>
-                                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %} {# Получаем ID, которого выбрал ТЕКУЩИЙ пользователь #}
+                                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
                                         {% if my_guess_owner_id is not none %}
                                             {# Если пользователь ДЕЛАЛ предположение #}
                                             Ваше предположение:
@@ -159,45 +167,50 @@
                                             {# Если пользователь НЕ ДЕЛАЛ предположение #}
                                             {% if table_image.owner_id == g.user_id %}
                                                 {# И это его собственная карта #}
-                                                <span class="text-primary fw-bold">Это ваша карточка.</span> {# Новый текст #}
+                                                <span class="text-primary fw-bold">Это ваша карточка.</span>
                                             {% else %}
                                                 {# И это чужая карта #}
-                                                Ваше предположение: <span class="text-muted">Вы не делали предположение.</span> {# Старый текст #}
+                                                Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>
                                             {% endif %}
                                         {% endif %}
                                     </small>
                                 </p>
                                 {# --- Конец блока "Ваше предположение" --- #}
 
-                            {% else %} {# Информация скрыта - показываем форму угадывания #}
+                            {% else %} {# Информация скрыта - показываем форму угадывания или сообщение #}
                                 {% if table_image.owner_id == g.user_id %}
                                     <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
                                 {% else %}
-                                    {# Форма остается без изменений #}
-                                    <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                                         <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
-                                         <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
-                                            <option value="">-- Выберите --</option>
-                                            {% for user in all_users %}
-                                                {% if user.id != g.user_id %}
-                                                    {% set current_guess = table_image.guesses.get(g.user_id|string) %}
-                                                    <option value="{{ user.id }}" {% if current_guess == user.id %}selected{% endif %}>
-                                                        {{ user.name }}
-                                                    </option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                                            {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                                                <i class="bi bi-pencil-square"></i> Изменить
-                                            {% else %}
-                                                <i class="bi bi-question-circle"></i> Угадать
-                                            {% endif %}
-                                        </button>
-                                    </form>
-                                    {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                                    <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name(table_image.guesses[g.user_id|string]) }}</small></p>
-                                    {% endif %}
+                                     {# --- УСЛОВИЕ БЛОКИРОВКИ ФОРМЫ --- #}
+                                     {% if not g.game_over %}
+                                        <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
+                                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
+                                                <option value="">-- Выберите --</option>
+                                                {% for user in all_users %}
+                                                    {% if user.id != g.user_id %}
+                                                        {% set current_guess = table_image.guesses.get(g.user_id|string) %}
+                                                        <option value="{{ user.id }}" {% if current_guess == user.id %}selected{% endif %}>
+                                                            {{ user.name }}
+                                                        </option>
+                                                    {% endif %}
+                                                {% endfor %}
+                                             </select>
+                                             <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                                 {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                                     <i class="bi bi-pencil-square"></i> Изменить
+                                                 {% else %}
+                                                     <i class="bi bi-question-circle"></i> Угадать
+                                                 {% endif %}
+                                             </button>
+                                        </form>
+                                        {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                        <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name(table_image.guesses[g.user_id|string]) }}</small></p>
+                                        {% endif %}
+                                     {% else %} {# Если игра окончена, показываем сообщение вместо формы #}
+                                        <p class="text-center text-muted"><small>Игра окончена.</small></p>
+                                     {% endif %}
+                                     {# --- КОНЕЦ УСЛОВИЯ БЛОКИРОВКИ ФОРМЫ --- #}
                                 {% endif %} {# Конец if table_image.owner_id == g.user_id #}
                             {% endif %} {# Конец if g.show_card_info #}
                         </div> {# Конец card-body #}
@@ -209,31 +222,37 @@
             </div> {# Конец card-container #}
         </div>
 
-        <h2>Мои карточки</h2> {# Заголовок уже был исправлен ранее #}
+        <h2>Мои карточки</h2> {# Заголовок #}
         <div class="card-container mb-4"> {# Контейнер для карт на руках #}
             {% for card in cards %} {# cards - список карт пользователя, которые не на столе #}
             <div class="card">
                  <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
                       class="card-img-top" alt="Карта {{ card.id }}" loading="lazy">
                  <div class="card-body text-center">
-                    {% if not on_table %} {# Показываем кнопку, только если пользователь еще не выложил карту #}
-                        {# Проверяем, является ли текущий пользователь ведущим в этом раунде (используем ТЕКУЩЕГО ведущего для этой логики) #}
-                        {% if get_leading_user_id() == g.user_id %} {# Если пользователь - ведущий #}
-                           <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
-                               <button type="submit" class="btn btn-success btn-sm w-100">
-                                   <i class="bi bi-send"></i> Выложить (Ведущий)
-                               </button>
-                           </form>
-                        {% else %} {# Если пользователь - не ведущий #}
-                             <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
-                               <button type="submit" class="btn btn-secondary btn-sm w-100">
-                                   <i class="bi bi-send"></i> Выложить на стол
-                               </button>
-                           </form>
-                        {% endif %} {# Конец проверки get_leading_user_id() == g.user_id #}
-                    {% else %} {# Если пользователь уже выложил карту #}
-                         <small class="text-muted">Вы уже выложили карту</small>
-                    {% endif %} {# Конец проверки not on_table #}
+                    {# --- УСЛОВИЕ БЛОКИРОВКИ КНОПКИ "ВЫЛОЖИТЬ" --- #}
+                    {% if not g.game_over %}
+                        {% if not on_table %} {# Показываем кнопку, только если пользователь еще не выложил карту #}
+                            {# Проверяем, является ли текущий пользователь ведущим #}
+                            {% if get_leading_user_id() == g.user_id %}
+                               <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                                   <button type="submit" class="btn btn-success btn-sm w-100">
+                                       <i class="bi bi-send"></i> Выложить (Ведущий)
+                                   </button>
+                               </form>
+                            {% else %}
+                                 <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                                   <button type="submit" class="btn btn-secondary btn-sm w-100">
+                                       <i class="bi bi-send"></i> Выложить на стол
+                                   </button>
+                               </form>
+                            {% endif %}
+                        {% else %}
+                             <small class="text-muted">Вы уже выложили карту</small>
+                        {% endif %}
+                    {% else %} {# Если игра окончена #}
+                        <p class="text-center text-muted"><small>Игра окончена.</small></p>
+                    {% endif %}
+                     {# --- КОНЕЦ УСЛОВИЯ БЛОКИРОВКИ КНОПКИ --- #}
                  </div> {# Конец card-body #}
             </div> {# Конец card #}
             {% else %} {# Если у пользователя нет карт на руках #}
