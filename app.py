@@ -96,39 +96,69 @@ def set_leading_user_id(user_id):
     conn.close()
 
 @app.before_request
-def before_request():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    code = None
-    if request.view_args and 'code' in request.view_args:
-        code = request.view_args.get('code')
-    elif request.args and 'code' in request.args:
-        code = request.args.get('code')
-    if code:
-        c.execute("SELECT id FROM users WHERE code = ?", (code,))
-        user_id = c.fetchone()
-        if user_id:
-            g.user_id = user_id[0]
-        else:
-            g.user_id = None
-    else:
-        g.user_id = None
+def load_user():
+    # --- Загрузка пользователя в g.user ---
+    code = request.view_args.get('code') if request.view_args else None
+    g.user = None # Сброс по умолчанию
+    db_conn = None # Инициализация переменной соединения
+    try:
+        db_conn = sqlite3.connect(DB_PATH)
+        db_conn.row_factory = sqlite3.Row # Используем Row Factory для доступа по именам колонок
+        c = db_conn.cursor()
+        if code:
+            c.execute("SELECT * FROM users WHERE code = ?", (code,))
+            g.user = c.fetchone() # Загружаем пользователя (или None, если не найден)
 
-    # Get the show_card_info setting and make it available globally
-    show_card_info = get_setting("show_card_info")
-    g.show_card_info = show_card_info == "true"
+        # --- Чтение настройки show_card_info и установка g.show_card_info / g.leader_of_revealed_round ---
+        g.show_card_info = False # Значение по умолчанию
+        g.leader_of_revealed_round = None # Значение по умолчанию
 
-    conn.close()
+        c.execute("SELECT value FROM settings WHERE key = 'show_card_info'")
+        setting_row = c.fetchone()
 
+        if setting_row and setting_row['value']:
+             setting_value = setting_row['value']
+             if setting_value.lower() != 'false':
+                 try:
+                     # Пытаемся получить ID ведущего из значения настройки
+                     g.leader_of_revealed_round = int(setting_value)
+                     g.show_card_info = True # Карты открыты, если значение - это ID
+                 except (ValueError, TypeError):
+                     # Если значение не 'false' и не ID, считаем карты скрытыми
+                     g.show_card_info = False
+    except sqlite3.Error as e:
+        print(f"DATABASE ERROR in load_user: {e}")
+        # В случае ошибки БД, лучше сбросить значения g
+        g.user = None
+        g.show_card_info = False
+        g.leader_of_revealed_round = None
+    finally:
+        # Закрываем соединение, если оно было открыто
+        if db_conn:
+            db_conn.close()
+
+# --- Убедитесь, что у вас есть функция get_user_name, доступная в шаблонах ---
+# Либо через app.context_processor, либо через app.jinja_env.globals.update
 def get_user_name(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT name FROM users WHERE id = ?", (user_id,))
-    user_name = c.fetchone()
-    conn.close()
-    if user_name:
-        return user_name[0]
-    return None
+    # Ваша реализация получения имени по ID (с обработкой ошибок и None)
+    if user_id is None: return None
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT name FROM users WHERE id = ?", (int(user_id),))
+        user_name_row = c.fetchone()
+        conn.close()
+        return user_name_row[0] if user_name_row else f"ID {user_id}?"
+    except (ValueError, TypeError, sqlite3.Error) as e:
+        print(f"Error in get_user_name for ID {user_id}: {e}")
+        if conn: conn.close()
+        return f"ID {user_id}?"
+
+app.jinja_env.globals.update(get_user_name=get_user_name)
+# --- Также убедитесь, что get_leading_user_id доступна или замените вызов в шаблоне ---
+# def get_leading_user_id(): ...
+# app.jinja_env.globals.update(get_leading_user_id=get_leading_user_id)
 
 app.jinja_env.globals.update(get_user_name=get_user_name, g=g, get_leading_user_id=get_leading_user_id) # Make the function globally available
 
@@ -468,125 +498,140 @@ def place_card(code, image_id):
 # ЗАМЕНИТЕ ВАШУ ТЕКУЩУЮ ФУНКЦИЮ open_cards НА ЭТУ:
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
-    set_setting("show_card_info", "true") # Показываем информацию о картах
+    conn = None # Инициализация
+    leader_just_finished = None # Инициализация
+    try:
+        # Получаем ID ведущего, который ЗАВЕРШИЛ раунд
+        # Используем вашу функцию или прямой запрос
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
 
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+        c.execute("SELECT value FROM settings WHERE key = 'leading_user_id'")
+        leader_row = c.fetchone()
+        leader_just_finished = int(leader_row['value']) if leader_row and leader_row['value'] else None
 
-    # Получаем ID ведущего, который ЗАВЕРШИЛ раунд
-    leader_just_finished = get_leading_user_id() # Запоминаем ID для отображения
-
-    # --- Проверка и установка ведущего, если его не было (оставляем как есть) ---
-    if leader_just_finished is None:
-         c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
-         first_user = c.fetchone()
-         if first_user:
-             leader_just_finished = first_user[0] # Используем первого как "завершившего"
-             set_leading_user_id(leader_just_finished) # И устанавливаем его текущим
-         else:
-             conn.close()
-             return redirect(url_for("admin")) # Нет пользователей - нечего делать
-
-
-    
-    # --- Подсчет очков (основной код остается без изменений) ---
-    c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
-    table_images = c.fetchall()
-    c.execute("SELECT id FROM users")
-    all_users = [user[0] for user in c.fetchall()]
-    num_all_users = len(all_users)
-    user_points = {user_id: 0 for user_id in all_users}
-
-    for image_data in table_images:
-        image_id = image_data[0]
-        owner_id = image_data[1]
-        guesses = json.loads(image_data[2]) if image_data[2] else {}
-        correct_guesses_count = 0
-
-        for guesser_id_str, guessed_user_id in guesses.items():
-            guesser_id = int(guesser_id_str)
-            # Используем leader_just_finished для правил подсчета
-            if guessed_user_id == owner_id:
-                correct_guesses_count += 1
-                if owner_id == leader_just_finished: # Правило 4
-                    user_points[guesser_id] += 3
-                elif owner_id != leader_just_finished: # Правило 5
-                    user_points[owner_id] += 1
-
-        if owner_id == leader_just_finished: # Правило 3
-            if num_all_users > 1 and correct_guesses_count == num_all_users - 1:
-                user_points[owner_id] -= 3
-            elif correct_guesses_count == 0:
-                user_points[owner_id] -= 2
+        # --- Если ведущего не было, устанавливаем первого (пример) ---
+        if leader_just_finished is None:
+            c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+            first_user = c.fetchone()
+            if first_user:
+                leader_just_finished = first_user['id']
+                # Устанавливаем его как текущего ведущего
+                c.execute("REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (leader_just_finished,))
+                conn.commit() # Фиксируем установку первого ведущего
             else:
+                 flash("Нет пользователей для игры.", "warning")
+                 if conn: conn.close()
+                 return redirect(url_for('admin')) # Выход, если нет юзеров
+
+        # --- Подсчет очков (ваш код, использующий leader_just_finished) ---
+        c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
+        table_images_rows = c.fetchall()
+        c.execute("SELECT id FROM users")
+        all_user_rows = c.fetchall()
+        all_users_ids = [row['id'] for row in all_user_rows]
+        num_all_users = len(all_users_ids)
+        user_points = {user_id: 0 for user_id in all_users_ids}
+
+        for image_data in table_images_rows:
+            owner_id = image_data['owner_id']
+            guesses = json.loads(image_data['guesses']) if image_data['guesses'] else {}
+            correct_guesses_count = 0
+
+            for guesser_id_str, guessed_user_id in guesses.items():
+                guesser_id = int(guesser_id_str)
+                if guessed_user_id == owner_id:
+                    correct_guesses_count += 1
+                    if owner_id == leader_just_finished: # Правило 4
+                         if guesser_id in user_points: user_points[guesser_id] += 3
+                    elif owner_id != leader_just_finished: # Правило 5
+                        if owner_id in user_points: user_points[owner_id] += 1
+                        if guesser_id in user_points: user_points[guesser_id] += 1 # Добавлено правило 5 для угадавшего
+
+
+            if owner_id == leader_just_finished: # Правило 3
+                # Если есть хотя бы 2 игрока
                 if num_all_users > 1:
-                     user_points[owner_id] += 3 + correct_guesses_count
+                    # Если ВСЕ угадали правильно (кроме самого себя)
+                    if correct_guesses_count == num_all_users - 1:
+                         if owner_id in user_points: user_points[owner_id] += 0 # или -= penalty, если надо
+                    # Если НИКТО не угадал правильно
+                    elif correct_guesses_count == 0:
+                         if owner_id in user_points: user_points[owner_id] += 0 # или -= penalty
+                    else: # Если угадали некоторые, но не все
+                         if owner_id in user_points: user_points[owner_id] += correct_guesses_count # Очки за каждого угадавшего
+                # Если игрок всего один, очков он не получает как ведущий? Уточнить логику.
 
-    # --- Обновление рейтинга ---
-    for user_id, points in user_points.items():
-        if points != 0:
-            c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
 
-    conn.commit() # Сохраняем ИЗМЕНЕНИЯ РЕЙТИНГА
+        # --- Обновление рейтинга ---
+        for user_id, points in user_points.items():
+            if points != 0:
+                c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+        flash("Очки подсчитаны и рейтинг обновлен.", "info")
+        conn.commit() # Сохраняем ИЗМЕНЕНИЯ РЕЙТИНГА
 
-    # --- УСТАНОВКА ФЛАГА ПОКАЗА ИНФО С ID ВЕДУЩЕГО ---
-    # Вместо просто "true" записываем ID ведущего (как строку)
-    if leader_just_finished is not None:
-        set_setting("show_card_info", str(leader_just_finished))
-    else:
-        # На всякий случай, если ведущий не определен
-        set_setting("show_card_info", "false")
-    
-    # --- ОПРЕДЕЛЯЕМ И СОХРАНЯЕМ СЛЕДУЮЩЕГО ВЕДУЩЕГО ---
-    # Используем leader_just_finished как отправную точку
-    next_leading_user_id = None # Инициализация
-    if leader_just_finished is not None:
-        c.execute("SELECT id FROM users ORDER BY id")
-        user_ids_ordered = [user[0] for user in c.fetchall()]
+        # --- УСТАНОВКА ФЛАГА ПОКАЗА ИНФО С ID ВЕДУЩЕГО ---
+        if leader_just_finished is not None:
+            c.execute("REPLACE INTO settings (key, value) VALUES ('show_card_info', ?)", (str(leader_just_finished),))
+        else:
+            c.execute("REPLACE INTO settings (key, value) VALUES ('show_card_info', 'false')")
+        conn.commit() # Сохраняем настройку показа
 
-        if user_ids_ordered:
+        # --- ОПРЕДЕЛЯЕМ И СОХРАНЯЕМ СЛЕДУЮЩЕГО ВЕДУЩЕГО ---
+        next_leading_user_id = None
+        if leader_just_finished is not None and all_users_ids:
              try:
-                 current_index = user_ids_ordered.index(leader_just_finished)
-                 next_index = (current_index + 1) % len(user_ids_ordered)
-                 next_leading_user_id = user_ids_ordered[next_index]
+                 current_index = all_users_ids.index(leader_just_finished)
+                 next_index = (current_index + 1) % len(all_users_ids)
+                 next_leading_user_id = all_users_ids[next_index]
              except ValueError:
-                 # Если текущего ведущего нет в списке, назначаем первого
-                 next_leading_user_id = user_ids_ordered[0] if user_ids_ordered else None
+                 # Если текущего нет в списке, назначаем первого
+                 next_leading_user_id = all_users_ids[0]
 
-             if next_leading_user_id is not None:
-                  # СОХРАНЯЕМ ID СЛЕДУЮЩЕГО ВЕДУЩЕГО В БАЗУ ДАННЫХ
-                  set_leading_user_id(next_leading_user_id)
-                  # Важно: Мы сохранили ID следующего ведущего, но будем перенаправлять
-                  # с ID того, кто только что закончил раунд.
+        if next_leading_user_id is not None:
+              # Сохраняем ID следующего ведущего
+              c.execute("REPLACE INTO settings (key, value) VALUES ('leading_user_id', ?)", (next_leading_user_id,))
+              conn.commit() # Сохраняем нового ведущего
+              # flash(f"Следующий ведущий: {get_user_name(next_leading_user_id)}", "info") # Можно добавить сообщение
+        else:
+             flash("Не удалось определить следующего ведущего.", "warning")
 
-    conn.close()
+    except sqlite3.Error as e:
+        flash(f"Ошибка базы данных при открытии карт: {e}", "danger")
+        if conn: conn.rollback() # Откат изменений при ошибке
+    except Exception as e:
+        flash(f"Непредвиденная ошибка при открытии карт: {e}", "danger")
+        if conn: conn.rollback()
+    finally:
+        if conn:
+            conn.close()
 
-    # --- ПЕРЕНАПРАВЛЕНИЕ С ID ЗАВЕРШИВШЕГО ВЕДУЩЕГО ---
-    # Передаем ID ведущего, чей раунд только что закончился, как параметр
+    # --- Перенаправление на админку с ID ЗАВЕРШИВШЕГО ведущего ---
     return redirect(url_for("admin", displayed_leader_id=leader_just_finished))
 
 @app.route("/new_round", methods=["POST"])
+@app.route("/new_round", methods=["POST"])
 def new_round():
     """Обрабатывает начало нового раунда: сброс стола/догадок, раздача карт, скрытие инфо."""
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row # Используем Row factory
-    c = conn.cursor()
-
+    conn = None
     try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        # conn.row_factory = sqlite3.Row # Убрал, т.к. оригинальный шаблон user.html может ждать кортежи/списки
+        c = conn.cursor()
+
         # === Шаг 1: Определение ведущего НЕ ТРЕБУЕТСЯ ===
 
         # === Шаг 2: Сбрасываем все предыдущие предположения ===
         c.execute("UPDATE images SET guesses = '{}' WHERE guesses IS NOT NULL AND guesses != '{}'")
-        guesses_cleared_count = c.rowcount # Запоминаем количество
+        guesses_cleared_count = c.rowcount
 
         # === Шаг 3: Карты со стола получают статус "Занято" ===
         c.execute("UPDATE images SET status = 'Занято', owner_id = NULL WHERE status = 'На столе'")
-        table_cleared_count = c.rowcount # Запоминаем количество
+        table_cleared_count = c.rowcount
 
         # === Шаг 4: Скрываем информацию о картах (сбрасываем флаг) ===
-        # Это позволит пользователям снова угадывать и скроет владельцев карт на столе
         c.execute("REPLACE INTO settings (key, value) VALUES ('show_card_info', 'false')")
-        # или можно использовать set_setting("show_card_info", "false"), если она работает с текущим соединением conn
 
         # Выводим сообщение о начале раунда и результатах очистки
         flash("Новый раунд начат.", "info")
@@ -594,21 +639,23 @@ def new_round():
              flash(f"Сброшены предыдущие предположения ({guesses_cleared_count} карт).", "info")
         if table_cleared_count > 0:
             flash(f"Карты со стола ({table_cleared_count} шт.) получили статус 'Занято'.", "info")
-        flash("Информация о картах скрыта, можно делать новые предположения.", "info") # Новое сообщение
+        # flash("Информация о картах скрыта, можно делать новые предположения.", "info") # Это сообщение можно убрать, т.к. оно следует из "Новый раунд начат"
 
 
         # === Шаг 5: Раздаем по одной новой карте каждому пользователю ===
-        c.execute("SELECT id FROM users ORDER BY id") # Получаем актуальный список user ID
+        c.execute("SELECT id FROM users ORDER BY id")
         user_rows = c.fetchall()
-        user_ids_ordered = [row['id'] for row in user_rows]
+        # Преобразуем результат в список ID
+        user_ids_ordered = [row[0] for row in user_rows]
+
 
         if not user_ids_ordered:
             flash("Нет пользователей для раздачи карт.", "warning")
         else:
-            # Получаем активную колоду (используя прямой запрос вместо get_setting)
+            # Получаем активную колоду
             c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'")
             subfolder_row = c.fetchone()
-            active_subfolder = subfolder_row['value'] if subfolder_row else None
+            active_subfolder = subfolder_row[0] if subfolder_row else None
 
             if not active_subfolder:
                 flash("Активная колода не установлена. Новые карты не розданы.", "warning")
@@ -616,21 +663,19 @@ def new_round():
                 # Получаем список ID свободных карт из активной колоды
                 c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
                 available_cards_rows = c.fetchall()
-                available_cards_ids = [row['id'] for row in available_cards_rows]
-                random.shuffle(available_cards_ids) # Перемешиваем свободные карты
+                available_cards_ids = [row[0] for row in available_cards_rows]
+                random.shuffle(available_cards_ids) # Перемешиваем
 
                 num_users = len(user_ids_ordered)
                 num_available = len(available_cards_ids)
 
                 if num_available < num_users:
-                    flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{active_subfolder}' для раздачи всем пользователям ({num_users}). Карты получат не все.", "warning")
+                    flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{active_subfolder}' для раздачи всем ({num_users}). Карты получат не все.", "warning")
 
                 num_dealt = 0
-                # Раздаем по одной карте каждому пользователю, пока есть карты
                 for i, user_id in enumerate(user_ids_ordered):
                     if i < num_available:
                         card_id_to_deal = available_cards_ids[i]
-                        # Назначаем карту пользователю
                         c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id_to_deal))
                         num_dealt += 1
                     else:
@@ -638,26 +683,23 @@ def new_round():
 
                 if num_dealt > 0:
                     flash(f"Роздано {num_dealt} новых карт.", "info")
-                elif num_users > 0: # Если есть юзеры, но ничего не роздано
+                elif num_users > 0:
                     flash(f"Свободных карт в колоде '{active_subfolder}' нет. Новые карты не розданы.", "warning")
 
         # === Фиксируем все изменения ===
         conn.commit()
 
     except sqlite3.Error as e:
-        conn.rollback() # Откатываем изменения в случае ошибки БД
+        if conn: conn.rollback()
         flash(f"Ошибка базы данных при начале нового раунда: {e}", "danger")
     except Exception as e:
-        conn.rollback() # Откатываем изменения в случае другой ошибки
+        if conn: conn.rollback()
         flash(f"Непредвиденная ошибка при начале нового раунда: {e}", "danger")
     finally:
-        # Закрываем соединение в любом случае
         if conn:
             conn.close()
 
-    # Перенаправляем обратно на страницу администратора
     return redirect(url_for('admin'))
-
 
 if __name__ == "__main__":
     init_db()
