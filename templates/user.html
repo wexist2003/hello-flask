@@ -10,8 +10,22 @@
 
     
 <body class="p-4">
-    <h1>Привет, {{ name }}!</h1>
-    <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
+    {# Оборачиваем заголовок и кнопку для размещения на одной линии #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+         <h1>Страница пользователя: {{ user.name }}</h1> {# Предполагается, что user передан в шаблон #}
+         {# --- НАЧАЛО: Кнопка смены темы --- #}
+         <div>
+             <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                     <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/>
+                 </svg>
+                 <span id="theme-toggle-text">Сменить тему</span>
+             </button>
+        </div>
+         {# --- КОНЕЦ: Кнопка смены темы --- #}
+    </div>
+
+    <p>Ваш рейтинг: {{ user.rating }}</p> {# Предполагается, что user передан в шаблон #}
 
     <hr>
 
@@ -101,6 +115,50 @@
         </div>
         {% endfor %}
     </div>
-</body>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {# --- НАЧАЛО: Скрипт для смены темы --- #}
+    <script>
+        (function() {
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const themeToggleText = document.getElementById('theme-toggle-text');
+            const htmlElement = document.documentElement; // Получаем элемент <html>
+            // Используем ДРУГОЙ ключ для localStorage, чтобы не пересекаться с админкой
+            const storageKey = 'themePreferenceUser';
+
+            // Функция для применения темы (такая же, как в админке)
+            const applyTheme = (theme) => {
+                htmlElement.setAttribute('data-bs-theme', theme);
+                 // Проверяем, существует ли элемент, прежде чем менять текст
+                 if (themeToggleText) {
+                    if (theme === 'dark') {
+                        themeToggleText.textContent = 'Светлая тема';
+                    } else {
+                        themeToggleText.textContent = 'Темная тема';
+                    }
+                }
+            };
+
+            // Функция для переключения темы (такая же, как в админке)
+            const toggleTheme = () => {
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                applyTheme(newTheme);
+                localStorage.setItem(storageKey, newTheme); // Сохраняем выбор
+            };
+
+            // Добавляем обработчик клика на кнопку (такой же, как в админке)
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            }
+
+            // При загрузке страницы применяем сохраненную тему или светлую по умолчанию
+            const savedTheme = localStorage.getItem(storageKey);
+            const defaultTheme = savedTheme || 'light';
+            applyTheme(defaultTheme);
+        })();
+    </script>
+    {# --- КОНЕЦ: Скрипт для смены темы --- #}
+</body>
 </html>
