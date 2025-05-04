@@ -21,6 +21,7 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
+    
 @app.teardown_appcontext
 def close_db(error=None): # Аргумент error стандартен для teardown_appcontext
     """Закрывает соединение с БД после завершения запроса."""
@@ -67,6 +68,23 @@ def init_db():
         )
     """)
 
+    # Добавляем сброс game_over при инициализации
+    conn = sqlite3.connect(DB_PATH) # Отдельное соединение для init
+    c = conn.cursor()
+    try:
+        # Убедимся, что таблица settings существует перед вставкой/заменой
+        c.execute("SELECT 1 FROM settings WHERE key = 'game_over'")
+        if c.fetchone():
+             c.execute("UPDATE settings SET value = 'false' WHERE key = 'game_over'")
+        else:
+             c.execute("INSERT INTO settings (key, value) VALUES ('game_over', 'false')")
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Error resetting game_over in init_db: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+        
     # Загрузка изображений из static/images
     image_folders = ['koloda1', 'koloda2'] # Добавьте другие папки при необходимости
     for folder in image_folders:
@@ -85,6 +103,13 @@ def init_db():
 
 # --- Вспомогательные функции ---
 
+def is_game_over():
+    """Проверяет, установлен ли флаг конца игры."""
+    return get_setting('game_over') == 'true'
+
+def set_game_over(state=True):
+    """Устанавливает флаг конца игры."""
+    return set_setting('game_over', 'true' if state else 'false')
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
@@ -182,6 +207,10 @@ def before_request():
     # get_setting теперь использует get_db()
     show_card_info = get_setting("show_card_info")
     g.show_card_info = show_card_info == "true" # Сохраняем как boolean в g
+
+    # --->>> ДОБАВЛЕНО: Чтение статуса конца игры <<<---
+    g.game_over = is_game_over()
+    # --->>> КОНЕЦ ДОБАВЛЕНИЯ <<<---
 
     # Соединение НЕ закрывается здесь, закроется автоматически через teardown_appcontext
 
@@ -682,6 +711,13 @@ def open_cards():
 @app.route("/new_round", methods=["POST"])
 def new_round():
     """Начинает новый раунд: сброс стола/угадываний, раздача карт, скрытие информации."""
+    
+    # --->>> ДОБАВЛЕНО: Блокировка, если игра окончена <<<---
+    if g.game_over:
+        flash("Игра уже окончена. Начать новый раунд нельзя.", "warning")
+        return redirect(url_for('admin'))
+    # --->>> КОНЕЦ БЛОКИРОВКИ <<<---
+    
     db = get_db() # Получаем соединение из контекста g
     c = db.cursor()
     active_subfolder = get_setting('active_subfolder') # Получаем активную колоду
@@ -752,6 +788,22 @@ def new_round():
             elif num_users > 0:
                 flash(f"Нет свободных карт в колоде '{active_subfolder}' для раздачи.", "warning")
 
+        # --->>> ДОБАВЛЕНО: Проверка окончания игры ПОСЛЕ раздачи <<<---
+        game_over_now = False
+        if user_ids: # Проверяем только если есть пользователи
+            for user_id in user_ids:
+                c.execute("SELECT COUNT(*) FROM images WHERE status = ?", (f"Занято:{user_id}",))
+                card_count = c.fetchone()[0]
+                if card_count == 0:
+                    game_over_now = True
+                    break # Достаточно одного игрока без карт
+
+        if game_over_now:
+            set_game_over(True) # Устанавливаем флаг в БД
+            g.game_over = True # Обновляем и в контексте текущего запроса
+            flash("Игра окончена! У одного из игроков закончились карты.", "danger")
+        # --->>> КОНЕЦ ПРОВЕРКИ <<<---
+        
         # Коммитим все изменения нового раунда
         db.commit()
 
