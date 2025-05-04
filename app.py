@@ -32,74 +32,98 @@ def close_db(error=None): # Аргумент error стандартен для t
 # --- Инициализация БД (вызывается отдельно, если нужно) ---
 
 def init_db():
-    # init_db может использовать свое соединение, т.к. вызывается вне контекста запроса
+    # Открываем соединение ОДИН РАЗ в начале
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row # Установим и здесь для консистентности
+    conn.row_factory = sqlite3.Row # Устанавливаем row_factory
     c = conn.cursor()
+    print("init_db: Connection opened.") # Добавлено для отладки
 
-    c.execute("DROP TABLE IF EXISTS users")
-    c.execute("DROP TABLE IF EXISTS images")
-    c.execute("DROP TABLE IF EXISTS settings")
-
-    c.execute("""
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            code TEXT UNIQUE NOT NULL,
-            rating INTEGER DEFAULT 0
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            subfolder TEXT NOT NULL,
-            image TEXT NOT NULL,
-            status TEXT,
-            owner_id INTEGER,
-            guesses TEXT DEFAULT '{}' -- Устанавливаем значение по умолчанию
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    """)
-
-    # Добавляем сброс game_over при инициализации
-    conn = sqlite3.connect(DB_PATH) # Отдельное соединение для init
-    c = conn.cursor()
-    try:
-        # Убедимся, что таблица settings существует перед вставкой/заменой
-        c.execute("SELECT 1 FROM settings WHERE key = 'game_over'")
-        if c.fetchone():
-             c.execute("UPDATE settings SET value = 'false' WHERE key = 'game_over'")
-        else:
-             c.execute("INSERT INTO settings (key, value) VALUES ('game_over', 'false')")
+    try: # Оборачиваем основные операции в try/except для отката при ошибке
+        # --- Удаление и создание таблиц ---
+        print("init_db: Dropping tables...")
+        c.execute("DROP TABLE IF EXISTS users")
+        c.execute("DROP TABLE IF EXISTS images")
+        c.execute("DROP TABLE IF EXISTS settings")
+        print("init_db: Creating tables...")
+        c.execute("""
+            CREATE TABLE users ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL,
+                                code TEXT UNIQUE NOT NULL, rating INTEGER DEFAULT 0 )""")
+        c.execute("""
+            CREATE TABLE images ( id INTEGER PRIMARY KEY AUTOINCREMENT, subfolder TEXT NOT NULL,
+                                 image TEXT NOT NULL, status TEXT, owner_id INTEGER,
+                                 guesses TEXT DEFAULT '{}' )""")
+        c.execute("""
+            CREATE TABLE settings ( key TEXT PRIMARY KEY, value TEXT )""")
+        # Коммитим создание таблиц перед вставкой настроек
         conn.commit()
-    except sqlite3.Error as e:
-        print(f"Error resetting game_over in init_db: {e}")
-        conn.rollback()
-    finally:
-        conn.close()
-        
-    # Загрузка изображений из static/images
-    image_folders = ['koloda1', 'koloda2'] # Добавьте другие папки при необходимости
-    for folder in image_folders:
-        folder_path = os.path.join('static', 'images', folder)
-        if os.path.exists(folder_path):
-            for filename in os.listdir(folder_path):
-                # Проверяем расширение файла
-                if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    # Проверяем, нет ли уже такой картинки в БД
-                    c.execute("SELECT 1 FROM images WHERE subfolder = ? AND image = ?", (folder, filename))
-                    if c.fetchone() is None:
-                         c.execute("INSERT INTO images (subfolder, image, status, guesses) VALUES (?, ?, 'Свободно', '{}')", (folder, filename))
+        print("init_db: Tables created and committed.")
 
-    conn.commit()
-    conn.close() # Закрываем соединение init_db
+        # --- Сброс настройки game_over ---
+        try:
+             # Сначала проверим, есть ли ключ
+             c.execute("SELECT 1 FROM settings WHERE key = 'game_over'")
+             if c.fetchone():
+                 c.execute("UPDATE settings SET value = 'false' WHERE key = 'game_over'")
+                 print("init_db: 'game_over' setting updated to false.")
+             else:
+                 c.execute("INSERT INTO settings (key, value) VALUES ('game_over', 'false')")
+                 print("init_db: 'game_over' setting inserted as false.")
+             # Коммит этой настройки можно сделать здесь или в конце вместе с картинками
+        except sqlite3.Error as e:
+             # Не критично, если не удалось сбросить настройку, продолжаем
+             print(f"Warning: Could not reset 'game_over' setting during init_db: {e}")
+
+        # --- Загрузка изображений ---
+        print("init_db: Starting image loading...")
+        image_folders = ['koloda1', 'koloda2'] # Убедитесь, что эти папки есть в static/images
+        images_added_count = 0
+        for folder in image_folders:
+            folder_path = os.path.join('static', 'images', folder)
+            print(f"init_db: Checking folder: {folder_path}")
+            if os.path.exists(folder_path) and os.path.isdir(folder_path): # Добавлена проверка isdir
+                print(f"init_db: Processing folder: {folder}")
+                for filename in os.listdir(folder_path):
+                    # Проверяем расширение файла
+                    if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                        try:
+                            # Проверяем, нет ли уже такой картинки (соединение должно быть открыто!)
+                            print(f"init_db: Checking image {folder}/{filename}...")
+                            c.execute("SELECT 1 FROM images WHERE subfolder = ? AND image = ?", (folder, filename))
+                            if c.fetchone() is None:
+                                 # Добавляем новую картинку
+                                 c.execute("INSERT INTO images (subfolder, image, status, guesses) VALUES (?, ?, 'Свободно', '{}')", (folder, filename))
+                                 images_added_count += 1
+                                 print(f"init_db: Added image {folder}/{filename}")
+                            # else: print(f"init_db: Image {folder}/{filename} already exists.") # Раскомментировать для детальной отладки
+                        except sqlite3.Error as e:
+                            # Логируем ошибку и продолжаем с другими картинками
+                            print(f"Warning: Could not process image {folder}/{filename}: {e}")
+            else:
+                 print(f"Warning: Folder not found or is not a directory: {folder_path}")
+
+        if images_added_count > 0:
+            print(f"init_db: Added {images_added_count} new images to the database.")
+        else:
+            print("init_db: No new images were added.")
+
+        # --- Финальный коммит ---
+        # Коммитим вставку картинок и сброс настройки (если не коммитили раньше)
+        conn.commit()
+        print("init_db: Final commit successful.")
+
+    except sqlite3.Error as e:
+        # Откатываем все изменения, если произошла серьезная ошибка при создании таблиц и т.д.
+        print(f"CRITICAL ERROR during init_db execution: {e}")
+        conn.rollback()
+        print("init_db: Changes rolled back due to critical error.")
+        raise # Передаем исключение дальше, чтобы приложение знало об ошибке
+
+    finally:
+        # --- Закрываем соединение ---
+        # Этот блок finally относится к внешнему try и выполняется всегда
+        if conn:
+            conn.close() # Закрываем соединение ОДИН РАЗ в самом конце
+            print("init_db: Connection closed.")
 
 # --- Вспомогательные функции ---
 
