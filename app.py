@@ -409,20 +409,20 @@ def user(code):
     c.execute("SELECT 1 FROM images WHERE owner_id = ?", (user_id,))
     on_table = c.fetchone() is not None
 
-    conn.close()
+    if not g.user: # Добавьте проверку на всякий случай
+        return "Пользователь не найден или ошибка загрузки", 404
 
-    show_card_info = get_setting("show_card_info") == "true" # Get the setting
-
-    return render_template("user.html",
-                           code=code,
-                           user=user_data,          # <--- Ключевой момент
-                           user_cards=user_cards,
-                           table_images=table_images,
-                           all_users=all_users,
-                           show_card_info=show_card_info,
-                           leading_user_id=leading_user_id
-                           )
+    conn.close() # Закрываем соединение
     
+    return render_template("user.html",
+                           code=code,               # Код пользователя
+                           user=g.user,             # <<< Используем g.user
+                           user_cards=user_cards,   # Карты в руке
+                           table_images=table_images, # Карты на столе
+                           all_users=all_users,       # Все пользователи
+                           show_card_info=show_card_info, # Флаг показа информации
+                           leading_user_id=leading_user_id # ID ведущего
+                           )
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
