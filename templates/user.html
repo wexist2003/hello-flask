@@ -1,161 +1,217 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-bs-theme="light"> {# Тема по умолчанию - светлая #}
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"> {# Для адаптивности #}
     <title>Профиль {{ name }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    {# Иконки Bootstrap (опционально) #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        /* Можно добавить стили для кнопки темы, если нужно */
+        /* Пользовательские стили */
+        .card-img-top {
+            max-width: 150px; /* Ограничение ширины изображения карты */
+            height: auto;
+            display: block; /* Центрирование */
+            margin: 0 auto 0.5rem; /* Отступ снизу */
+        }
+        .card {
+             width: auto; /* Автоматическая ширина карты */
+             min-width: 180px; /* Минимальная ширина для лучшего вида */
+        }
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem; /* Отступы между картами */
+        }
         .theme-toggle-button {
             position: absolute;
             top: 1rem;
             right: 1rem;
+            z-index: 1050; /* Выше большинства элементов */
         }
+        h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
     </style>
 </head>
 
 <body class="p-4">
-    {# --- НАЧАЛО: Кнопка смены темы --- #}
-    <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
-            <path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/>
-        </svg>
-        <span id="theme-toggle-text">Сменить тему</span>
-    </button>
-    {# --- КОНЕЦ: Кнопка смены темы --- #}
+    <div class="container-fluid"> {# Используем контейнер #}
 
-    <h1>Привет, {{ name }}!</h1>
-    <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
+        {# --- Кнопка смены темы --- #}
+        <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
+             <i class="bi bi-circle-half"></i>
+             <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
+        </button>
 
-    <hr>
-
-    <h2>Общий стол</h2>
-    <div class="border p-3 mb-4">
-        <div class="d-flex flex-wrap gap-3">
-            {% if table_images %}
-            {% for table_image in table_images %}
-            <div class="border p-2">
-                {% if g.show_card_info %}
-                    <p>Чья: {{ get_user_name(table_image.owner_id) }}
-                    {% if get_leading_user_id() == table_image.owner_id %}
-                         <span class="badge bg-success">Ведущий</span>
-                    {% endif %}
-                    </p>
-                    <p>Предположения:</p>
-                    <ul>
-                        {% for guesser_id, guessed_user_id in table_image.guesses.items() %}
-                            <li>
-                                {{ get_user_name(guesser_id|int) }}: это от {{ get_user_name(guessed_user_id|int) }}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-
-                <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-                    alt="card" style="max-width: 150px;">
-                {% if table_image.owner_id != g.user_id and not g.show_card_info %}
-                <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                    <select name="guessed_user_id" class="form-select form-select-sm">
-                        <option value="">-- Выберите игрока --</option>
-                        {% for user in all_users %}
-                        {% if user[0] != g.user_id %}
-                             <option value="{{ user[0] }}"
-                                {% if table_image.guesses and g.user_id|int in table_image.guesses and table_image.guesses[g.user_id|string]|int == user[0] %}selected{% endif %}>
-                                {{  user[1] }}
-                             </option>
-                        {% endif %}
-                        {% endfor %}
-                    </select>
-                     <button type="submit" class="btn btn-primary btn-sm mt-2">
-                        {% if table_image.guesses and g.user_id|int in table_image.guesses %}
-                        Изменить
-                         {% else %}
-                        Угадать
-                        {% endif %}
-                    </button>
-                </form>
-                 {% else %}
-                <p class="mt-2">
-                    {% if table_image.owner_id == g.user_id %}
-                    Это ваша карточка.
-                    {% endif %}
-                </p>
-                {% endif %}
-                {% if table_image.owner_id != g.user_id %}
-                <p>
-                    {% for guesser_id, owner_id in table_image.guesses.items() %}
-                     {% if guesser_id|int == g.user_id|int %}
-                    Ваше предположение: {{ get_user_name(owner_id) }}
-                    {% endif %}
-                    {% endfor %}
-                 </p>
-                {% endif %}
-            </div>
-            {% endfor %}
-            {% else %}
-            <p>На столе нет карточек.</p>
-
+        <h1>Привет, {{ name }}!</h1>
+        <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
+        {% if g.user_id %} {# Проверка наличия контекста пользователя #}
+            <p><small>Ваш код доступа: <code>{{ code }}</code></small></p>
         {% endif %}
-         </div>
-    </div>
 
-    <h2>Мои карточки</h2>
-    <div class="d-flex flex-wrap gap-3">
-        {% for card in cards %}
-        <div class="border p-2">
-            <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}" alt="card"
-                style="max-width: 150px;">
-            {% if not on_table %}
-            <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
-                <button type="submit" class="btn btn-success btn-sm mt-2">Выложить на стол</button>
-            </form>
+        {# --- Flash-сообщения --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
             {% endif %}
-        </div>
-        {% endfor %}
-    </div>
+        {% endwith %}
 
+        <hr>
+
+        <h2>Общий стол</h2>
+        <div class="border p-3 mb-4 rounded">
+            <div class="card-container"> {# Контейнер для карточек #}
+                {% if table_images %}
+                    {% for table_image in table_images %}
+                    <div class="card"> {# Используем компонент Card Bootstrap #}
+                        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                             class="card-img-top" alt="Карта {{ table_image.id }}" loading="lazy"> {# Ленивая загрузка изображений #}
+                        <div class="card-body">
+                            {% if g.show_card_info %} {# Если информация о картах открыта #}
+                                <h6 class="card-subtitle mb-2 text-muted">
+                                    Чья: {{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}
+                                    {# Отображаем метку Ведущего на основе leader_for_display #}
+                                    {% if leader_for_display == table_image.owner_id %}
+                                         <span class="badge bg-success ms-1" title="Ведущий (предыдущий раунд)"><i class="bi bi-star-fill"></i></span>
+                                    {% endif %}
+                                </h6>
+                                <p class="card-text"><small>Предположения:</small></p>
+                                <ul class="list-unstyled mb-0"> {# Убираем маркеры списка и нижний отступ #}
+                                    {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
+                                        <li><small>
+                                            {{ get_user_name(guesser_id_str|int) or 'ID ' + guesser_id_str }}: {# Кто угадывал #}
+                                            {{ get_user_name(guessed_user_id) or 'ID ' + guessed_user_id|string }} {# Чья карта (по мнению угадывающего) #}
+                                            {# Отмечаем правильность угадывания #}
+                                            {% if guessed_user_id == table_image.owner_id %}
+                                                <i class="bi bi-check-circle-fill text-success" title="Верно"></i>
+                                            {% else %}
+                                                <i class="bi bi-x-circle-fill text-danger" title="Неверно"></i>
+                                            {% endif %}
+                                        </small></li>
+                                    {% else %} {# Если предположений нет #}
+                                        <li><small class="text-muted">Нет</small></li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %} {# Информация о картах скрыта #}
+                                {% if table_image.owner_id == g.user_id %} {# Если это карта текущего пользователя #}
+                                    <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
+                                {% else %} {# Если это чужая карта - показываем форму для угадывания #}
+                                    <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                                         <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
+                                         <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required> {# Добавлено required #}
+                                            <option value="">-- Выберите --</option>
+                                            {% for user in all_users %}
+                                                {% if user.id != g.user_id %} {# Исключаем себя из списка #}
+                                                    {# Проверяем, делал ли пользователь уже предположение для этой карты #}
+                                                    {% set current_guess = table_image.guesses.get(g.user_id|string) %}
+                                                    <option value="{{ user.id }}" {% if current_guess == user.id %}selected{% endif %}>
+                                                        {{ user.name }}
+                                                    </option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="btn btn-outline-primary btn-sm w-100"> {# Кнопка на всю ширину #}
+                                            {# Меняем текст кнопки в зависимости от того, было ли уже предположение #}
+                                            {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                                <i class="bi bi-pencil-square"></i> Изменить
+                                            {% else %}
+                                                <i class="bi bi-question-circle"></i> Угадать
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    {# Показываем предыдущее предположение пользователя под формой #}
+                                    {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                    <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name(table_image.guesses[g.user_id|string]) }}</small></p>
+                                    {% endif %}
+                                {% endif %} {# Конец проверки table_image.owner_id == g.user_id #}
+                            {% endif %} {# Конец проверки g.show_card_info #}
+                        </div> {# Конец card-body #}
+                    </div> {# Конец card #}
+                    {% endfor %} {# Конец цикла for table_image #}
+                {% else %} {# Если на столе нет карт #}
+                    <p class="text-muted">На столе пока нет карточек.</p>
+                {% endif %} {# Конец проверки table_images #}
+            </div> {# Конец card-container #}
+        </div>
+
+        <h2>Мои карточки на руках</h2>
+        <div class="card-container mb-4"> {# Контейнер для карт на руках #}
+            {% for card in cards %} {# cards - список карт пользователя, которые не на столе #}
+            <div class="card">
+                 <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                      class="card-img-top" alt="Карта {{ card.id }}" loading="lazy">
+                 <div class="card-body text-center">
+                    {% if not on_table %} {# Показываем кнопку, только если пользователь еще не выложил карту #}
+                        {# Проверяем, является ли текущий пользователь ведущим в этом раунде #}
+                        {% if get_leading_user_id() == g.user_id %} {# Если пользователь - ведущий #}
+                           <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                               <button type="submit" class="btn btn-success btn-sm w-100">
+                                   <i class="bi bi-send"></i> Выложить (Ведущий)
+                               </button>
+                           </form>
+                        {% else %} {# Если пользователь - не ведущий #}
+                             <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                               <button type="submit" class="btn btn-secondary btn-sm w-100">
+                                   <i class="bi bi-send"></i> Выложить на стол
+                               </button>
+                           </form>
+                        {% endif %} {# Конец проверки get_leading_user_id() == g.user_id #}
+                    {% else %} {# Если пользователь уже выложил карту #}
+                         <small class="text-muted">Вы уже выложили карту</small>
+                    {% endif %} {# Конец проверки not on_table #}
+                 </div> {# Конец card-body #}
+            </div> {# Конец card #}
+            {% else %} {# Если у пользователя нет карт на руках #}
+                 <p class="text-muted">У вас пока нет карт на руках.</p>
+            {% endfor %} {# Конец цикла for card #}
+        </div> {# Конец card-container #}
+
+    </div> {# Конец container-fluid #}
+
+    {# --- JavaScript Bootstrap (для работы компонентов типа alert dismiss) --- #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    {# --- НАЧАЛО: Скрипт для смены темы (адаптирован из admin.html) --- #}
+
+    {# --- Скрипт смены темы --- #}
     <script>
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
-            const themeToggleText = document.getElementById('theme-toggle-text');
-            const htmlElement = document.documentElement; // Получаем элемент <html>
-            const storageKey = 'userThemePreference'; // Используем другой ключ для user.html
+            const htmlElement = document.documentElement; // элемент <html>
+            const storageKey = 'userThemePreference'; // Ключ для localStorage (отдельный от админки)
 
-            // Функция для применения темы
+            // Функция применения темы
             const applyTheme = (theme) => {
                 htmlElement.setAttribute('data-bs-theme', theme);
-                if (theme === 'dark') {
-                    themeToggleText.textContent = 'Светлая тема'; // Текст кнопки для темной темы
-                } else {
-                    themeToggleText.textContent = 'Темная тема'; // Текст кнопки для светлой темы
+                 if (themeToggleBtn) { // Обновляем title кнопки для подсказки
+                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
                 }
             };
 
-            // Функция для переключения темы
+            // Функция переключения темы
             const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light'; // По умолчанию светлая
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 applyTheme(newTheme);
-                localStorage.setItem(storageKey, newTheme); // Сохраняем выбор в localStorage
+                localStorage.setItem(storageKey, newTheme); // Сохраняем выбор
             };
 
-            // Добавляем обработчик клика на кнопку
+            // Добавляем обработчик клика
             if (themeToggleBtn) {
                 themeToggleBtn.addEventListener('click', toggleTheme);
             }
 
-            // При загрузке страницы применяем сохраненную тему или тему по умолчанию (светлую)
+            // При загрузке применяем сохраненную тему или системные настройки / светлую по умолчанию
             const savedTheme = localStorage.getItem(storageKey);
-            // Можно добавить проверку системных настроек, как в admin.html, если хотите
-            const defaultTheme = savedTheme || 'light'; // Пока просто светлая по умолчанию
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light'); // Приоритет: сохраненная -> системная -> светлая
 
-            applyTheme(defaultTheme);
+            applyTheme(defaultTheme); // Применяем тему при загрузке
         })();
     </script>
-    {# --- КОНЕЦ: Скрипт для смены темы --- #}
 </body>
-
 </html>
