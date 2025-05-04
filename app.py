@@ -638,7 +638,7 @@ def open_cards():
 @app.route("/new_round", methods=["POST"])
 def new_round():
     """Начинает новый раунд: сброс стола/угадываний, раздача карт, скрытие информации."""
-    db = get_db()
+    db = get_db() # Получаем соединение из контекста g
     c = db.cursor()
     active_subfolder = get_setting('active_subfolder') # Получаем активную колоду
 
@@ -651,26 +651,32 @@ def new_round():
         else:
             flash("Новый раунд начат. Ведущий не определен.", "warning")
 
-        # Сбрасываем guesses и owner_id у карт, которые были 'На столе'
-        # Возвращаем их владельцам статус 'Занято', если владелец известен
-        c.execute("SELECT id, owner_id FROM images WHERE status = 'На столе'")
-        cards_on_table = c.fetchall()
+        # --- ИЗМЕНЕНИЕ ЛОГИКИ ---
+        # Сбрасываем guesses и owner_id у карт, которые были 'На столе'.
+        # Статус этих карт меняем на 'Занято:Админ', чтобы они не участвовали в следующей раздаче.
+        c.execute("SELECT id FROM images WHERE status = 'На столе'") # ID карт на столе
+        cards_on_table_ids = [row['id'] for row in c.fetchall()]
         table_cleared_count = 0
-        for card in cards_on_table:
-            new_status = f"Занято:{card['owner_id']}" if card['owner_id'] else 'Свободно'
-            c.execute("UPDATE images SET status = ?, owner_id = NULL, guesses = '{}' WHERE id = ?",
-                      (new_status, card['id']))
-            table_cleared_count += 1
+        if cards_on_table_ids:
+            # Устанавливаем статус 'Занято:Админ' для всех карт, что были на столе
+            new_status = 'Занято:Админ'
+            placeholders = ','.join('?' * len(cards_on_table_ids)) # Создаем плейсхолдеры для IN (...)
+            # Обновляем одним запросом для эффективности
+            c.execute(f"UPDATE images SET status = ?, owner_id = NULL, guesses = '{{}}' WHERE id IN ({placeholders})",
+                      [new_status] + cards_on_table_ids)
+            table_cleared_count = len(cards_on_table_ids) # c.rowcount может быть неточным для IN
 
         # Сбрасываем guesses у карт, которые не были на столе (на всякий случай)
-        c.execute("UPDATE images SET guesses = '{}' WHERE status != 'На столе' AND guesses != '{}'")
+        c.execute("UPDATE images SET guesses = '{}' WHERE status != ? AND guesses != '{}'", ('На столе', '{}'))
         guesses_cleared_count = c.rowcount
 
         # Скрываем информацию о картах
         set_setting("show_card_info", "false")
         flash("Информация о картах скрыта.", "info")
-        if table_cleared_count > 0: flash(f"Карты со стола ({table_cleared_count} шт.) возвращены/сброшены.", "info")
-        if guesses_cleared_count > 0: flash(f"Сброшены прочие предположения ({guesses_cleared_count} карт).", "info")
+        if table_cleared_count > 0:
+            flash(f"Карты со стола ({table_cleared_count} шт.) убраны (статус 'Занято:Админ').", "info") # Обновлено сообщение
+        if guesses_cleared_count > 0:
+            flash(f"Сброшены прочие предположения ({guesses_cleared_count} карт).", "info")
 
         # Раздаем по одной новой карте каждому пользователю из активной колоды
         c.execute("SELECT id FROM users ORDER BY id")
@@ -681,6 +687,7 @@ def new_round():
         elif not active_subfolder:
             flash("Активная колода не установлена. Новые карты не розданы.", "warning")
         else:
+            # Ищем только карты со статусом 'Свободно' в активной колоде
             c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,))
             available_cards_ids = [row['id'] for row in c.fetchall()]
             random.shuffle(available_cards_ids)
@@ -690,26 +697,31 @@ def new_round():
             num_to_deal = min(num_users, num_available)
 
             if num_available < num_users:
-                flash(f"Внимание: Недостаточно карт ({num_available}) для всех ({num_users}). Карты получат первые {num_available}.", "warning")
+                flash(f"Внимание: Недостаточно свободных карт ({num_available}) для всех ({num_users}). Карты получат первые {num_available}.", "warning")
 
+            # Раздаем карты
             for i in range(num_to_deal):
                 user_id = user_ids[i]
                 card_id = available_cards_ids[i]
+                # Обновляем статус розданной карты на 'Занято:user_id'
                 c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id))
 
-            if num_to_deal > 0: flash(f"Роздано {num_to_deal} новых карт из '{active_subfolder}'.", "info")
-            elif num_users > 0: flash(f"Нет свободных карт в колоде '{active_subfolder}'.", "warning")
+            if num_to_deal > 0:
+                flash(f"Роздано {num_to_deal} новых карт из '{active_subfolder}'.", "info")
+            elif num_users > 0: # Если пользователи есть, но карт не хватило
+                flash(f"Нет свободных карт в колоде '{active_subfolder}' для раздачи.", "warning")
 
         # Коммитим все изменения нового раунда
         db.commit()
 
     except sqlite3.Error as e:
-        db.rollback()
+        db.rollback() # Откатываем изменения при ошибке БД
         flash(f"Ошибка базы данных при начале нового раунда: {e}", "danger")
     except Exception as e:
-        db.rollback()
+        db.rollback() # Откатываем при других ошибках
         flash(f"Непредвиденная ошибка при начале нового раунда: {e}", "danger")
 
+    # Перенаправляем обратно на страницу администратора
     return redirect(url_for('admin'))
 
 
