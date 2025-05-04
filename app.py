@@ -414,15 +414,9 @@ def user(code):
 
     conn.close() # Закрываем соединение
     
-    return render_template("user.html",
-                           code=code,               # Код пользователя
-                           user=g.user,             # <<< Используем g.user
-                           user_cards=user_cards,   # Карты в руке
-                           table_images=table_images, # Карты на столе
-                           all_users=all_users,       # Все пользователи
-                           show_card_info=show_card_info, # Флаг показа информации
-                           leading_user_id=leading_user_id # ID ведущего
-                           )
+    return render_template("user.html", name=name, rating=rating, cards=cards,
+                           table_images=table_images, all_users=all_users, #   передаем всех пользователей
+                           code=code, on_table=on_table, g=g, show_card_info=show_card_info)
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
