@@ -302,8 +302,7 @@ def admin():
                         # ... (код обновления статусов карт) ...
                         updated_inactive = c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected,)).rowcount
                         db.commit() # Коммитим статусы карт
-                        # ... (формирование flash_message) ...
-                        Формируем и показываем сообщение ТОЛЬКО при успехе
+                        # ... (формирование flash_message) ...Формируем и показываем сообщение ТОЛЬКО при успехе
                         flash_message_text = f"Выбрана активная колода: {selected}."
                         if updated_inactive > 0:
                             flash_message_text += f" Карты в других колодах ({updated_inactive} шт.) помечены как неактивные."
