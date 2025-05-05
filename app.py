@@ -820,11 +820,8 @@ def open_cards():
         c.execute("SELECT id FROM users")
         all_user_ids = [user['id'] for user in c.fetchall()]
         num_all_users = len(all_user_ids)
-        # Инициализируем очки нулями
         user_points = {user_id: 0 for user_id in all_user_ids}
-        # Количество других игроков (потенциальных угадывающих для карты ведущего)
         num_potential_guessers = num_all_users - 1 if num_all_users > 1 else 0
-        # Флаг для пропуска основного подсчета, если сработал сценарий "все угадали карту ведущего"
         skip_main_scoring = False
 
         print("--- Проверка сценария: Все угадали карту ведущего ---")
@@ -836,17 +833,13 @@ def open_cards():
             if leader_card_row:
                 leader_card_id = leader_card_row['id']
                 leader_guesses_json = leader_card_row['guesses'] or '{}'
-                try:
-                    leader_card_guesses_dict = json.loads(leader_guesses_json)
-                except json.JSONDecodeError:
-                    leader_card_guesses_dict = {}
+                try: leader_card_guesses_dict = json.loads(leader_guesses_json)
+                except json.JSONDecodeError: leader_card_guesses_dict = {}
 
                 leader_card_correct_guesses = 0
-                # Считаем, сколько ДРУГИХ игроков правильно угадали карту ведущего
                 for guesser_id_str, guessed_user_id in leader_card_guesses_dict.items():
                     try:
                         guesser_id = int(guesser_id_str)
-                        # Проверяем, что угадывающий - активный игрок и не сам ведущий
                         if guesser_id in user_points and guesser_id != leader_just_finished:
                             if guessed_user_id == leader_just_finished:
                                 leader_card_correct_guesses += 1
@@ -854,19 +847,16 @@ def open_cards():
 
                 print(f"  Карта ведущего {leader_card_id}: Правильных угадываний = {leader_card_correct_guesses}, Потенциальных угадывающих = {num_potential_guessers}")
 
-                # Если число правильных угадываний равно числу других игроков
                 if leader_card_correct_guesses == num_potential_guessers:
                     print(f"  !!! Сработал сценарий 'Все угадали карту ведущего' !!!")
-                    # Ведущий получает -3
-                    user_points[leader_just_finished] = -3
-                    # Остальные получают 0 (они уже инициализированы нулем)
-                    skip_main_scoring = True # Устанавливаем флаг пропуска основного подсчета
-                    flash("Все угадали карту Ведущего! Ведущий: -3 очка.", "warning") # Специальное сообщение
+                    user_points = {user_id: 0 for user_id in all_user_ids} # Сбрасываем очки раунда
+                    user_points[leader_just_finished] = -3 # Устанавливаем -3 ведущему
+                    skip_main_scoring = True
+                    flash("Все угадали карту Ведущего! Ведущий: -3 очка.", "warning") # Используем warning для отличия
             else:
                  print(f"  Карта ведущего (ID: {leader_just_finished}) не найдена на столе.")
         else:
             print("  Сценарий 'Все угадали карту ведущего' не применим (нет ведущего или потенциальных угадывающих).")
-
 
         # --- Основной подсчет очков (если не был пропущен) ---
         if not skip_main_scoring:
@@ -874,27 +864,7 @@ def open_cards():
             c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL ORDER BY id")
             table_images = c.fetchall()
 
-            # Шаг 1: Начисляем +3 всем правильно угадавшим (для всех карт)
-            for image_data in table_images:
-                owner_id_card = image_data['owner_id']
-                image_id_card = image_data['id']
-                guesses_json_str_card = image_data['guesses'] or '{}'
-                try: guesses_card = json.loads(guesses_json_str_card)
-                except json.JSONDecodeError: guesses_card = {}
-
-                if owner_id_card not in user_points: continue # Пропускаем карты удаленных
-
-                for guesser_id_str, guessed_user_id in guesses_card.items():
-                    try:
-                        guesser_id = int(guesser_id_str)
-                        # Учитываем только угадывания от текущих пользователей, не являющихся владельцем карты
-                        if guesser_id in user_points and guesser_id != owner_id_card:
-                            if guessed_user_id == owner_id_card: # Правильное угадывание
-                                user_points[guesser_id] += 3 # +3 за правильное угадывание
-                                print(f"  Карта {image_id_card} (Владелец {owner_id_card}): Игрок {guesser_id} угадал верно (+3)")
-                    except (ValueError, TypeError): continue
-
-            # Шаг 2: Начисляем очки владельцам карт (включая ведущего по особым правилам)
+            # Шаг 1: Начисляем +3 всем правильно угадавшим
             for image_data in table_images:
                 owner_id_card = image_data['owner_id']
                 image_id_card = image_data['id']
@@ -904,7 +874,25 @@ def open_cards():
 
                 if owner_id_card not in user_points: continue
 
-                # Считаем правильные угадывания конкретно для ЭТОЙ карты еще раз
+                for guesser_id_str, guessed_user_id in guesses_card.items():
+                    try:
+                        guesser_id = int(guesser_id_str)
+                        if guesser_id in user_points and guesser_id != owner_id_card:
+                            if guessed_user_id == owner_id_card:
+                                user_points[guesser_id] += 3
+                                print(f"  Карта {image_id_card} (Владелец {owner_id_card}): Игрок {guesser_id} угадал верно (+3)")
+                    except (ValueError, TypeError): continue
+
+            # Шаг 2: Начисляем очки владельцам карт
+            for image_data in table_images:
+                owner_id_card = image_data['owner_id']
+                image_id_card = image_data['id']
+                guesses_json_str_card = image_data['guesses'] or '{}'
+                try: guesses_card = json.loads(guesses_json_str_card)
+                except json.JSONDecodeError: guesses_card = {}
+
+                if owner_id_card not in user_points: continue
+
                 correct_guesses_count_this_card = 0
                 for guesser_id_str, guessed_user_id in guesses_card.items():
                      try:
@@ -914,43 +902,43 @@ def open_cards():
                                  correct_guesses_count_this_card += 1
                      except (ValueError, TypeError): continue
 
-                # Применяем правила для владельца
                 if owner_id_card == leader_just_finished: # Карта Ведущего
-                    # Случай "Все угадали" уже обработан флагом skip_main_scoring
-                    # Остались случаи "Никто не угадал" или "Некоторые угадали"
                     print(f"  Обработка карты Ведущего {owner_id_card} (ID {image_id_card}) для очков владельца:")
                     print(f"    Правильных угадываний: {correct_guesses_count_this_card}, Потенциальных угадывающих: {num_potential_guessers}")
                     if num_potential_guessers > 0:
                         if correct_guesses_count_this_card == 0:
-                            # Никто не угадал -> -2
                             user_points[owner_id_card] -= 2
                             print(f"    Никто не угадал -> Ведущий {owner_id_card} -2")
-                        else: # Некоторые угадали (0 < count < potential) -> +3
+                        else: # Некоторые угадали (0 < count < potential)
                             user_points[owner_id_card] += 3
                             print(f"    {correct_guesses_count_this_card} угадали -> Ведущий {owner_id_card} +3")
-                    else: # Нет потенциальных угадывающих -> -2
+                    else: # Нет потенциальных угадывающих
                          user_points[owner_id_card] -= 2
                          print(f"    Нет потенциальных угадывающих -> Ведущий {owner_id_card} -2")
                 else: # Карта НЕ Ведущего
-                     # Владелец получает +1 за каждого угадавшего
                      user_points[owner_id_card] += correct_guesses_count_this_card
                      if correct_guesses_count_this_card > 0:
                          print(f"  Карта {image_id_card} (НЕ Ведущий {owner_id_card}): Владелец получает +{correct_guesses_count_this_card}.")
 
-
-        # --- Финальный вывод очков раунда (после всех расчетов или после сценария -3/0) ---
+        # --- Финальный вывод очков раунда ---
         print(f"--- Final Round Points Calculated: {dict(user_points)}")
 
-        # --- Обновление рейтинга ---
+        # --- Обновление рейтинга (с ограничением минимума 0) ---
         points_summary = []
-        print("--- Обновление рейтинга ---")
+        print("--- Обновление рейтинга (min 0) ---")
         for user_id, points in user_points.items():
-             if points != 0: # Обновляем только если очки изменились
+             # Обновляем рейтинг, даже если points = 0, на случай если до этого был сценарий -3/0
+             # Но фактическая запись произойдет, только если есть user_id
+             if user_id in user_points: # Доп. проверка, что user_id валиден
                  try:
-                     c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+                     # --->>> ИСПОЛЬЗУЕМ MAX(0, rating + ?) <<<---
+                     c.execute("UPDATE users SET rating = MAX(0, rating + ?) WHERE id = ?", (points, user_id))
+
                      user_name = get_user_name(user_id) or f"ID {user_id}"
-                     points_summary.append(f"{user_name}: {points:+}")
-                     print(f"  Пользователь {user_id} ({user_name}): {points:+}")
+                     # points_summary показывает изменение за раунд (points)
+                     if points != 0: # Добавляем в сводку только если было изменение за раунд
+                        points_summary.append(f"{user_name}: {points:+}")
+                     print(f"  Пользователь {user_id} ({user_name}): Раунд={points:+} -> Новый рейтинг будет >= 0")
                  except sqlite3.Error as e:
                      print(f"Error updating rating for user {user_id}: {e}")
                      flash(f"Ошибка обновления рейтинга для пользователя ID {user_id}", "danger")
@@ -968,19 +956,19 @@ def open_cards():
                          current_index = user_ids_ordered.index(leader_just_finished)
                          next_index = (current_index + 1) % len(user_ids_ordered)
                          next_leading_user_id = user_ids_ordered[next_index]
-                     except ValueError: # Если старый лидер удален
-                         next_leading_user_id = user_ids_ordered[0] # Берем первого из оставшихся
+                     except ValueError:
+                         next_leading_user_id = user_ids_ordered[0]
              except sqlite3.Error as e:
                   print(f"Error getting user IDs for next leader selection: {e}")
                   flash("Ошибка при определении следующего ведущего.", "warning")
-        elif all_user_ids: # Если лидера не было, но есть пользователи
+        elif all_user_ids:
             next_leading_user_id = all_user_ids[0]
 
         # Сохранение нового лидера и вывод сообщений
         if next_leading_user_id is not None:
              if not set_leading_user_id(next_leading_user_id):
                   flash("Ошибка сохранения нового ведущего.", "danger")
-                  db.rollback() # Откатываем, если не удалось сохранить лидера
+                  db.rollback()
                   return redirect(url_for("admin"))
              else:
                  next_leader_name = get_user_name(next_leading_user_id) or f"ID {next_leading_user_id}"
@@ -993,7 +981,7 @@ def open_cards():
 
         # Показываем сводку очков (даже если было -3/0)
         if points_summary: flash(f"Изменение очков: {'; '.join(points_summary)}", "info")
-        elif not skip_main_scoring: flash("В этом раунде очки не изменились.", "info") # Не показываем, если было -3/0
+        elif not skip_main_scoring: flash("В этом раунде очки не изменились.", "info")
 
         db.commit() # Коммитим все изменения
         print("--- Подсчет очков и обновление завершены успешно ---")
@@ -1006,6 +994,7 @@ def open_cards():
         flash(f"Непредвиденная ошибка при подсчете очков: {e}", "danger")
         print(f"Unexpected error in open_cards: {e}") # Логируем ошибку
 
+    # Передаем ID ведущего, чей раунд ТОЛЬКО ЧТО ЗАКОНЧИЛСЯ
     return redirect(url_for("admin", displayed_leader_id=leader_just_finished))
 
 
