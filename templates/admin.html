@@ -82,22 +82,26 @@
             {# --- Правая колонка: Добавить пользователя --- #}
             <div class="col-md-7">
                  <h3>Добавить пользователя</h3>
-                 {# Вертикальное расположение #}
                  <form method="post" action="{{ url_for('admin') }}">
-                    <div class="mb-3">
-                         <label for="name" class="form-label">Имя:</label>
-                         <input type="text" id="name" name="name" class="form-control form-control-sm" required>
-                    </div>
-                    <div class="mb-3">
-                         <label for="num_cards" class="form-label">Кол-во карт:</label>
-                         <input type="number" id="num_cards" name="num_cards" class="form-control form-control-sm" value="3" min="1" required style="max-width: 150px;">
-                    </div>
-                    <div>
-                        <button type="submit" class="btn btn-primary btn-sm">
+                     {# Ряд для полей Имя и Кол-во карт #}
+                     <div class="row g-3 mb-2"> {# Уменьшил нижний отступ #}
+                         <div class="col-sm-7"> {# Колонка для Имени (метка + поле) #}
+                             <label for="name" class="form-label">Имя:</label>
+                             <input type="text" id="name" name="name" class="form-control form-control-sm" required>
+                         </div>
+                         <div class="col-sm-5"> {# Колонка для Кол-ва карт (метка + поле) #}
+                             <label for="num_cards" class="form-label">Кол-во карт:</label>
+                             <input type="number" id="num_cards" name="num_cards" class="form-control form-control-sm" value="3" min="1" required>
+                         </div>
+                     </div>
+                     {# Кнопка Добавить - размещена так, чтобы быть под первой колонкой #}
+                     {# Можно просто добавить ее слева без явного указания колонок, т.к. она идет после ряда #}
+                     <div>
+                         <button type="submit" class="btn btn-primary btn-sm mt-1"> {# Добавлен небольшой верхний отступ #}
                              <i class="bi bi-person-plus-fill"></i> Добавить
-                        </button>
-                    </div>
-                </form>
+                         </button>
+                     </div>
+                 </form>
             </div>
         </div>
         {# --- КОНЕЦ ОБЪЕДИНЕННОГО БЛОКА ФОРМ --- #}
