@@ -6,6 +6,9 @@ import string
 import random
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-very-secret-and-complex-key-should-be-here')
+if app.config['SECRET_KEY'] == 'your-very-secret-and-complex-key-should-be-here':
+    print("ПРЕДУПРЕЖДЕНИЕ: Используется SECRET_KEY по умолчанию. Установите переменную окружения SECRET_KEY для безопасности!")
 DB_PATH = 'database.db'
 # Убедитесь, что секретный ключ установлен (важно для flash сообщений)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "a_default_super_secret_key") # Лучше использовать переменную окружения
@@ -21,6 +24,39 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        password_attempt = request.form.get('password')
+
+        # --- ПРОВЕРКА ПАРОЛЯ ---
+        # !!! ВАЖНО: Это САМЫЙ НЕБЕЗОПАСНЫЙ СПОСОБ - только для примера!
+        # Замените на безопасное сравнение (хеширование) или проверку по БД.
+        # Лучше всего хранить пароль в переменной окружения ADMIN_PASSWORD
+        correct_password = os.environ.get('ADMIN_PASSWORD')
+
+        if correct_password and password_attempt == correct_password:
+            # Пароль верный - устанавливаем флаг в сессии
+            session['is_admin'] = True
+            flash('Авторизация успешна.', 'success')
+            # Перенаправляем на админку или на страницу, с которой пришли (если есть 'next')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('admin'))
+        else:
+            # Пароль неверный
+            flash('Неверный пароль.', 'danger')
+            # Снова показываем форму входа (не редирект, чтобы не терять сообщение flash)
+            # return redirect(url_for('login')) # Неправильно для показа ошибки
+    # Если GET запрос или пароль был неверный - показываем форму
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    # Удаляем флаг администратора из сессии
+    session.pop('is_admin', None)
+    flash('Вы вышли из системы.', 'info')
+    return redirect(url_for('login')) # Перенаправляем на страницу входа
+    
 @app.route("/")
 def index():
     """Обработчик для корневого URL (стартовой страницы)."""
@@ -246,6 +282,12 @@ def before_request():
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
+    # --- ПРОВЕРКА АДМИНА ---
+    if not session.get('is_admin'):
+        flash('Для доступа к этой странице требуется авторизация администратора.', 'warning')
+        # Перенаправляем на страницу входа, запомнив, куда пользователь хотел попасть
+        return redirect(url_for('login', next=request.url))
+    # --- КОНЕЦ ПРОВЕРКИ АДМИНА ---
     # Используем соединение через g для потокобезопасности
     db = get_db()
     c = db.cursor()
