@@ -522,6 +522,112 @@ def admin():
                            image_owners=image_owners) # Передаем словарь владельцев
     
 
+@app.route("/start_new_game", methods=["POST"])
+def start_new_game():
+    """Сбрасывает игру и начинает заново с выбранной колодой и раздачей карт."""
+    db = get_db()
+    c = db.cursor()
+
+    selected_deck = request.form.get("new_game_subfolder")
+    try:
+        num_cards_per_player = int(request.form.get("new_game_num_cards", 3))
+        if num_cards_per_player < 1:
+            raise ValueError("Количество карт должно быть не меньше 1.")
+    except (ValueError, TypeError):
+        flash("Неверное количество карт для раздачи.", "danger")
+        return redirect(url_for('admin'))
+
+    if not selected_deck:
+        flash("Колода для новой игры не выбрана.", "danger")
+        return redirect(url_for('admin'))
+
+    print(f"--- Начало новой игры с колодой: {selected_deck}, карт на игрока: {num_cards_per_player} ---")
+
+    try:
+        # === Полный сброс игрового состояния ===
+        print("Сброс рейтингов...")
+        c.execute("UPDATE users SET rating = 0")
+
+        print("Сброс состояния карт...")
+        # Сначала все карты помечаем как Занято:Админ и очищаем владельцев/угадывания
+        c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ'")
+        # Затем карты выбранной колоды делаем свободными
+        c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_deck,))
+
+        print("Сброс настроек игры...")
+        set_game_over(False) # Используем функцию, добавленную ранее
+        set_setting("show_card_info", "false")
+        set_setting("active_subfolder", selected_deck)
+
+        # Назначаем нового ведущего (первого по ID)
+        c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+        first_user = c.fetchone()
+        new_leader_id = None
+        if first_user:
+            new_leader_id = first_user['id']
+            set_leading_user_id(new_leader_id)
+            print(f"Назначен новый ведущий: {get_user_name(new_leader_id)} (ID: {new_leader_id})")
+        else:
+            set_leading_user_id(None) # Нет пользователей - нет ведущего
+            print("Пользователи не найдены, ведущий не назначен.")
+
+        db.commit() # Коммитим все сбросы перед раздачей
+
+        # === Раздача карт существующим пользователям ===
+        c.execute("SELECT id FROM users ORDER BY id")
+        user_ids = [row['id'] for row in c.fetchall()]
+        num_users = len(user_ids)
+        num_total_dealt = 0
+
+        if not user_ids:
+            flash("Пользователи не найдены. Новая игра начата, но карты не розданы.", "warning")
+        else:
+            print(f"Раздача карт {num_users} пользователям...")
+            c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (selected_deck,))
+            available_cards_ids = [row['id'] for row in c.fetchall()]
+            random.shuffle(available_cards_ids)
+            num_available = len(available_cards_ids)
+            print(f"Доступно карт в колоде '{selected_deck}': {num_available}")
+
+            if num_available < num_users * num_cards_per_player:
+                 flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{selected_deck}' для раздачи по {num_cards_per_player} шт. всем {num_users} игрокам.", "warning")
+                 # Можно добавить логику частичной раздачи или остановки
+
+            card_index = 0
+            for user_id in user_ids:
+                cards_dealt_to_user = 0
+                for _ in range(num_cards_per_player):
+                    if card_index < num_available:
+                        card_id = available_cards_ids[card_index]
+                        c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id))
+                        card_index += 1
+                        cards_dealt_to_user += 1
+                    else:
+                        # Карты в колоде закончились
+                        break # Прерываем раздачу этому игроку
+                print(f"  Пользователю ID {user_id} роздано карт: {cards_dealt_to_user}")
+                num_total_dealt += cards_dealt_to_user
+                if card_index >= num_available:
+                     break # Прерываем раздачу всем, если карты кончились
+
+            flash(f"Новая игра начата! Колода: '{selected_deck}'. Роздано карт: {num_total_dealt}.", "success")
+            if new_leader_id:
+                flash(f"Ведущий назначен: {get_user_name(new_leader_id)}.", "info")
+
+        db.commit() # Коммитим раздачу карт
+        print("--- Новая игра успешно начата и карты розданы ---")
+
+    except sqlite3.Error as e:
+        db.rollback()
+        flash(f"Ошибка базы данных при начале новой игры: {e}", "danger")
+        print(f"Database error during start_new_game: {e}")
+    except Exception as e:
+        db.rollback()
+        flash(f"Непредвиденная ошибка при начале новой игры: {e}", "danger")
+        print(f"Unexpected error during start_new_game: {e}")
+
+    return redirect(url_for('admin'))
+    
 @app.route("/user/<code>")
 def user(code):
     db = get_db()
