@@ -200,7 +200,6 @@ app.jinja_env.globals.update(
     get_user_name=get_user_name,
     get_leading_user_id=get_leading_user_id # Передаем функцию в шаблон
     # g доступен в шаблонах по умолчанию, но можно передать явно: g=g
-)
 
 # --- Обработчики запросов ---
 
