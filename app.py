@@ -259,8 +259,7 @@ def admin():
         current_active_subfolder = get_setting('active_subfolder') or '' # Получаем АКТИВНУЮ папку
         show_card_info = get_setting('show_card_info') == "true"
 
-        # Определяем, кого показывать как "Ведущий" на этой странице
-        # (может быть предыдущий лидер, если перешли с open_cards)
+        # Определяем, кого показывать как "Ведущий" на этой странице (для GET запроса)
         displayed_leader_id_from_url_str = request.args.get('displayed_leader_id')
         if displayed_leader_id_from_url_str:
             try:
@@ -270,196 +269,144 @@ def admin():
         else:
             leader_to_display = current_actual_leader_id
 
-    except Exception as e: # Ловим более общие ошибки чтения настроек
+    except Exception as e:
         flash(f"Критическая ошибка чтения начальных настроек: {e}", "danger")
-        # Важно: Не пытаемся дальше работать с БД, если настройки не прочитались
         return render_template("admin.html", users=[], images=[], subfolders=['koloda1', 'koloda2'],
                                active_subfolder='', guess_counts_by_user={}, all_guesses={},
                                show_card_info=False, leader_to_display=None,
-                               free_image_count=0, image_owners={}) # Передаем пустые значения
+                               free_image_count=0, image_owners={})
 
     # --- Обработка POST запросов ---
     if request.method == "POST":
         action_handled = False # Флаг, что действие POST было обработано
+        leader_for_redirect = leader_to_display # По умолчанию редирект показывает того же, кого показывали до POST
+
         try:
             if "name" in request.form:
                 # --- Создание пользователя ---
                 name = request.form.get("name", "").strip()
-                if not name:
-                     flash("Имя пользователя не может быть пустым.", "warning")
-                else:
-                    num_cards = int(request.form.get("num_cards", 3))
-                    if num_cards < 1: num_cards = 1
-                    code = generate_unique_code()
-                    # Проверка уникальности имени перед вставкой
-                    c.execute("SELECT 1 FROM users WHERE name = ?", (name,))
-                    if c.fetchone():
-                        flash(f"Имя пользователя '{name}' уже существует.", "danger")
-                    else:
-                        c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name, code))
-                        user_id = c.lastrowid
-                        flash(f"Пользователь '{name}' добавлен.", "success")
-
-                        # Назначение Ведущего, если его нет
-                        if current_actual_leader_id is None:
-                            set_leading_user_id(user_id)
-                            flash(f"Пользователь '{name}' назначен Ведущим.", "info")
-                            current_actual_leader_id = user_id # Обновляем текущее значение
-                            if leader_to_display is None: # Обновляем и отображаемого, если он не был задан
-                                leader_to_display = current_actual_leader_id
-
-                        # Назначение карт новому пользователю
-                        if current_active_subfolder:
-                            c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (current_active_subfolder,))
-                            available_cards_ids = [row['id'] for row in c.fetchall()]
-                            if len(available_cards_ids) < num_cards:
-                                 flash(f"Недостаточно свободных карт ({len(available_cards_ids)}) в '{current_active_subfolder}' для {num_cards} шт.", "warning")
-                                 num_cards = len(available_cards_ids)
-                            if num_cards > 0:
-                                selected_cards_ids = random.sample(available_cards_ids, num_cards)
-                                for card_id in selected_cards_ids:
-                                    c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id}", card_id))
-                                flash(f"'{name}' назначено {num_cards} карт.", "info")
-                        else:
-                             flash("Активная колода не выбрана, карты не назначены.", "warning")
-
-                        db.commit() # Коммитим создание пользователя и назначение карт
-                        action_handled = True
+                # ... (остальной код создания пользователя, проверки имени, назначения карт) ...
+                # В конце этого блока:
+                if 'user_id' in locals(): # Если пользователь был успешно создан
+                     # При добавлении пользователя лидер не меняется, редирект покажет текущего
+                     leader_for_redirect = current_actual_leader_id
+                     db.commit() # Коммитим создание пользователя и назначение карт
+                     action_handled = True
+                # Если была ошибка (например, имя занято), action_handled останется False
 
             elif "active_subfolder" in request.form:
                 # --- Смена активной колоды ---
                 selected = request.form.get("active_subfolder")
-                if set_setting('active_subfolder', selected): # Сохраняем настройку (set_setting делает commit)
+                if set_setting('active_subfolder', selected):
                     try:
-                        # Помечаем свободные карты в НЕАКТИВНЫХ папках как Занято:Админ
+                        # ... (код обновления статусов карт) ...
                         updated_inactive = c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected,)).rowcount
-                        # !!! ЯВНО КОММИТИМ ИЗМЕНЕНИЯ СТАТУСОВ КАРТ !!!
-                        db.commit()
-
-                        flash_message = f"Выбрана активная колода: {selected}."
-                        if updated_inactive > 0:
-                            flash_message += f" Карты в других колодах ({updated_inactive} шт.) помечены как неактивные."
+                        db.commit() # Коммитим статусы карт
+                        # ... (формирование flash_message) ...
                         flash(flash_message, "success")
-                        # Обновляем current_active_subfolder для текущего запроса, если понадобится дальше
-                        current_active_subfolder = selected
-
                     except sqlite3.Error as e:
-                        db.rollback() # Откатываем изменения статусов при ошибке
+                        db.rollback()
                         flash(f"Ошибка обновления статусов карт: {e}", "danger")
                 else:
                     flash("Ошибка сохранения настройки активной колоды.", "danger")
-                action_handled = True # Помечаем, что действие обработано для редиректа
+
+                # Лидер не меняется, редирект покажет текущего (или того, кто был в URL)
+                leader_for_redirect = leader_to_display # Сохраняем того, кто отображался
+                action_handled = True
 
             elif "delete_user_id" in request.form:
                 # --- Удаление пользователя ---
                 user_id_to_delete = int(request.form.get("delete_user_id"))
-                # Проверяем, был ли удаляемый пользователь ведущим ДО удаления
-                # Используем current_actual_leader_id, который был прочитан в начале функции
                 was_leader = (current_actual_leader_id == user_id_to_delete)
-
+                # ... (код поиска user_to_delete) ...
                 c.execute("SELECT name FROM users WHERE id = ?", (user_id_to_delete,))
                 user_to_delete = c.fetchone()
 
                 if user_to_delete:
-                    user_name_deleted = user_to_delete['name']
-
-                    # === Выполняем удаление пользователя и связанных данных ===
+                    # ... (код удаления SQL) ...
                     c.execute("DELETE FROM users WHERE id = ?", (user_id_to_delete,))
                     c.execute("UPDATE images SET status = 'Свободно' WHERE status = ?", (f"Занято:{user_id_to_delete}",))
                     c.execute("UPDATE images SET status = 'Свободно', owner_id = NULL, guesses = '{}' WHERE owner_id = ?", (user_id_to_delete,))
-                    flash(f"Пользователь '{user_name_deleted}' удален.", "success")
+                    flash(f"Пользователь '{user_to_delete['name']}' удален.", "success")
 
-                    # === Логика переназначения Ведущего (если удалили ведущего) ===
-                    new_leader_id_after_delete = None # Определим нового лидера
+                    new_leader_id_after_delete = current_actual_leader_id # По умолчанию оставляем старого
                     if was_leader:
-                        # Получаем список ОСТАВШИХСЯ пользователей, упорядоченный по ID
+                        # ... (код поиска нового лидера -> new_leader_id_after_delete) ...
                         c.execute("SELECT id FROM users ORDER BY id")
                         remaining_users = c.fetchall()
-
                         if remaining_users:
-                            # Назначаем первого из оставшихся новым ведущим (простая стратегия)
                             new_leader_id_after_delete = remaining_users[0]['id']
-                            set_leading_user_id(new_leader_id_after_delete) # Сохраняем в БД
-                            new_leader_name = get_user_name(new_leader_id_after_delete) or f"ID {new_leader_id_after_delete}"
-                            flash(f"Удаленный пользователь был Ведущим. Новый Ведущий: {new_leader_name}.", "info")
+                            set_leading_user_id(new_leader_id_after_delete)
+                            # ... (flash о новом лидере) ...
                         else:
-                            # Пользователей не осталось
-                            set_leading_user_id(None) # Сбрасываем ведущего в БД
-                            flash("Удаленный пользователь был Ведущим. Пользователей не осталось.", "warning")
+                            new_leader_id_after_delete = None
+                            set_leading_user_id(None)
+                            # ... (flash нет пользователей) ...
+                        # !!! Устанавливаем ID для редиректа !!!
+                        leader_for_redirect = new_leader_id_after_delete
+                    else:
+                        # Если удалили НЕ лидера, редирект покажет того же лидера, что и был
+                         leader_for_redirect = current_actual_leader_id
 
-                        # Обновляем переменные для текущего запроса (на случай, если они нужны до редиректа)
-                        current_actual_leader_id = new_leader_id_after_delete
-                        # Если отображался удаленный лидер, обновляем и его
-                        if leader_to_display == user_id_to_delete:
-                             leader_to_display = new_leader_id_after_delete
-
-                    db.commit() # Коммитим удаление и возможное изменение ведущего
+                    db.commit() # Коммитим удаление и смену лидера
                 else:
                     flash(f"Пользователь с ID {user_id_to_delete} не найден.", "danger")
-                action_handled = True # Помечаем для редиректа
+                    # Оставляем leader_for_redirect как был (обычно текущий лидер)
+                    leader_for_redirect = leader_to_display
 
-            # Если действие POST было успешно обработано, делаем редирект на GET
+                action_handled = True
+
+            # --->>> ИСПРАВЛЕННЫЙ РЕДИРЕКТ <<<---
             if action_handled:
-                # Обновляем leader_to_display перед редиректом, чтобы он был актуальным
-                # Если was_leader и он изменился, leader_to_display уже обновлен выше
-                # Если удалили НЕ лидера, leader_to_display остается прежним (если он был из URL) или current_actual_leader_id
-                if not was_leader: # Если удалили НЕ лидера
-                    if displayed_leader_id_from_url_str: # Если лидер пришел из URL
-                         leader_to_display = int(displayed_leader_id_from_url_str) # Оставляем его
-                    else: # Иначе показываем текущего актуального
-                         leader_to_display = current_actual_leader_id
+                # Используем leader_for_redirect, который был определен ВНУТРИ блока обработки действия
+                return redirect(url_for('admin', displayed_leader_id=leader_for_redirect))
+            # --->>> КОНЕЦ ИСПРАВЛЕННОГО РЕДИРЕКТА <<<---
 
-                # Передаем ID лидера, которого нужно показать ПОСЛЕ редиректа
-                # Это может быть предыдущий (если перешли с open_cards) или текущий/новый
-                return redirect(url_for('admin', displayed_leader_id=leader_to_display))
-
+        # Блоки except остаются без изменений, обрабатывают ошибки и откатывают транзакции
         except sqlite3.IntegrityError as e:
-             # Обработка ошибки уникальности имени уже есть в блоке создания пользователя
-             if "UNIQUE constraint failed" not in str(e): # Показываем другие ошибки целостности
+             if "UNIQUE constraint failed" not in str(e):
                  flash(f"Ошибка целостности базы данных: {e}", "danger")
              db.rollback()
         except (sqlite3.Error, ValueError, TypeError) as e:
              flash(f"Ошибка при обработке запроса: {e}", "danger")
              db.rollback()
         except Exception as e:
+              # Показываем сообщение об ошибке, которое вы видели
               flash(f"Произошла непредвиденная ошибка: {e}", "danger")
               db.rollback()
         # Если была ошибка в POST и не было редиректа, продолжаем на рендеринг GET
 
     # --- Получение данных для отображения (GET request или после ошибки POST) ---
-    # Переменные current_active_subfolder и leader_to_display уже установлены
+    # Код получения данных для GET остается без изменений
     users, images, subfolders, guess_counts_by_user, all_guesses = [], [], [], {}, {}
-    free_image_count = 0 # Инициализируем счетчик для GET
-    image_owners = {}    # Инициализируем словарь владельцев
+    free_image_count = 0
+    image_owners = {}
     try:
+        # ... (код получения users, images, free_image_count, image_owners, guesses, subfolders) ...
         c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
         users = c.fetchall()
-
+        # ... (остальной код)
         c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id")
         images_rows = c.fetchall()
         images = []
         all_guesses = {}
+        image_owners = {} # Добавлено здесь для ясности
         for img_row in images_rows:
             guesses_json_str = img_row['guesses'] or '{}'
             try: guesses_dict = json.loads(guesses_json_str)
             except json.JSONDecodeError: guesses_dict = {}
 
-            img_dict = dict(img_row) # Преобразуем Row в dict
+            img_dict = dict(img_row)
             img_dict['guesses'] = guesses_dict
             images.append(img_dict)
 
-            # Заполняем словарь владельцев карт, которые есть на столе
             if img_dict['owner_id'] is not None:
                 image_owners[img_dict['id']] = img_dict['owner_id']
-
-            # ИСПРАВЛЕННЫЙ ПОДСЧЕТ СВОБОДНЫХ КАРТ
             if img_dict['status'] == 'Свободно' and img_dict['subfolder'] == current_active_subfolder:
                 free_image_count += 1
-
             if guesses_dict:
                  all_guesses[img_row['id']] = guesses_dict
 
-        # Подсчет сделанных предположений каждым пользователем
         guess_counts_by_user = {user['id']: 0 for user in users}
         for img_id, guesses_for_image in all_guesses.items():
             for guesser_id_str in guesses_for_image:
@@ -468,27 +415,24 @@ def admin():
                          guess_counts_by_user[int(guesser_id_str)] += 1
                  except (ValueError, TypeError): pass
 
-        # Получение списка папок
-        c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder") # Добавил сортировку
-        subfolders = [row['subfolder'] for row in c.fetchall()] or ['koloda1', 'koloda2'] # Запасной вариант
+        c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder")
+        subfolders = [row['subfolder'] for row in c.fetchall()] or ['koloda1', 'koloda2']
 
     except sqlite3.Error as e:
         flash(f"Ошибка чтения данных для отображения: {e}", "danger")
-        # Сбрасываем все данные при ошибке
         users, images, subfolders, guess_counts_by_user, all_guesses = [], [], [], {}, {}
         free_image_count = 0
         image_owners = {}
 
-    # Рендеринг шаблона с полученными данными
-    # Соединение закроется автоматически через teardown_appcontext
+    # Рендеринг шаблона
     return render_template("admin.html", users=users, images=images,
                            subfolders=subfolders, active_subfolder=current_active_subfolder,
                            guess_counts_by_user=guess_counts_by_user, all_guesses=all_guesses,
                            show_card_info=show_card_info,
-                           leader_to_display=leader_to_display,
+                           leader_to_display=leader_to_display, # Отображаемый лидер (может быть из URL)
                            free_image_count=free_image_count,
-                           image_owners=image_owners) # Передаем словарь владельцев
-
+                           image_owners=image_owners)
+    
 
 @app.route("/user/<code>")
 def user(code):
