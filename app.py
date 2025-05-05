@@ -6,12 +6,13 @@ import string
 import random
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-very-secret-and-complex-key-should-be-here')
-if app.config['SECRET_KEY'] == 'your-very-secret-and-complex-key-should-be-here':
-    print("ПРЕДУПРЕЖДЕНИЕ: Используется SECRET_KEY по умолчанию. Установите переменную окружения SECRET_KEY для безопасности!")
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+# Проверка при запуске, что ключ установлен (важно!)
+if not app.config['SECRET_KEY']:
+    raise ValueError("Не установлена переменная окружения SECRET_KEY!")
+    
 DB_PATH = 'database.db'
 # Убедитесь, что секретный ключ установлен (важно для flash сообщений)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "a_default_super_secret_key") # Лучше использовать переменную окружения
 
 # --- Управление соединением с БД ---
 
@@ -34,8 +35,13 @@ def login():
         # Замените на безопасное сравнение (хеширование) или проверку по БД.
         # Лучше всего хранить пароль в переменной окружения ADMIN_PASSWORD
         correct_password = os.environ.get('ADMIN_PASSWORD')
-
-        if correct_password and password_attempt == correct_password:
+        if not correct_password:
+             print("ПРЕДУПРЕЖДЕНИЕ: Не установлена переменная окружения ADMIN_PASSWORD!")
+             # Возможно, стоит запретить вход, если пароль не задан
+             flash('Ошибка конфигурации сервера.', 'danger')
+             return render_template('login.html')
+        
+        if password_attempt == correct_password:
             # Пароль верный - устанавливаем флаг в сессии
             session['is_admin'] = True
             flash('Авторизация успешна.', 'success')
