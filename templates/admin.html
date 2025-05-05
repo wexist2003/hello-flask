@@ -14,8 +14,34 @@
         h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
         h3 { margin-top: 1rem; font-size: 1.25rem; } /* Для заголовков внутри колонок */
         table { margin-top: 1rem; }
-        .table th { background-color: #f8f9fa; } /* Светло-серый заголовок таблицы */
+        /* Не используем table th background, так как он конфликтует с темной темой Bootstrap */
         .action-forms form { display: inline-block; margin-right: 5px; } /* Кнопки действий в строку */
+
+        /* --->>> ДОБАВЛЕНЫ СТИЛИ ДЛЯ ТЕМНОЙ ТЕМЫ <<<--- */
+        /* Custom dark theme overrides */
+        html[data-bs-theme="dark"] #new-game-form {
+            background-color: var(--bs-gray-900) !important; /* Очень темный фон */
+            color: var(--bs-light) !important; /* Белый текст */
+            border-color: var(--bs-border-color-translucent) !important; /* Граница для темного фона */
+        }
+
+        /* Метки внутри темной формы */
+        html[data-bs-theme="dark"] #new-game-form label {
+             color: var(--bs-light) !important; /* Белый текст */
+        }
+
+         /* Подсказка внутри темной формы */
+        html[data-bs-theme="dark"] #new-game-form .form-text.text-muted {
+             color: var(--bs-secondary-color) !important; /* Чуть менее яркий белый */
+        }
+
+        /* Статус "Занято" в темной теме (в таблице изображений) */
+        html[data-bs-theme="dark"] #image-list-table .badge.bg-secondary { /* Используем ID таблицы */
+            background-color: var(--bs-gray-800) !important; /* Темно-серый фон (чуть светлее формы) */
+            color: var(--bs-light) !important; /* Белый текст */
+        }
+         /* --->>> КОНЕЦ ДОБАВЛЕННЫХ СТИЛЕЙ <<<--- */
+
     </style>
 </head>
 
@@ -48,9 +74,9 @@
         <div class="row mb-4 g-4"> {# Строка с отступами между колонками (g-4) #}
             {# --- Левая колонка: Выбор колоды --- #}
             <div class="col-md-5">
-                <h3>Выбор колоды</h3> {# Переименованный заголовок #}
+                <h3>Выбор колоды</h3>
                 <form method="post" action="{{ url_for('admin') }}">
-                    <div class="mb-3"> {# Используем mb-3 для отступа под селектом #}
+                    <div class="mb-3">
                         <label for="active_subfolder" class="form-label">Активная колода:</label>
                         <select id="active_subfolder" name="active_subfolder" class="form-select">
                             <option value="">-- Не выбрана --</option>
@@ -73,16 +99,14 @@
                             <input type="text" id="name" name="name" class="form-control" required>
                         </div>
                         <div class="col-sm-4">
-                            <label for="num_cards" class="form-label">Кол-во карт:</label> {# Сокращенный текст #}
+                            <label for="num_cards" class="form-label">Кол-во карт:</label>
                             <input type="number" id="num_cards" name="num_cards" class="form-control" value="3" min="1" required>
                         </div>
                         <div class="col-sm-2">
-                            {# --- ИСПРАВЛЕННАЯ КНОПКА "ДОБАВИТЬ" --- #}
                             <button type="submit" class="btn btn-primary w-100">
                                 <span class="d-none d-sm-inline">Добавить</span> {# Показываем текст на sm и больше #}
                                 <i class="bi bi-plus-lg d-inline d-sm-none" title="Добавить"></i> {# Показываем иконку на xs #}
                             </button>
-                            {# --- КОНЕЦ ИСПРАВЛЕННОЙ КНОПКИ --- #}
                         </div>
                     </div>
                 </form>
@@ -92,21 +116,56 @@
 
 
         {# --- Кнопки управления раундом --- #}
-        <h2>Управление раундом</h2> {# Добавлен общий заголовок для кнопок #}
+        <h2>Управление раундом</h2>
         <div class="mb-4 action-forms">
             <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Открыть карты и подсчитать очки? Текущий раунд завершится, следующий ведущий будет назначен.');">
-                <button class="btn btn-success" type="submit"><i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки</button>
+                <button class="btn btn-success" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки
+                </button>
             </form>
             <form action="{{ url_for('new_round') }}" method="post" onsubmit="return confirm('Начать новый раунд? Карты со стола и предположения будут сброшены, всем будут розданы новые карты.');">
-                <button class="btn btn-warning" type="submit"><i class="bi bi-arrow-clockwise"></i> Начать новый раунд</button>
+                <button class="btn btn-warning" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-arrow-clockwise"></i> Начать новый раунд
+                </button>
             </form>
         </div>
 
-        {# --- Список пользователей (с иконками правильности) --- #}
+
+        {# --- Новая секция: Начать новую игру --- #}
+        <h2>Начать новую игру</h2>
+        {# --->>> ДОБАВЛЕН ID к форме <<<--- #}
+        <form id="new-game-form" method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
+             <div class="row g-3 align-items-end">
+                 <div class="col-md-5">
+                    <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
+                    <select id="new_game_subfolder" name="new_game_subfolder" class="form-select" required>
+                        <option value="" disabled {% if not active_subfolder %}selected{% endif %}>-- Выберите колоду --</option>
+                        {% for subfolder in subfolders %}
+                            <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
+                        {% endfor %}
+                    </select>
+                 </div>
+                 <div class="col-md-3">
+                     <label for="new_game_num_cards" class="form-label">Карт на игрока:</label>
+                     <input type="number" id="new_game_num_cards" name="new_game_num_cards" class="form-control" value="3" min="1" required>
+                 </div>
+                  <div class="col-auto">
+                     <button type="submit" class="btn btn-danger"><i class="bi bi-bootstrap-reboot"></i> Начать новую игру</button>
+                 </div>
+             </div>
+             <small class="form-text text-muted mt-2 d-block">
+                 Внимание: Это действие сбросит все текущие очки, состояние стола, угадывания и назначит нового ведущего. Пользователи останутся.
+             </small>
+        </form>
+        {# --- Конец секции: Начать новую игру --- #}
+
+
+        {# --- Список пользователей --- #}
         <h2>Список пользователей</h2>
         <div class="table-responsive mb-4">
+            {# ID для таблицы не нужен, т.к. уникальный класс для бейджа уже есть #}
             <table class="table table-bordered table-striped table-hover table-sm" style="table-layout: fixed; width: 100%;">
-                <thead class="table-light">
+                <thead class="table-light"> {# Класс table-light адаптируется к теме #}
                     <tr>
                         <th style="width: 3%;" class="text-center">ID</th>
                         <th style="width: 15%;">Имя / Статус</th>
@@ -134,27 +193,22 @@
                                 {% set user_guess_count = guess_counts_by_user.get(user.id, 0) %}
                                 {% if user_guess_count > 0 %}
                                     <div style="column-count: 3; column-gap: 10px; font-size: 0.8rem;">
-                                    {# Итерируем по всем картам, чтобы найти предположения этого пользователя #}
                                     {% for image_id, guesses_for_image in all_guesses.items() %}
-                                        {# Проверяем, делал ли ЭТОТ пользователь предположение для ЭТОЙ карты #}
                                         {% if user.id|string in guesses_for_image %}
-                                            {% set guessed_owner_id = guesses_for_image[user.id|string] %} {# ID, который угадал пользователь #}
-                                            {% set actual_owner_id = image_owners.get(image_id) %}      {# Фактический владелец карты из словаря #}
-
+                                            {% set guessed_owner_id = guesses_for_image[user.id|string] %}
+                                            {% set actual_owner_id = image_owners.get(image_id) %}
                                             <small style="display: block; margin-bottom: 2px; white-space: nowrap;">
                                               Карта {{ image_id }}: {{ get_user_name(guessed_owner_id) or ('ID ' + guessed_owner_id|string) }}
-                                              {# --- Добавлена проверка и иконки --- #}
                                               {% if actual_owner_id is not none and guessed_owner_id == actual_owner_id %}
                                                   <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
-                                              {% elif actual_owner_id is not none %} {# Если владелец известен, но угадали неверно #}
+                                              {% elif actual_owner_id is not none %}
                                                   <i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>
-                                              {% endif %} {# Если actual_owner_id is none (карты нет на столе?), иконка не показывается #}
-                                              {# --- Конец добавленной проверки --- #}
+                                              {% endif %}
                                             </small>
                                         {% endif %}
                                     {% endfor %}
                                     </div>
-                                {% endif %} {# Конец if user_guess_count > 0 #}
+                                {% endif %}
                             </td>
                             <td class="action-forms text-center"> {# Действия #}
                                 <form action="{{ url_for('admin') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.name }} (ID: {{ user.id }})? Это действие необратимо!');">
@@ -174,67 +228,41 @@
             </table>
         </div>
 
-        {# --- Новая секция: Начать новую игру --- #}
-        <h2>Начать новую игру</h2>
-        <form method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
-             <div class="row g-3 align-items-end">
-                 <div class="col-md-5">
-                    <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
-                    <select id="new_game_subfolder" name="new_game_subfolder" class="form-select" required>
-                        <option value="" disabled {% if not active_subfolder %}selected{% endif %}>-- Выберите колоду --</option>
-                        {% for subfolder in subfolders %}
-                            {# Предлагаем выбрать текущую активную по умолчанию, если она есть #}
-                            <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
-                        {% endfor %}
-                    </select>
-                 </div>
-                 <div class="col-md-3">
-                     <label for="new_game_num_cards" class="form-label">Карт на игрока:</label>
-                     <input type="number" id="new_game_num_cards" name="new_game_num_cards" class="form-control" value="3" min="1" required>
-                 </div>
-                  <div class="col-auto">
-                     <button type="submit" class="btn btn-danger"><i class="bi bi-bootstrap-reboot"></i> Начать новую игру</button>
-                 </div>
-             </div>
-             <small class="form-text text-muted mt-2 d-block">
-                 Внимание: Это действие сбросит все текущие очки, состояние стола, угадывания и назначит нового ведущего. Пользователи останутся.
-             </small>
-        </form>
-        {# --- Конец секции: Начать новую игру --- #}
-        
-        {# --- Список изображений (обновлен заголовок, восстановлен статус без владельца) --- #}
+        {# --- Список изображений --- #}
         <h2>Список изображений ({{ images|length }} шт. / Свободно: {{ free_image_count }})</h2>
          <div class="table-responsive">
-            <table class="table table-bordered table-sm">
-                <thead class="table-light">
+            {# --->>> ДОБАВЛЕН ID к таблице <<<--- #}
+            <table id="image-list-table" class="table table-bordered table-sm">
+                <thead class="table-light"> {# Класс table-light адаптируется к теме #}
                     <tr>
                          <th>ID</th>
                          <th>Колода</th>
                          <th>Файл</th>
-                         <th>Статус</th> {# Восстановлена колонка #}
+                         <th>Статус</th>
                          <th>Превью</th>
-                         {# Колонка "Предположения по карте" остается скрытой #}
                     </tr>
                 </thead>
                 <tbody>
                     {% for image in images %}
+                        {# Добавлен класс table-secondary для неактивных строк, он адаптируется к теме #}
                         <tr class="{{ 'table-secondary' if image.subfolder != active_subfolder else '' }}">
                             <td>{{ image.id }}</td>
                             <td>{{ image.subfolder }}</td>
                             <td>{{ image.image }}</td>
-                            <td> {# Статус (без владельца) #}
+                            <td> {# Статус #}
                                 {% if image.status and image.status.startswith('Занято:') %}
+                                     {# Класс bg-secondary теперь будет переопределен в темной теме CSS выше #}
                                     <span class="badge bg-secondary" title="Карта назначена игроку">Занято</span>
                                 {% elif image.status == 'На столе' %}
                                      <span class="badge bg-info" title="Карта выложена на стол">На столе</span>
                                 {% elif image.status == 'Свободно' %}
                                     {% if image.subfolder == active_subfolder %}
-                                         <span class="badge bg-light text-dark">Свободно</span>
+                                         <span class="badge bg-light text-dark">Свободно</span> {# Адаптируется к теме #}
                                     {% else %}
-                                         <span class="badge bg-light text-muted" title="Карта в неактивной колоде">Свободно</span>
+                                         <span class="badge bg-light text-muted" title="Карта в неактивной колоде">Свободно</span> {# Адаптируется к теме #}
                                     {% endif %}
                                 {% else %}
-                                    {{ image.status or 'N/A' }}
+                                    {{ image.status or 'N/A' }} {# Статус типа 'Занято:Админ' #}
                                 {% endif %}
                             </td>
                             <td> {# Превью #}
