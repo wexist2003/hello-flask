@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"> {# Для адаптивности #}
     <title>Админка</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    {# Иконки Bootstrap (опционально) #}
+    {# Иконки Bootstrap #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         /* Пользовательские стили */
@@ -31,6 +31,10 @@
         html[data-bs-theme="dark"] #image-list-table .badge.bg-secondary {
             background-color: var(--bs-gray-800) !important;
             color: var(--bs-light) !important;
+        }
+        /* Дополнительный стиль для подсвеченной ячейки (на всякий случай, если тема не справится) */
+        .bg-danger-subtle {
+             --bs-table-bg-type: var(--bs-danger-subtle); /* Попробуем задать через переменную Bootstrap */
         }
     </style>
 </head>
@@ -60,6 +64,14 @@
             {% endif %}
         {% endwith %}
 
+         {# --- Сообщение о конце игры (если применимо) --- #}
+        {% if g.game_over %}
+            <div class="alert alert-warning mt-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! Для продолжения начните новую игру.
+            </div>
+        {% endif%}
+
+
         {# --- ОБЪЕДИНЕННЫЙ БЛОК ФОРМ: ВЫБОР КОЛОДЫ И ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ --- #}
         <div class="row mb-4 g-4"> {# Строка с отступами между колонками (g-4) #}
             {# --- Левая колонка: Выбор колоды --- #}
@@ -75,6 +87,7 @@
                             {% endfor %}
                         </select>
                     </div>
+                    {# Кнопка всегда активна #}
                     <button type="submit" class="btn btn-secondary">Сохранить колоду</button>
                 </form>
             </div>
@@ -82,6 +95,7 @@
             {# --- Правая колонка: Добавить пользователя --- #}
             <div class="col-md-7">
                  <h3>Добавить пользователя</h3>
+                 {# Разметка: Имя | Кол-во карт, кнопка ниже #}
                  <form method="post" action="{{ url_for('admin') }}">
                      {# Ряд для полей Имя и Кол-во карт #}
                      <div class="row g-3 mb-2"> {# Уменьшил нижний отступ #}
@@ -95,7 +109,6 @@
                          </div>
                      </div>
                      {# Кнопка Добавить - размещена так, чтобы быть под первой колонкой #}
-                     {# Можно просто добавить ее слева без явного указания колонок, т.к. она идет после ряда #}
                      <div>
                          <button type="submit" class="btn btn-primary btn-sm mt-1"> {# Добавлен небольшой верхний отступ #}
                              <i class="bi bi-person-plus-fill"></i> Добавить
@@ -139,18 +152,20 @@
                 <tbody>
                     {% for user in users %}
                         <tr>
-                            <td class="text-center">{{ user.id }}</td>
-                            <td> {# Имя / Статус #}
+                            <td class="text-center align-middle">{{ user.id }}</td>
+                            <td class="align-middle"> {# Имя / Статус #}
                                 {{ user.name }}
                                 {% if leader_to_display is not none and user.id == leader_to_display %}
                                     <span class="badge bg-success ms-2" title="Ведущий этого (или только что завершенного) раунда"><i class="bi bi-star-fill"></i> Ведущий</span>
                                 {% endif %}
                             </td>
-                            <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> {# Ссылка #}
+                            <td class="align-middle" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"> {# Ссылка #}
                                 <a href="{{ url_for('user', code=user.code) }}" target="_blank" title="{{ url_for('user', code=user.code, _external=True) }}">{{ user.code }} <i class="bi bi-box-arrow-up-right"></i></a>
                             </td>
-                            <td>{{ user.rating }}</td> {# Рейтинг #}
-                            <td> {# Предположения игрока #}
+                            <td class="align-middle">{{ user.rating }}</td> {# Рейтинг #}
+
+                            {# Ячейка Предположения игрока с подсветкой дубликатов #}
+                            <td {% if user_has_duplicate_guesses.get(user.id) %}class="bg-danger-subtle align-top"{% else %}class="align-top"{% endif %}>
                                 {% set user_guess_count = guess_counts_by_user.get(user.id, 0) %}
                                 {% if user_guess_count > 0 %}
                                     <div style="column-count: 3; column-gap: 10px; font-size: 0.8rem;">
@@ -169,9 +184,13 @@
                                         {% endif %}
                                     {% endfor %}
                                     </div>
+                                {% else %}
+                                     <span class="text-muted" style="font-size: 0.8rem;">Нет</span> {# Если предположений не было #}
                                 {% endif %}
                             </td>
-                            <td class="action-forms text-center"> {# Действия #}
+                            {# Конец ячейки Предположения игрока #}
+
+                            <td class="action-forms text-center align-middle"> {# Действия #}
                                 <form action="{{ url_for('admin') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.name }} (ID: {{ user.id }})? Это действие необратимо!');">
                                     <input type="hidden" name="delete_user_id" value="{{ user.id }}">
                                     <button class="btn btn-danger btn-sm" type="submit" title="Удалить пользователя {{ user.name }}">
@@ -191,7 +210,7 @@
         {# --- Конец Списка пользователей --- #}
 
 
-        {# === БЛОК "НАЧАТЬ НОВУЮ ИГРУ" ПЕРЕМЕЩЕН СЮДА === #}
+        {# === БЛОК "НАЧАТЬ НОВУЮ ИГРУ" === #}
         <h2>Начать новую игру</h2>
         <form id="new-game-form" method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
              <div class="row g-3 align-items-end">
@@ -235,10 +254,10 @@
                 <tbody>
                     {% for image in images %}
                         <tr class="{{ 'table-secondary' if image.subfolder != active_subfolder else '' }}">
-                            <td>{{ image.id }}</td>
-                            <td>{{ image.subfolder }}</td>
-                            <td>{{ image.image }}</td>
-                            <td> {# Статус #}
+                            <td class="align-middle">{{ image.id }}</td>
+                            <td class="align-middle">{{ image.subfolder }}</td>
+                            <td class="align-middle">{{ image.image }}</td>
+                            <td class="align-middle"> {# Статус #}
                                 {% if image.status and image.status.startswith('Занято:') %}
                                     <span class="badge bg-secondary" title="Карта назначена игроку">Занято</span>
                                 {% elif image.status == 'На столе' %}
@@ -250,10 +269,10 @@
                                          <span class="badge bg-light text-muted" title="Карта в неактивной колоде">Свободно</span> {# Адаптируется к теме #}
                                     {% endif %}
                                 {% else %}
-                                    {{ image.status or 'N/A' }}
+                                    {{ image.status or 'N/A' }} {# Например, Занято:Админ #}
                                 {% endif %}
                             </td>
-                            <td> {# Превью #}
+                            <td class="align-middle"> {# Превью #}
                                 <img src="{{ url_for('static', filename='images/' + image.subfolder + '/' + image.image) }}"
                                      alt="{{ image.image }}" style="max-width: 60px; height: auto;" loading="lazy">
                             </td>
