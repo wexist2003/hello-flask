@@ -303,7 +303,11 @@ def admin():
                         updated_inactive = c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected,)).rowcount
                         db.commit() # Коммитим статусы карт
                         # ... (формирование flash_message) ...
-                        flash(flash_message, "success")
+                        Формируем и показываем сообщение ТОЛЬКО при успехе
+                        flash_message_text = f"Выбрана активная колода: {selected}."
+                        if updated_inactive > 0:
+                            flash_message_text += f" Карты в других колодах ({updated_inactive} шт.) помечены как неактивные."
+                        flash(flash_message_text, "success") # Используем локальную переменную flash_message_text
                     except sqlite3.Error as e:
                         db.rollback()
                         flash(f"Ошибка обновления статусов карт: {e}", "danger")
