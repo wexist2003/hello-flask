@@ -102,35 +102,6 @@
             </form>
         </div>
 
-        {# --- Новая секция: Начать новую игру --- #}
-        <h2>Начать новую игру</h2>
-        <form method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
-             <div class="row g-3 align-items-end">
-                 <div class="col-md-5">
-                    <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
-                    <select id="new_game_subfolder" name="new_game_subfolder" class="form-select" required>
-                        <option value="" disabled {% if not active_subfolder %}selected{% endif %}>-- Выберите колоду --</option>
-                        {% for subfolder in subfolders %}
-                            {# Предлагаем выбрать текущую активную по умолчанию, если она есть #}
-                            <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
-                        {% endfor %}
-                    </select>
-                 </div>
-                 <div class="col-md-3">
-                     <label for="new_game_num_cards" class="form-label">Карт на игрока:</label>
-                     <input type="number" id="new_game_num_cards" name="new_game_num_cards" class="form-control" value="3" min="1" required>
-                 </div>
-                  <div class="col-auto">
-                     <button type="submit" class="btn btn-danger"><i class="bi bi-bootstrap-reboot"></i> Начать новую игру</button>
-                 </div>
-             </div>
-             <small class="form-text text-muted mt-2 d-block">
-                 Внимание: Это действие сбросит все текущие очки, состояние стола, угадывания и назначит нового ведущего. Пользователи останутся.
-             </small>
-        </form>
-        {# --- Конец секции: Начать новую игру --- #}
-
-
         {# --- Список пользователей (с иконками правильности) --- #}
         <h2>Список пользователей</h2>
         <div class="table-responsive mb-4">
@@ -203,6 +174,34 @@
             </table>
         </div>
 
+        {# --- Новая секция: Начать новую игру --- #}
+        <h2>Начать новую игру</h2>
+        <form method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
+             <div class="row g-3 align-items-end">
+                 <div class="col-md-5">
+                    <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
+                    <select id="new_game_subfolder" name="new_game_subfolder" class="form-select" required>
+                        <option value="" disabled {% if not active_subfolder %}selected{% endif %}>-- Выберите колоду --</option>
+                        {% for subfolder in subfolders %}
+                            {# Предлагаем выбрать текущую активную по умолчанию, если она есть #}
+                            <option value="{{ subfolder }}" {% if active_subfolder == subfolder %}selected{% endif %}>{{ subfolder }}</option>
+                        {% endfor %}
+                    </select>
+                 </div>
+                 <div class="col-md-3">
+                     <label for="new_game_num_cards" class="form-label">Карт на игрока:</label>
+                     <input type="number" id="new_game_num_cards" name="new_game_num_cards" class="form-control" value="3" min="1" required>
+                 </div>
+                  <div class="col-auto">
+                     <button type="submit" class="btn btn-danger"><i class="bi bi-bootstrap-reboot"></i> Начать новую игру</button>
+                 </div>
+             </div>
+             <small class="form-text text-muted mt-2 d-block">
+                 Внимание: Это действие сбросит все текущие очки, состояние стола, угадывания и назначит нового ведущего. Пользователи останутся.
+             </small>
+        </form>
+        {# --- Конец секции: Начать новую игру --- #}
+        
         {# --- Список изображений (обновлен заголовок, восстановлен статус без владельца) --- #}
         <h2>Список изображений ({{ images|length }} шт. / Свободно: {{ free_image_count }})</h2>
          <div class="table-responsive">
