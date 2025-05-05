@@ -238,21 +238,6 @@ def before_request():
 
     # Соединение НЕ закрывается здесь, закроется автоматически через teardown_appcontext
 
-Конечно, вот полный код функции admin для файла app.py, включающий все накопившиеся изменения: корректную обработку POST-запросов (добавление, смена колоды, удаление с переназначением лидера), корректный редирект, получение всех данных для GET-запроса (включая user_has_duplicate_guesses) и улучшенное логирование ошибок при чтении данных.
-
-Python
-
-import sqlite3
-import json
-import random
-import os
-import string
-from flask import (
-    Flask, request, render_template, redirect, url_for,
-    g, flash, session
-)
-
-
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     # Используем соединение через g для потокобезопасности
