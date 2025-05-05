@@ -684,169 +684,274 @@ def place_card(code, image_id):
 
 @app.route("/open_cards", methods=["POST"])
 def open_cards():
-    if g.game_over: # Проверка на конец игры
+    # Проверка на конец игры (сохранена из оригинала)
+    if hasattr(g, 'game_over') and g.game_over: # Добавлена проверка наличия g.game_over
         flash("Игра окончена. Подсчет очков невозможен.", "warning")
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin')) # Предполагаем, что 'admin' - это ваш маршрут
 
     db = get_db()
     c = db.cursor()
     leader_just_finished = get_leading_user_id() # ID ведущего, чей раунд закончился
 
+    # Флаг для Правила 1 (остановка подсчета).
+    stop_processing = False
+    # Список для сводки очков
+    points_summary = []
+
     try:
-        # Показываем информацию о картах
+        # Показываем информацию о картах (сохранено из оригинала)
         if not set_setting("show_card_info", "true"):
-             flash("Не удалось обновить настройку видимости карт.", "warning")
-             # Продолжаем выполнение, но видимость может не обновиться
+            flash("Не удалось обновить настройку видимости карт.", "warning")
+            # Продолжаем выполнение
 
-        # --- Проверка и установка лидера, если не был установлен ---
+        # --- Проверка и установка лидера, если не был установлен (сохранено из оригинала) ---
         if leader_just_finished is None:
-             c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
-             first_user = c.fetchone()
-             if first_user:
-                 leader_just_finished = first_user['id']
-                 set_leading_user_id(leader_just_finished)
-                 flash(f"Ведущий не был установлен. Назначен: {get_user_name(leader_just_finished)}.", "info")
-             else:
-                 flash("Нет пользователей для подсчета очков.", "warning")
-                 return redirect(url_for("admin"))
+            c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+            first_user = c.fetchone()
+            if first_user:
+                leader_just_finished = first_user['id']
+                # Проверяем успешность установки нового лидера
+                if not set_leading_user_id(leader_just_finished):
+                     flash(f"Не удалось установить первого ведущего (ID: {leader_just_finished}).", "danger")
+                     db.rollback() # Откат, т.к. не можем продолжить
+                     return redirect(url_for("admin"))
+                flash(f"Ведущий не был установлен. Назначен: {get_user_name(leader_just_finished)}.", "info")
+            else:
+                flash("Нет пользователей для подсчета очков.", "warning")
+                # Нет смысла продолжать, если нет пользователей
+                return redirect(url_for("admin"))
 
-        # --- Подсчет очков ---
+        # --- Подсчет очков (ЗАМЕНЕННЫЙ БЛОК) ---
         c.execute("SELECT id, owner_id, guesses FROM images WHERE owner_id IS NOT NULL")
         table_images = c.fetchall()
-        c.execute("SELECT id FROM users")
-        all_user_ids = [user['id'] for user in c.fetchall()]
-        num_all_users = len(all_user_ids)
-        user_points = {user_id: 0 for user_id in all_user_ids} # Очки за текущий раунд
 
+        c.execute("SELECT id FROM users")
+        # Убеждаемся, что ID пользователей - целые числа
+        all_user_ids = [int(user['id']) for user in c.fetchall()]
+        num_all_users = len(all_user_ids)
+
+        # Очки за текущий раунд (оригинальное название)
+        user_points = {user_id: 0 for user_id in all_user_ids}
+
+        # --- Проверка Ведущего на активность ---
         if leader_just_finished not in user_points and leader_just_finished is not None:
             flash(f"Ведущий (ID: {leader_just_finished}) не найден среди текущих пользователей. Подсчет очков может быть неполным.", "warning")
+            # Тем не менее, продолжаем подсчет с доступными данными
 
         print("--- Начисление очков ---") # Отладка
+
+        # --- Итерация по картам ---
         for image_data in table_images:
+            if stop_processing: # Проверка флага остановки (Правило 1)
+                print("  Обработка карт прервана из-за выполнения Правила 1.")
+                break # Выход из цикла обработки карт
+
             owner_id = image_data['owner_id']
-            image_id = image_data['id'] # Получаем ID карты для отладки
+            image_id = image_data['id']
             guesses_json_str = image_data['guesses'] or '{}'
+
+            # Безопасное преобразование JSON
             try: guesses = json.loads(guesses_json_str)
-            except json.JSONDecodeError: guesses = {}
+            except json.JSONDecodeError:
+                print(f"  ПРЕДУПРЕЖДЕНИЕ: Некорректный JSON в guesses для карты {image_id}. Угадывания пропущены.")
+                guesses = {}
 
-            # Пропускаем карты удаленных или неактивных владельцев
-            if owner_id not in user_points: continue
+            # Убедимся, что owner_id - целое число
+            try: owner_id = int(owner_id)
+            except (ValueError, TypeError):
+                print(f"  ПРЕДУПРЕЖДЕНИЕ: Некорректный owner_id ({owner_id}) для карты {image_id}. Карта пропущена.")
+                continue
 
+            # Пропуск карты, если владелец неактивен/не найден
+            if owner_id not in user_points:
+                print(f"  ИНФО: Владелец {owner_id} карты {image_id} неактивен. Карта пропущена.")
+                continue
+
+            print(f"\n  Обработка карты {image_id} (Владелец: {owner_id})")
             correct_guesses_count = 0
-            # Сначала начисляем +3 всем правильно угадавшим (кроме владельца)
+            # Список для хранения ID угадавших эту карту (нужен для Правила 1)
+            correct_guesser_ids = []
+
+            # --- Первый проход: Обработка угадываний (Начисление +3 только за Ведущего) ---
             for guesser_id_str, guessed_user_id in guesses.items():
                 try:
                     guesser_id = int(guesser_id_str)
-                    # Учитываем только угадывания от текущих пользователей, не являющихся владельцем
+                    try: guessed_user_id = int(guessed_user_id)
+                    except (ValueError, TypeError):
+                        print(f"    ПРЕДУПРЕЖДЕНИЕ: Некорректный guessed_user_id ({guessed_user_id}) от {guesser_id}. Угадывание пропущено.")
+                        continue
+
                     if guesser_id in user_points and guesser_id != owner_id:
-                        if guessed_user_id == owner_id: # Правильное угадывание
+                        if guessed_user_id == owner_id: # Угадывание верное
                             correct_guesses_count += 1
-                            user_points[guesser_id] += 3 # +3 за правильное угадывание
-                            print(f"  Карта {image_id} (Владелец {owner_id}): Игрок {guesser_id} угадал верно (+3)")
-                except (ValueError, TypeError): continue
+                            correct_guesser_ids.append(guesser_id)
 
-            # Затем начисляем очки владельцу карты (и возможно другим по правилам ведущего)
-            num_potential_guessers = num_all_users - 1 if num_all_users > 1 else 0 # Кол-во других игроков
+                            # --- ИЗМЕНЕНИЕ: +3 только за угадывание Ведущего (Правило 4) ---
+                            if owner_id == leader_just_finished:
+                                user_points[guesser_id] += 3
+                                print(f"    Игрок {guesser_id} угадал карту ВЕДУЩЕГО ({owner_id}) --> +3")
+                            else:
+                                # Правило 3: За угадывание НЕ Ведущего угадавший получает +0
+                                print(f"    Игрок {guesser_id} угадал карту НЕ Ведущего ({owner_id}) --> +0")
 
-            # --->>> ИЗМЕНЕННАЯ ЛОГИКА ПОДСЧЕТА ДЛЯ КАРТЫ ВЕДУЩЕГО <<<---
+                except (ValueError, TypeError):
+                    print(f"    ПРЕДУПРЕЖДЕНИЕ: Некорректный guesser_id_str '{guesser_id_str}'. Угадывание пропущено.")
+                    continue
+
+            # --- Второй проход: Очки владельцу карты (и спец. правила Ведущего) ---
+            num_potential_guessers = num_all_users - 1 if num_all_users > 1 else 0
+
+            # --->>> ЛОГИКА КАРТЫ ВЕДУЩЕГО (с изменениями) <<<---
             if owner_id == leader_just_finished:
-                print(f"  Обработка карты Ведущего {owner_id} (Карта ID {image_id}):")
-                print(f"    Правильных угадываний: {correct_guesses_count}, Потенциальных угадывающих: {num_potential_guessers}")
+                print(f"    --- Обработка очков ВЕДУЩЕГО {owner_id} ---")
+                print(f"      Правильных угадываний: {correct_guesses_count}, Потенциальных угадывающих: {num_potential_guessers}")
+
                 if num_potential_guessers > 0:
                     if correct_guesses_count == num_potential_guessers:
-                        # Все угадали карту Ведущего
-                        user_points[owner_id] -= 3 # Ведущий получает -3
-                        print(f"    Все ({correct_guesses_count}) угадали. Ведущий {owner_id} получает -3.")
-                        # Остальные не получают доп. очков по этому правилу (но +3 за угадывание остается)
+                        # --- Правило 1: Все угадали Ведущего ---
+                        user_points[owner_id] -= 3
+                        print(f"      Все ({correct_guesses_count}) угадали. Ведущий {owner_id} --> -3.")
+                        # Отмена +3 у угадавших
+                        print(f"      Отмена +3 у угадавших:")
+                        for guesser_id_rule1 in correct_guesser_ids:
+                            if guesser_id_rule1 in user_points:
+                                user_points[guesser_id_rule1] -= 3 # Отменяем ранее начисленные +3
+                                print(f"        Игрок {guesser_id_rule1}: -3 (общий итог за угадывание: 0)")
+                        # Установка флага для остановки
+                        stop_processing = True
+                        print("      !!! Начисление очков ОСТАНОВЛЕНО (Правило 1) !!!")
+
                     elif correct_guesses_count == 0:
-                        # Никто не угадал карту Ведущего
-                        user_points[owner_id] -= 2 # Ведущий получает -2
-                        print(f"    Никто не угадал. Ведущий {owner_id} получает -2.")
-                        # Остальные не получают доп. очков по этому правилу
+                        # --- Правило 2: Никто не угадал Ведущего ---
+                        user_points[owner_id] -= 2
+                        print(f"      Никто не угадал. Ведущий {owner_id} --> -2.")
                     else: # 0 < correct_guesses_count < num_potential_guessers
-                        # Некоторые (но не все) угадали карту Ведущего
-                        user_points[owner_id] += 3 # Ведущий получает +3
-                        print(f"    {correct_guesses_count} угадали (не все). Ведущий {owner_id} получает +3.")
-                        # Правильно угадавшие уже получили +3
-                else: # Если не было потенциальных угадывающих (напр. игра 1 на 1)
-                    user_points[owner_id] -= 2 # Считаем как "никто не угадал"
-                    print(f"    Нет потенциальных угадывающих. Ведущий {owner_id} получает -2.")
-            # --->>> КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ ДЛЯ ВЕДУЩЕГО <<<---
-            else: # Если это карта НЕ Ведущего
-                 # Владелец получает +1 за каждого, кто угадал его карту
-                 user_points[owner_id] += correct_guesses_count
-                 if correct_guesses_count > 0:
-                     print(f"  Карта {image_id} (НЕ Ведущий {owner_id}): Владелец получает +{correct_guesses_count}.")
-                 # Правильно угадавшие уже получили +3
+                        # --- Правило 5: Некоторые угадали Ведущего ---
+                        points_for_leader = 3 + correct_guesses_count # База +1 за каждого
+                        user_points[owner_id] += points_for_leader
+                        print(f"      {correct_guesses_count} угадали (не все). Ведущий {owner_id} --> +3 + {correct_guesses_count} = +{points_for_leader}.")
+                        # Угадавшие сохраняют свои +3 (полученные ранее по Правилу 4)
+                else: # Нет потенциальных угадывающих
+                    # Считаем как Правило 2
+                    user_points[owner_id] -= 2
+                    print(f"      Нет потенциальных угадывающих. Ведущий {owner_id} --> -2.")
+            # --->>> КОНЕЦ ЛОГИКИ КАРТЫ ВЕДУЩЕГО <<<---
+            else: # Карта принадлежит НЕ Ведущему
+                # --- Правило 3: Очки владельцу карты НЕ Ведущего ---
+                if correct_guesses_count > 0:
+                    user_points[owner_id] += correct_guesses_count # +1 за каждого угадавшего
+                    print(f"    Карта НЕ Ведущего {owner_id}: Владелец --> +{correct_guesses_count}.")
+                # else: # Никто не угадал, владелец +0
+                #     print(f"    Карта НЕ Ведущего {owner_id}: Никто не угадал, владелец --> +0.")
+        # --- Конец цикла по картам ---
 
-        # --- Обновление рейтинга ---
-        points_summary = []
-        print("--- Обновление рейтинга ---")
-        for user_id, points in user_points.items():
-            if points != 0:
-                 try:
-                     c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
-                     user_name = get_user_name(user_id) or f"ID {user_id}"
-                     points_summary.append(f"{user_name}: {points:+}") # Форматируем с + или -
-                     print(f"  Пользователь {user_id} ({user_name}): {points:+}")
-                 except sqlite3.Error as e:
-                     print(f"Error updating rating for user {user_id}: {e}")
-                     flash(f"Ошибка обновления рейтинга для пользователя ID {user_id}", "danger")
-                     db.rollback() # Откатываем только если ошибка при обновлении рейтинга
-                     # Решаем, стоит ли прерывать весь процесс или продолжить
-                     return redirect(url_for("admin")) # Прерываем в случае ошибки
+        # --- Обновление рейтинга (УЛУЧШЕННЫЙ БЛОК) ---
+        print("\n--- Обновление рейтинга ---")
 
-        # --- Определение и сохранение СЛЕДУЮЩЕГО ведущего ---
-        next_leading_user_id = None
-        if leader_just_finished is not None and all_user_ids:
-            try:
-                c.execute("SELECT id FROM users ORDER BY id") # Получаем ID в порядке возрастания
-                user_ids_ordered = [row['id'] for row in c.fetchall()]
-                if user_ids_ordered: # Убедимся, что пользователи есть
+        if stop_processing:
+            print("  Обновление рейтинга пропущено, так как подсчет был остановлен по Правилу 1.")
+            flash("Подсчет очков остановлен: все угадали карту Ведущего. Очки за раунд не сохранены.", "info")
+            # Очки не сохраняем, но нужно определить следующего лидера
+        else:
+            # Обновляем рейтинг только если обработка НЕ была остановлена
+            for user_id, points in user_points.items():
+                if points != 0:
                     try:
-                        current_index = user_ids_ordered.index(leader_just_finished)
-                        next_index = (current_index + 1) % len(user_ids_ordered)
-                        next_leading_user_id = user_ids_ordered[next_index]
-                    except ValueError: # Если старый лидер удален
-                        next_leading_user_id = user_ids_ordered[0] # Берем первого из оставшихся
-            except sqlite3.Error as e:
-                 print(f"Error getting user IDs for next leader selection: {e}")
-                 flash("Ошибка при определении следующего ведущего.", "warning")
+                        # Получение имени пользователя (замените на реальную функцию)
+                        user_name = f"ID {user_id}" # Значение по умолчанию
+                        try: fetched_name = get_user_name(user_id)
+                        except NameError: fetched_name = None # get_user_name не определена
+                        except Exception as name_err:
+                             print(f"  (Ошибка при получении имени для {user_id}: {name_err})")
+                             fetched_name = None
+                        if fetched_name: user_name = fetched_name
 
-        elif all_user_ids: # Если лидера не было, но есть пользователи
-            next_leading_user_id = all_user_ids[0]
+                        print(f"  Обновление пользователя {user_id} ({user_name}): {points:+}")
+                        c.execute("UPDATE users SET rating = rating + ? WHERE id = ?", (points, user_id))
+                        points_summary.append(f"{user_name}: {points:+}") # Формат с + или -
+
+                    except sqlite3.Error as e:
+                        print(f"!!! ОШИБКА обновления рейтинга для пользователя {user_id}: {e}")
+                        flash(f"Ошибка обновления рейтинга для пользователя ID {user_id}", "danger")
+                        db.rollback() # Откатываем транзакцию
+                        print("  !!! Транзакция отменена из-за ошибки обновления рейтинга !!!")
+                        return redirect(url_for("admin")) # Прерываем и перенаправляем
+
+        # --- Определение и сохранение СЛЕДУЮЩЕГО ведущего (сохранено из оригинала, с улучшенным порядком) ---
+        next_leading_user_id = None
+        # Получаем актуальный список ID пользователей на случай, если кто-то удалился
+        try:
+            c.execute("SELECT id FROM users ORDER BY id") # Получаем ID в порядке возрастания
+            user_ids_ordered = [int(row['id']) for row in c.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Error getting user IDs for next leader selection: {e}")
+            flash("Ошибка при получении списка пользователей для определения следующего ведущего.", "danger")
+            db.rollback()
+            return redirect(url_for("admin"))
+
+        if not user_ids_ordered:
+             flash("Нет пользователей для определения следующего ведущего.", "warning")
+             set_leading_user_id(None) # Устанавливаем None
+        elif leader_just_finished is not None and leader_just_finished in user_ids_ordered:
+             try:
+                 current_index = user_ids_ordered.index(leader_just_finished)
+                 next_index = (current_index + 1) % len(user_ids_ordered)
+                 next_leading_user_id = user_ids_ordered[next_index]
+             except ValueError: # На всякий случай, если лидер был удален между проверками
+                 print(f"Предупреждение: ID ведущего {leader_just_finished} не найден в упорядоченном списке.")
+                 next_leading_user_id = user_ids_ordered[0] # Берем первого
+        elif user_ids_ordered: # Если лидера не было или он удален, берем первого из списка
+             next_leading_user_id = user_ids_ordered[0]
 
         # Сохраняем нового лидера
         if next_leading_user_id is not None:
-             if set_leading_user_id(next_leading_user_id):
-                 next_leader_name = get_user_name(next_leading_user_id) or f"ID {next_leading_user_id}"
-                 flash(f"Подсчет очков завершен. Следующий ведущий: {next_leader_name}.", "success")
-             else:
-                  flash("Ошибка сохранения нового ведущего.", "danger")
-                  db.rollback()
-                  return redirect(url_for("admin")) # Прерываем, если не удалось сохранить лидера
+            if set_leading_user_id(next_leading_user_id):
+                next_leader_name = get_user_name(next_leading_user_id) or f"ID {next_leading_user_id}"
+                # Сообщение об успехе зависит от того, сохраняли ли мы очки
+                if not stop_processing:
+                     flash(f"Подсчет очков завершен. Следующий ведущий: {next_leader_name}.", "success")
+                else:
+                     flash(f"Раунд завершен (очки не сохранены). Следующий ведущий: {next_leader_name}.", "info")
+            else:
+                 flash("Критическая ошибка: не удалось сохранить нового ведущего.", "danger")
+                 db.rollback()
+                 return redirect(url_for("admin")) # Прерываем, если не удалось сохранить лидера
         else:
-            flash("Не удалось определить следующего ведущего (возможно, нет пользователей).", "warning")
-            set_leading_user_id(None) # Устанавливаем None, если не смогли определить
+             # Эта ветка не должна достигаться при наличии user_ids_ordered, но на всякий случай
+             flash("Не удалось определить следующего ведущего.", "warning")
+             set_leading_user_id(None)
 
-        # Показываем сводку очков
-        if points_summary: flash(f"Изменение очков: {'; '.join(points_summary)}", "info")
-        else: flash("В этом раунде очки не изменились.", "info")
+        # Показываем сводку очков (если они начислялись)
+        if points_summary and not stop_processing:
+            flash(f"Изменение очков: {'; '.join(points_summary)}", "info")
+        elif not stop_processing:
+             flash("В этом раунде очки не изменились.", "info")
+        # Если stop_processing, сводку не показываем (уже было сообщение)
 
-        # Коммитим все изменения (рейтинги, настройки лидера)
+        # --- Коммит всех изменений ---
+        # Коммитим только если не было ошибок и отката ранее
         db.commit()
         print("--- Подсчет очков и обновление завершены успешно ---")
 
     except sqlite3.Error as e:
-        db.rollback() # Откат при ошибке БД в процессе подсчета
+        db.rollback() # Откат при ошибке БД в процессе подсчета/установки лидера
         flash(f"Ошибка базы данных при подсчете очков: {e}", "danger")
+        print(f"Database error in open_cards: {e}")
+        import traceback
+        print(traceback.format_exc()) # Печать стека вызовов для отладки
+        # Перенаправляем на админку после ошибки
+        return redirect(url_for("admin"))
     except Exception as e:
-        db.rollback() # Откат при других ошибках
-        flash(f"Непредвиденная ошибка при подсчете очков: {e}", "danger")
-        print(f"Unexpected error in open_cards: {e}") # Логируем ошибку
+        db.rollback() # Откат при других непредвиденных ошибках
+        flash(f"Непредвиденная ошибка при подсчете очков: {type(e).__name__}", "danger")
+        print(f"Unexpected error in open_cards: {e}")
+        import traceback
+        print(traceback.format_exc()) # Печать стека вызовов для отладки
+         # Перенаправляем на админку после ошибки
+        return redirect(url_for("admin"))
 
-    # Перенаправляем на админку, передавая ID ведущего, чей раунд ТОЛЬКО ЧТО ЗАКОНЧИЛСЯ
-    # leader_just_finished содержит ID лидера до смены
+    # Перенаправляем на админку в случае успеха
+    # Передаем ID ведущего, чей раунд ТОЛЬКО ЧТО ЗАКОНЧИЛСЯ (для возможного отображения)
     return redirect(url_for("admin", displayed_leader_id=leader_just_finished))
 
 
