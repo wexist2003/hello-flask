@@ -340,7 +340,7 @@ def admin():
                 if not name:
                      flash("Имя пользователя не может быть пустым.", "warning")
                 else:
-                    num_cards = int(request.form.get("num_cards", 4))
+                    num_cards = int(request.form.get("num_cards", 3))
                     if num_cards < 1: num_cards = 1
                     code = generate_unique_code()
 
