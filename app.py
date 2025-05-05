@@ -241,7 +241,7 @@ def before_request():
 @app.route("/")
 def index():
     # Простой пример, можно сделать редирект на админку или страницу входа
-    return "<h1>Игра (Прототип)</h1><p><a href='/admin'>Перейти в админку</a></p>"
+    return "<h1>Имаджинариум</h1><p><a href='/admin'>Перейти в админку</a></p>"
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
