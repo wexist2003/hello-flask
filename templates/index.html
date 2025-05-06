@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра (Прототип)</title>
+    <style>
+        body {
+            margin: 0; /* Убираем отступы по умолчанию */
+            padding: 0; /* Убираем отступы по умолчанию */
+            min-height: 100vh; /* Тело занимает как минимум всю высоту экрана */
+            /* Используем url_for для генерации правильного пути к статическому файлу */
+            background-image: url("{{ url_for('static', filename='images/a.jpg') }}");
+            background-size: cover; /* Масштабирует изображение, чтобы покрыть всю область */
+            background-position: center center; /* Центрирует изображение */
+            background-repeat: no-repeat; /* Изображение не будет повторяться */
+            background-attachment: fixed; /* Фон остается на месте при прокрутке (опционально) */
+            display: flex; /* Используем flexbox для центрирования содержимого */
+            flex-direction: column; /* Элементы располагаются в колонку */
+            align-items: center; /* Центрирование по горизонтали */
+            justify-content: center; /* Центрирование по вертикали */
+            color: white; /* Цвет текста по умолчанию (лучше белый для темного фона) */
+            font-family: Arial, sans-serif; /* Базовый шрифт */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7); /* Тень для текста для лучшей читаемости */
+        }
+        .content-wrapper {
+            background-color: rgba(0, 0, 0, 0.5); /* Полупрозрачный темный фон для контента */
+            padding: 30px 40px;
+            border-radius: 10px;
+            text-align: center; /* Текст внутри блока тоже по центру */
+        }
+        .content-wrapper h1 {
+            margin-top: 0; /* Убираем верхний отступ у заголовка */
+            font-size: 2.5em; /* Размер заголовка */
+        }
+        .content-wrapper p {
+            font-size: 1.2em; /* Размер параграфа */
+        }
+        .content-wrapper a {
+            color: #87CEFA; /* Светло-голубой цвет для ссылки */
+            text-decoration: none; /* Без подчеркивания */
+            font-weight: bold;
+        }
+        .content-wrapper a:hover {
+            text-decoration: underline; /* Подчеркивание при наведении */
+        }
+    </style>
+</head>
+<body>
+    <div class="content-wrapper">
+        <h1>Игра (Прототип)</h1>
+        {# Используем url_for для генерации ссылки на маршрут admin #}
+        <p><a href="{{ url_for('admin') }}">Перейти в админку</a></p>
+    </div>
+</body>
+</html>
