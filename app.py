@@ -122,7 +122,7 @@ def init_db():
 
         # --- Загрузка изображений ---
         print("init_db: Starting image loading...")
-        image_folders = ['koloda1', 'ariadna'] # Убедитесь, что эти папки есть в static/images
+        image_folders = ['koloda1', 'ariadna', 'pandora'] # Убедитесь, что эти папки есть в static/images
         images_added_count = 0
         for folder in image_folders:
             folder_path = os.path.join('static', 'images', folder)
