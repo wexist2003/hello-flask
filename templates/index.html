@@ -11,7 +11,7 @@
             min-height: 100vh; /* Тело занимает как минимум всю высоту экрана */
             /* Используем url_for для генерации правильного пути к статическому файлу */
             background-image: url("{{ url_for('static', filename='images/a.jpg') }}");
-            background-size: cover; /* Масштабирует изображение, чтобы покрыть всю область */
+            background-size: contain; /* Масштабирует изображение, чтобы покрыть всю область */
             background-position: center center; /* Центрирует изображение */
             background-repeat: no-repeat; /* Изображение не будет повторяться */
             background-attachment: fixed; /* Фон остается на месте при прокрутке (опционально) */
@@ -48,7 +48,7 @@
 </head>
 <body>
     <div class="content-wrapper">
-        <h1>Игра (Прототип)</h1>
+        <h1>Игра Имаджинариум</h1>
         {# Используем url_for для генерации ссылки на маршрут admin #}
         <p><a href="{{ url_for('admin') }}">Перейти в админку</a></p>
     </div>
