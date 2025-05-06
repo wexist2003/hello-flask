@@ -528,5 +528,16 @@ def open_cards():
 
 # --- Запуск приложения ---
 if __name__ == "__main__":
-    # init_db() # Раскомментируйте для инициализации/пересоздания БД при запуске
-    app.run(debug=True) # debug=True только для разработки!
+    # init_db() # Раскомментируйте для инициализации/пересоздания БД при локальном запуске.
+    # Для Render лучше использовать "Build Command" или "Pre-deploy Command" для инициализации БД,
+    # или выполнять это как одноразовую задачу (Job), а не при каждом запуске приложения.
+
+    # Render предоставляет порт через переменную окружения PORT
+    port = int(os.environ.get("PORT", 8080)) # 8080 как запасной вариант, если PORT не установлен (локально)
+
+    # В продакшен-среде (как на Render) debug должен быть False.
+    # Render обычно устанавливает PYTHON_ENV=production.
+    # Можно также явно проверять или использовать другую переменную окружения для управления debug.
+    is_production = os.environ.get("PYTHON_ENV", "development").lower() == "production"
+
+    app.run(host='0.0.0.0', port=port, debug=not is_production)
