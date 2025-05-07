@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ru" data-bs-theme="light"> {# Тема по умолчанию - светлая #}
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"> {# Для адаптивности #}
+    <title>Профиль {{ name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    {# Иконки Bootstrap (опционально) #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        /* Пользовательские стили */
+        .card-img-top {
+            max-width: 150px; /* Ограничение ширины изображения карты */
+            height: auto;
+            display: block; /* Центрирование */
+            margin: 0 auto 0.5rem; /* Отступ снизу */
+        }
+        .card {
+             width: auto; /* Автоматическая ширина карты */
+             min-width: 180px; /* Минимальная ширина для лучшего вида */
+        }
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem; /* Отступы между картами */
+        }
+        .theme-toggle-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1050; /* Выше большинства элементов */
+        }
+        h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+    </style>
+</head>
+
+<body class="p-4">
+    <div class="container-fluid"> {# Используем контейнер #}
+
+        {# --- Кнопка смены темы --- #}
+        <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
+             <i class="bi bi-circle-half"></i>
+             <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
+        </button>
+
+        <h1>Привет, {{ name }}!</h1>
+        <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
+
+        {# --- ЯВНОЕ ОТОБРАЖЕНИЕ ВЕДУЩЕГО И СЛЕДУЮЩЕГО --- #}
+        <div class="d-flex justify-content-between align-items-baseline mb-2"> {# Flexbox для выравнивания #}
+            {# Левая часть: Ведущий (текущий или предыдущий раунд) #}
+            <span class="text-muted">
+                {% if leader_for_display %} {# ID ведущего для отображения #}
+                    {% set displayed_leader_name = get_user_name(leader_for_display) %}
+                    <i class="bi bi-star-fill text-success"></i> {# Иконка ведущего #}
+                    Ведущий: <strong>{{ displayed_leader_name or ('ID ' + leader_for_display|string) }}</strong>
+                {% else %}
+                    Ведущий еще не определен.
+                {% endif %}
+            </span>
+
+            {# Правая часть: Следующий ведущий #}
+            <span class="text-muted">
+                {% set next_leader_id = get_leading_user_id() %} {# Получаем ID реального СЛЕДУЮЩЕГО ведущего из настроек #}
+                {% if next_leader_id and next_leader_id != leader_for_display %} {# Показываем, только если он отличается от отображаемого слева #}
+                     {% set next_leader_name = get_user_name(next_leader_id) %}
+                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                {% elif next_leader_id and next_leader_id == leader_for_display and g.show_card_info %}
+                     {# Если отображаемый слева - предыдущий, то показываем текущего (он же следующий) справа #}
+                     {% set next_leader_name = get_user_name(next_leader_id) %}
+                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                 {% endif %}
+            </span>
+        </div>
+        {# --- КОНЕЦ БЛОКА ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
+
+
+        {# --- Flash-сообщения --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {# --- Сообщение о конце игры (если применимо) --- #}
+        {% if g.game_over %}
+            <div class="alert alert-warning mt-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! У одного из игроков закончились карты.
+            </div>
+        {% endif%}
+
+
+        <hr>
+
+        <h2>Общий стол</h2>
+        <div class="border p-3 mb-4 rounded">
+            <div class="card-container"> {# Контейнер для карточек #}
+                {% if table_images %}
+                    {% for table_image in table_images %}
+                    {# --- Начало карточки на столе --- #}
+                    <div class="card">
+                        {# --- Блок с информацией о владельце (над картинкой) --- #}
+                        {% if g.show_card_info %}
+                        <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
+                              <h6 class="card-subtitle text-muted text-center mb-1">
+                                 <small>Чья:</small>
+                                 <strong>{{ get_user_name(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
+                                 {% if leader_for_display == table_image.owner_id %}
+                                      <span class="badge bg-success ms-1" title="Ведущий"><i class="bi bi-star-fill"></i></span>
+                                 {% endif %}
+                             </h6>
+                         </div>
+                        {% endif %}
+                        {# --- Конец блока с информацией о владельце --- #}
+
+                        {# --- Изображение карты --- #}
+                        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                             class="card-img-top px-3"
+                             alt="Карта {{ table_image.id }}" loading="lazy"
+                             style="max-width: 180px; margin-top: 0.5rem;">
+                        {# --- Конец изображения карты --- #}
+
+                        {# --- Тело карточки (Предположения и форма) --- #}
+                        <div class="card-body pt-2">
+                            {% if g.show_card_info %}
+                                {# --- Блок общих предположений --- #}
+                                <p class="card-text mb-1"><small>Предположения:</small></p>
+                                <ul class="list-unstyled mb-2" style="font-size: 0.85em;">
+                                    {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
+                                        <li><small>
+                                            {{ get_user_name(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
+                                            {{ get_user_name(guessed_user_id) or 'ID ' + guessed_user_id|string }}
+                                            {% if guessed_user_id == table_image.owner_id %}
+                                                <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
+                                            {% else %}
+                                                <i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>
+                                            {% endif %}
+                                        </small></li>
+                                    {% else %}
+                                        <li><small class="text-muted">Нет</small></li>
+                                    {% endfor %}
+                                </ul>
+                                {# --- Конец блока общих предположений --- #}
+
+                                <hr class="my-1">
+
+                                {# --- Блок "Ваше предположение" --- #}
+                                <p class="card-text mb-0" style="font-size: 0.9em;">
+                                    <small>
+                                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
+                                        {% if my_guess_owner_id is not none %}
+                                            {# Если пользователь ДЕЛАЛ предположение #}
+                                            Ваше предположение:
+                                            <strong>{{ get_user_name(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
+                                            {% if my_guess_owner_id == table_image.owner_id %}
+                                                <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
+                                            {% else %}
+                                                <i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>
+                                            {% endif %}
+                                        {% else %}
+                                            {# Если пользователь НЕ ДЕЛАЛ предположение #}
+                                            {% if table_image.owner_id == g.user_id %}
+                                                {# И это его собственная карта #}
+                                                <span class="text-primary fw-bold">Это ваша карточка.</span>
+                                            {% else %}
+                                                {# И это чужая карта #}
+                                                Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </small>
+                                </p>
+                                {# --- Конец блока "Ваше предположение" --- #}
+
+                            {% else %} {# Информация скрыта - показываем форму угадывания или сообщение #}
+                                {% if table_image.owner_id == g.user_id %}
+                                    <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
+                                {% else %}
+                                     {# --- УСЛОВИЕ БЛОКИРОВКИ ФОРМЫ --- #}
+                                     {% if not g.game_over %}
+                                        <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
+                                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
+                                                <option value="">-- Выберите --</option>
+                                                {% for user in all_users %}
+                                                    {% if user.id != g.user_id %}
+                                                        {% set current_guess = table_image.guesses.get(g.user_id|string) %}
+                                                        <option value="{{ user.id }}" {% if current_guess == user.id %}selected{% endif %}>
+                                                            {{ user.name }}
+                                                        </option>
+                                                    {% endif %}
+                                                {% endfor %}
+                                             </select>
+                                             <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                                 {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                                     <i class="bi bi-pencil-square"></i> Изменить
+                                                 {% else %}
+                                                     <i class="bi bi-question-circle"></i> Угадать
+                                                 {% endif %}
+                                             </button>
+                                        </form>
+                                        {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                                        <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name(table_image.guesses[g.user_id|string]) }}</small></p>
+                                        {% endif %}
+                                     {% else %} {# Если игра окончена, показываем сообщение вместо формы #}
+                                        <p class="text-center text-muted"><small>Игра окончена.</small></p>
+                                     {% endif %}
+                                     {# --- КОНЕЦ УСЛОВИЯ БЛОКИРОВКИ ФОРМЫ --- #}
+                                {% endif %} {# Конец if table_image.owner_id == g.user_id #}
+                            {% endif %} {# Конец if g.show_card_info #}
+                        </div> {# Конец card-body #}
+                    </div> {# --- Конец карточки на столе --- #}
+                    {% endfor %} {# Конец цикла for table_image #}
+                {% else %} {# Если на столе нет карт #}
+                    <p class="text-muted">На столе пока нет карточек.</p>
+                {% endif %} {# Конец if table_images #}
+            </div> {# Конец card-container #}
+        </div>
+
+        <h2>Мои карточки</h2> {# Заголовок #}
+        <div class="card-container mb-4"> {# Контейнер для карт на руках #}
+            {% for card in cards %} {# cards - список карт пользователя, которые не на столе #}
+            <div class="card">
+                 <img src="{{ url_for('static', filename='images/' + card.subfolder + '/' + card.image) }}"
+                      class="card-img-top" alt="Карта {{ card.id }}" loading="lazy">
+                 <div class="card-body text-center">
+                    {# --- УСЛОВИЕ БЛОКИРОВКИ КНОПКИ "ВЫЛОЖИТЬ" --- #}
+                    {% if not g.game_over %}
+                        {% if not on_table %} {# Показываем кнопку, только если пользователь еще не выложил карту #}
+                            {# Проверяем, является ли текущий пользователь ведущим #}
+                            {% if get_leading_user_id() == g.user_id %}
+                               <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                                   <button type="submit" class="btn btn-success btn-sm w-100">
+                                       <i class="bi bi-send"></i> Выложить (Ведущий)
+                                   </button>
+                               </form>
+                            {% else %}
+                                 <form method="post" action="{{ url_for('place_card', code=code, image_id=card.id) }}">
+                                   <button type="submit" class="btn btn-secondary btn-sm w-100">
+                                       <i class="bi bi-send"></i> Выложить на стол
+                                   </button>
+                               </form>
+                            {% endif %}
+                        {% else %}
+                             <small class="text-muted">Вы уже выложили карту</small>
+                        {% endif %}
+                    {% else %} {# Если игра окончена #}
+                        <p class="text-center text-muted"><small>Игра окончена.</small></p>
+                    {% endif %}
+                     {# --- КОНЕЦ УСЛОВИЯ БЛОКИРОВКИ КНОПКИ --- #}
+                 </div> {# Конец card-body #}
+            </div> {# Конец card #}
+            {% else %} {# Если у пользователя нет карт на руках #}
+                 <p class="text-muted">У вас пока нет карт на руках.</p>
+            {% endfor %} {# Конец цикла for card #}
+        </div> {# Конец card-container #}
+
+    </div> {# Конец container-fluid #}
+
+    {# --- JavaScript Bootstrap (для работы компонентов типа alert dismiss) --- #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {# --- Скрипт смены темы --- #}
+    <script>
+        (function() {
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const htmlElement = document.documentElement; // элемент <html>
+            const storageKey = 'userThemePreference'; // Ключ для localStorage (отдельный от админки)
+
+            // Функция применения темы
+            const applyTheme = (theme) => {
+                htmlElement.setAttribute('data-bs-theme', theme);
+                 if (themeToggleBtn) { // Обновляем title кнопки для подсказки
+                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
+                }
+            };
+
+            // Функция переключения темы
+            const toggleTheme = () => {
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                applyTheme(newTheme);
+                localStorage.setItem(storageKey, newTheme); // Сохраняем выбор
+            };
+
+            // Добавляем обработчик клика
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            }
+
+            // При загрузке применяем сохраненную тему или системные настройки / светлую по умолчанию
+            const savedTheme = localStorage.getItem(storageKey);
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light'); // Приоритет: сохраненная -> системная -> светлая
+
+            applyTheme(defaultTheme); // Применяем тему при загрузке
+        })();
+    </script>
+</body>
+</html>
