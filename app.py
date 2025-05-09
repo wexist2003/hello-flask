@@ -969,56 +969,77 @@ def open_cards():
 
 @app.route("/new_round", methods=["POST"])
 def new_round():
-    # ... (ваша логіка з файлу) ...
-    if g.game_over:
+    if g.game_over: # Перевірка, чи гра вже не закінчена
         flash("Игра уже окончена. Начать новый раунд нельзя.", "warning")
         return redirect(url_for('admin'))
+    
     db = get_db() 
     c = db.cursor()
     active_subfolder_new_round = get_setting('active_subfolder') 
     current_leader_id_new_round = get_leading_user_id() 
+
     try:
         if current_leader_id_new_round:
             leader_name_new_round = get_user_name(current_leader_id_new_round) or f"ID {current_leader_id_new_round}" 
             flash(f"Новый раунд начат. Ведущий: {leader_name_new_round}.", "info")
         else:
             flash("Новый раунд начат. Ведущий не определен (возможно, это первый раунд после старта игры без игроков).", "warning") 
-        c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'") # Додано LIKE
+
+        # Скидання карт зі столу: owner_id = NULL, guesses = '{}', status = 'Занято:Админ'
+        c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'")
         table_cleared_count = c.rowcount
-        c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'") # Додано LIKE
+        
+        # Скидання guesses у карт, що НЕ були на столі (в руках гравців)
+        c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'")
         guesses_cleared_count = c.rowcount
+
         set_setting("show_card_info", "false")
         flash("Информация о картах скрыта.", "info")
         if table_cleared_count > 0:
-            flash(f"Карты со стола ({table_cleared_count} шт.) убраны и очищены.", "info")
+            flash(f"Карты со стола ({table_cleared_count} шт.) убраны и очищены (статус 'Занято:Админ').", "info")
         if guesses_cleared_count > 0:
             flash(f"Сброшены прочие предположения ({guesses_cleared_count} карт).", "info")
+
         c.execute("SELECT id FROM users ORDER BY id")
         user_ids_new_round = [row['id'] for row in c.fetchall()] 
+
         if not user_ids_new_round:
             flash("Нет пользователей для раздачи карт.", "warning")
         elif not active_subfolder_new_round:
             flash("Активная колода не установлена. Новые карты не розданы.", "warning")
         else:
-            c.execute("SELECT id FROM images WHERE subfolder = ? AND (status = 'Занято:Админ' OR status = 'Свободно')", 
+            # ЗМІНЕНО: Вибираємо для роздачі тільки карти зі статусом 'Свободно'
+            c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", 
                       (active_subfolder_new_round,))
             available_cards_ids = [row['id'] for row in c.fetchall()]
             random.shuffle(available_cards_ids)
+
             num_users_new_round = len(user_ids_new_round) 
             num_available_new_round = len(available_cards_ids) 
-            num_to_deal = min(num_users_new_round, num_available_new_round)
-            if num_available_new_round < num_users_new_round:
-                flash(f"Внимание: Недостаточно свободных/админских карт ({num_available_new_round}) для всех ({num_users_new_round}). Карты получат первые {num_to_deal}.", "warning") # Змінено num_available_new_round на num_to_deal
+            # Роздаємо по одній карті кожному гравцю, якщо є карти і гравці
+            num_to_deal_per_player = 1 
+            
             cards_actually_dealt_total = 0
-            for i in range(num_to_deal):
-                user_id_new_round_deal = user_ids_new_round[i] 
-                card_id_new_round_deal = available_cards_ids[i] 
-                c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id_new_round_deal}", card_id_new_round_deal))
-                cards_actually_dealt_total +=1
+            if num_available_new_round == 0:
+                 # ЗМІНЕНО: Оновлене повідомлення
+                flash(f"Нет доступных карт (статус 'Свободно') в колоде '{active_subfolder_new_round}' для раздачи.", "warning")
+            else:
+                for user_id_nr_deal in user_ids_new_round: # Змінено user_id_new_round_deal на user_id_nr_deal
+                    if cards_actually_dealt_total < num_available_new_round : # Перевірка, чи є ще карти для роздачі
+                        card_id_nr_deal = available_cards_ids[cards_actually_dealt_total] # Беремо наступну доступну карту, Змінено card_id_new_round_deal
+                        c.execute("UPDATE images SET status = ? WHERE id = ?", 
+                                  (f"Занято:{user_id_nr_deal}", card_id_nr_deal))
+                        cards_actually_dealt_total +=1
+                    else:
+                        # Карти скінчились раніше, ніж всі гравці отримали
+                        flash(f"Внимание: Свободные карты в колоде '{active_subfolder_new_round}' закончились. Роздано {cards_actually_dealt_total} карт.", "warning")
+                        break 
+            
             if cards_actually_dealt_total > 0: 
                 flash(f"Роздано {cards_actually_dealt_total} новых карт из '{active_subfolder_new_round}'.", "info")
-            elif num_users_new_round > 0 : 
-                flash(f"Нет доступных карт (статус 'Свободно' или 'Занято:Админ') в колоде '{active_subfolder_new_round}' для раздачи.", "warning")
+            # elif num_users_new_round > 0 and num_available_new_round > 0 (ця умова вже не потрібна через перевірку вище)
+
+        # Перевірка завершення гри (якщо у когось закінчились карти)
         game_over_now = False
         if user_ids_new_round: 
             for user_id_check_game_over in user_ids_new_round: 
@@ -1032,6 +1053,7 @@ def new_round():
             set_game_over(True) 
             g.game_over = True 
             flash("Игра окончена! У одного из игроков закончились карты.", "danger")
+        
         db.commit()
     except sqlite3.Error as e_new_round_sqlite: 
         db.rollback()
@@ -1039,8 +1061,10 @@ def new_round():
     except Exception as e_new_round_exception: 
         db.rollback()
         flash(f"Непредвиденная ошибка при начале нового раунда: {e_new_round_exception}", "danger")
+        print(f"Unexpected error in new_round: {e_new_round_exception}")
+        print(traceback.format_exc()) # Додано для кращої діагностики
+        
     return redirect(url_for('admin', displayed_leader_id=current_leader_id_new_round))
-
 # --- Запуск приложения ---
 if __name__ == "__main__":
     if not os.path.exists(DB_PATH):
