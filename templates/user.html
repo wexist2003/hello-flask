@@ -47,10 +47,10 @@
                 {% if table_image.owner_id == g.user_id %}
                     <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
                 {% else %}
-                     {% if not g.game_over %}
+                    {% if not g.game_over %}
                         <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
-                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
+                            <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
+                            <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
                                 <option value="">-- Выберите --</option>
                                 {% for user_loop_var in all_users %}
                                     {% if user_loop_var.id != g.user_id %}
@@ -58,17 +58,17 @@
                                         <option value="{{ user_loop_var.id }}" {% if current_guess == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
                                     {% endif %}
                                 {% endfor %}
-                             </select>
-                             <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                                 {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
-                             </button>
+                            </select>
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
+                            </button>
                         </form>
                         {% if table_image.guesses and g.user_id|string in table_image.guesses %}
                         <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p>
                         {% endif %}
-                     {% else %}
+                    {% else %}
                         <p class="text-center text-muted"><small>Игра окончена!</small></p>
-                     {% endif %}
+                    {% endif %}
                 {% endif %}
             {% endif %}
         </div>
@@ -77,9 +77,9 @@
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
     <div class="card">
-         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
-              class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
-         <div class="card-body text-center">
+        <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
+             class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
+        <div class="card-body text-center">
             {% if not g.game_over %}
                 {% if not on_table %}
                     {% if get_leading_user_id_func() == g.user_id %}
@@ -89,20 +89,40 @@
                            </button>
                        </form>
                     {% else %}
-                         <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
+                        <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
                            <button type="submit" class="btn btn-secondary btn-sm w-100">
                                <i class="bi bi-send"></i> Выложить на стол
                            </button>
                        </form>
                     {% endif %}
                 {% else %}
-                     <small class="text-muted">Вы уже выложили карту</small>
+                    <small class="text-muted">Вы уже выложили карту</small>
                 {% endif %}
             {% else %}
                 <p class="text-center text-muted"><small>Игра окончена!</small></p>
             {% endif %}
-         </div>
+        </div>
     </div>
+{% endmacro %}
+
+{# === НОВИЙ МАКРОС для клітинки ігрового поля === #}
+{% macro render_game_board_cell(cell_data, get_user_name_func) %}
+<div class="game-board-cell card m-1" style="width: 100px; height: 100px; position: relative; background-image: url('{{ url_for('static', filename=cell_data.image_path) }}'); background-size: cover; background-position: center; flex-shrink: 0;">
+    <div class="game-board-cell-number" title="Клетка #{{ cell_data.cell_number }}">
+        {{ cell_data.cell_number }}
+    </div>
+    {% if cell_data.users_in_cell %}
+    <div class="game-board-cell-players">
+        {% for player in cell_data.users_in_cell %}
+            {# Використовуємо ID гравця для отримання імені, якщо воно є, інакше показуємо ID #}
+            {# У змінній player вже є 'name', яке було підготовлене в app.py #}
+            <span class="badge bg-primary m-0 player-avatar" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
+                {{ player.name[0]|upper if player.name else '?' }}
+            </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
 {% endmacro %}
 {# === Кінець Макросів === #}
 
@@ -113,22 +133,20 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        /* Базовий стиль для зображення в картці (не збільшене) */
         .card-img-top {
-            /* max-width: 150px; -- Закоментовано для тестування "наполегливого" CSS нижче */
-            width: 150px; /* Явно задамо ширину для звичайного стану */
+            width: 150px; 
             height: auto;
             display: block;
             margin: 0.5rem auto 0.5rem;
             cursor: zoom-in;
-            transition: opacity 0.2s ease-in-out; /* Змінено transition */
+            transition: opacity 0.2s ease-in-out;
         }
         .card {
-             width: auto;
-             min-width: 180px;
-             max-width: 220px;
-             flex-shrink: 0;
-             margin-bottom: 1rem; /* Для desktop-card-row */
+            width: auto;
+            min-width: 180px;
+            max-width: 220px;
+            flex-shrink: 0;
+            margin-bottom: 1rem; 
         }
         .desktop-card-row {
             display: flex;
@@ -150,8 +168,6 @@
             padding-bottom: 0.5rem;
             font-size: 1.75rem;
         }
-
-        /* Стилі для збільшення зображення - максимально наполегливі */
         .image-zoom-overlay {
             display: none;
             position: fixed;
@@ -170,7 +186,7 @@
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            object-fit: contain !important; /* Вписуємо зображення БЕЗ ОБРІЗКИ */
+            object-fit: contain !important; 
             transform: none !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -180,15 +196,7 @@
             cursor: zoom-out !important;
             opacity: 1 !important;
             visibility: visible !important;
-             /* max-width та max-height вже не потрібні, якщо width/height 100vw/vh,
-                але для перестраховки від інших правил можна було б додати:
-                max-width: 100vw !important;
-                max-height: 100vh !important;
-             */
         }
-
-
-        /* Стили для контролов карусели */
         .carousel-control-prev-icon {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
         }
@@ -205,7 +213,6 @@
         .carousel-control-next-icon {
             filter: none !important;
         }
-
         .carousel-item {
             padding: 1rem 0;
         }
@@ -214,9 +221,82 @@
             display: flex;
             align-items: center;
         }
-         .carousel .card {
+        .carousel .card {
             margin-bottom: 0;
         }
+
+        /* НОВІ СТИЛІ для ІГРОВОГО ПОЛЯ */
+        .game-board-desktop-container {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 0.5rem; 
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            justify-content: flex-start; /* Або center, якщо потрібно центрувати рядки */
+        }
+        .game-board-cell { /* Стилі для окремої клітинки */
+            border: 1px solid #dee2e6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 0.375rem; /* Як у .card */
+            display: flex; /* Для позиціонування вмісту */
+            flex-direction: column;
+            justify-content: space-between; /* Розміщення номера зверху, гравців знизу */
+            align-items: center;
+            text-align: center;
+            background-repeat: no-repeat; /* Запобігання повторенню фону */
+        }
+        .game-board-cell-number {
+            position: absolute; 
+            top: 2px; 
+            left: 2px; 
+            background-color: rgba(255,255,255,0.85); 
+            color: #000;
+            padding: 1px 4px; 
+            border-radius: 0.25rem; 
+            font-size: 0.8em; 
+            font-weight: bold;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        .game-board-cell-players {
+            position: absolute; 
+            bottom: 2px; 
+            left: 2px; 
+            right: 2px; 
+            background-color: rgba(0,0,0,0.65); 
+            color: white; 
+            padding: 2px; 
+            border-radius: 0.25rem; 
+            font-size: 0.7em; 
+            text-align: center;
+            display: flex; /* Для розміщення аватарів в ряд */
+            justify-content: center;
+            gap: 2px; /* Відстань між аватарами */
+            flex-wrap: wrap; /* Дозволяє переносити аватари, якщо їх багато */
+        }
+        .player-avatar {
+            width: 1.5em; /* Розмір "аватара" */
+            height: 1.5em;
+            line-height: 1.5em; /* Вертикальне центрування тексту */
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            padding: 0; /* Скидання зайвих padding */
+        }
+
+        #gameBoardCarousel .carousel-inner {
+            min-height: 150px; /* Мінімальна висота для каруселі поля */
+        }
+        #gameBoardCarousel .carousel-item .d-flex { /* Центрування вмісту в каруселі */
+            min-height: 140px; 
+            align-items: center;
+        }
+        #gameBoardCarousel .game-board-cell { /* Стилі для клітинки в каруселі */
+            width: 120px; /* Або інший розмір для мобільних */
+            height: 120px;
+        }
+        /* Кінець НОВИХ СТИЛІВ */
 
         @media (max-width: 576px) {
             body { padding: 1rem !important; }
@@ -231,7 +311,7 @@
         }
         @media (min-width: 768px) {
             .carousel .card {
-                 max-width: 200px;
+                max-width: 200px;
             }
         }
     </style>
@@ -240,8 +320,8 @@
 <body class="p-4">
     <div class="container-fluid">
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
-             <i class="bi bi-circle-half"></i>
-             <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
+            <i class="bi bi-circle-half"></i>
+            <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
         </button>
 
         <h1>Привет, {{ name }}!</h1>
@@ -260,12 +340,12 @@
             <span class="text-muted">
                 {% set next_leader_id = get_leading_user_id() %}
                 {% if next_leader_id and next_leader_id != leader_for_display %}
-                     {% set next_leader_name = get_user_name(next_leader_id) %}
-                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                    {% set next_leader_name = get_user_name(next_leader_id) %}
+                    <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
                 {% elif next_leader_id and next_leader_id == leader_for_display and g.show_card_info %}
-                     {% set next_leader_name = get_user_name(next_leader_id) %}
-                     <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
-                 {% endif %}
+                    {% set next_leader_name = get_user_name(next_leader_id) %}
+                    <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
+                {% endif %}
             </span>
         </div>
 
@@ -346,14 +426,14 @@
                         {% for card_item in cards %}
                             <div class="carousel-item {% if loop.first %}active{% endif %}">
                                 <div class="d-flex justify-content-center">
-                                     {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
+                                    {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                                 </div>
                             </div>
                         {% endfor %}
                     {% else %}
                         <div class="carousel-item active">
                             <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
-                                 <p class="text-muted">У вас пока нет карт на руках.</p>
+                                <p class="text-muted">У вас пока нет карт на руках.</p>
                             </div>
                         </div>
                     {% endif %}
@@ -383,6 +463,57 @@
                 {% endif %}
             </div>
         </div>
+
+        {# #}
+        <h2>Игровое Поле</h2>
+        <div class="border p-2 p-sm-3 mb-4 rounded">
+            {# --- Мобильная версия: Карусель для Игрового Поля --- #}
+            <div class="d-block d-md-none">
+                <div id="gameBoardCarousel" class="carousel slide" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true">
+                    <div class="carousel-inner">
+                        {% if game_board %}
+                            {% for cell_data in game_board %}
+                                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                    <div class="d-flex justify-content-center">
+                                        {{ render_game_board_cell(cell_data, get_user_name) }}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="carousel-item active">
+                                <div class="d-flex justify-content-center align-items-center" style="min-height: 150px;">
+                                    <p class="text-muted">Игровое поле не загружено.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if game_board and game_board|length > 1 %}
+                    <button class="carousel-control-prev" type="button" data-bs-target="#gameBoardCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#gameBoardCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# --- Десктопная версия: Ряд с переносом для Игрового Поля --- #}
+            <div class="d-none d-md-block">
+                 <div class="game-board-desktop-container">
+                    {% if game_board %}
+                        {% for cell_data in game_board %}
+                            {{ render_game_board_cell(cell_data, get_user_name) }}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted w-100 text-center">Игровое поле не загружено.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {# #}
 
     </div>
 
@@ -432,13 +563,11 @@
             }
             imagesToZoom.forEach(image => {
                 image.addEventListener('click', function(event) {
-                    event.stopPropagation(); // Важливо, щоб клік по зображенню не закривав його одразу, якщо оверлей під ним
+                    event.stopPropagation(); 
                     if (this.classList.contains('zoomed')) {
                         unzoomImage();
                     } else {
-                        // Спочатку прибираємо зум з іншого зображення, якщо воно було
                         unzoomImage();
-                        // Потім зумимо поточне
                         this.classList.add('zoomed');
                         currentlyZoomedImage = this;
                         if (overlay) {
@@ -453,7 +582,7 @@
                 });
             }
             document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' || event.key === 'Esc') { // 'Esc' для сумісності
+                if (event.key === 'Escape' || event.key === 'Esc') { 
                     unzoomImage();
                 }
             });
