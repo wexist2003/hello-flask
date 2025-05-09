@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light">
 
-{# === Макроси повинні бути визначені тут або імпортовані === #}
+{# === Макроси === #}
 {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
-     <div class="card">
+    <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
             <h6 class="card-subtitle text-muted text-center mb-1">
@@ -104,7 +104,7 @@
          </div>
     </div>
 {% endmacro %}
-
+{# === Кінець Макросів === #}
 
 <head>
     <meta charset="utf-8">
@@ -122,14 +122,14 @@
             cursor: zoom-in;
             transition: transform 0.2s ease-in-out;
         }
-        .card { /* Стиль для ОДНОЙ карточки */
+        .card {
              width: auto;
              min-width: 180px;
              max-width: 220px;
              flex-shrink: 0;
-             margin-bottom: 1rem;
+             margin-bottom: 1rem; /* Для desktop-card-row */
         }
-        .desktop-card-row { /* Контейнер для десктопного ряда */
+        .desktop-card-row {
             display: flex;
             flex-direction: row;
             overflow-x: auto;
@@ -138,7 +138,7 @@
             padding-bottom: 0.5rem;
         }
         .theme-toggle-button {
-            position: absolute;
+            position: fixed; /* Изменено на fixed для лучшего позиционирования при скролле */
             top: 1rem;
             right: 1rem;
             z-index: 1050;
@@ -181,20 +181,33 @@
             max-width: none !important;
         }
 
-        /* Стили для контролов карусели в темной теме */
-        html[data-bs-theme="dark"] .carousel-control-prev-icon,
-        html[data-bs-theme="dark"] .carousel-control-next-icon {
-            filter: invert(1) grayscale(100) brightness(1.5);
+        /* Стили для контролов карусели */
+        .carousel-control-prev-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
         }
+        .carousel-control-next-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+        }
+        html[data-bs-theme="dark"] .carousel-control-prev-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
+        }
+        html[data-bs-theme="dark"] .carousel-control-next-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+        }
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            filter: none !important; /* Убираем любые другие фильтры */
+        }
+
         .carousel-item {
             padding: 1rem 0;
         }
         .carousel-inner {
-            min-height: 300px;
+            min-height: 300px; /* Минимальная высота для избежания "схлопывания" */
             display: flex;
             align-items: center;
         }
-         .carousel .card {
+         .carousel .card { /* Убираем лишний margin для карточки внутри карусели */
             margin-bottom: 0;
         }
 
@@ -204,9 +217,13 @@
             h2 { font-size: 1.5rem; }
             .card-body { padding: 0.75rem; }
             .carousel-inner { min-height: 280px; }
+            .theme-toggle-button { /* Поправка для кнопки темы на мобильных, если нужно */
+                top: 0.5rem;
+                right: 0.5rem;
+            }
         }
-        @media (min-width: 768px) { /* md breakpoint for Bootstrap */
-            .carousel .card {
+        @media (min-width: 768px) {
+            .carousel .card { /* Для карусели на больших экранах (если бы она там была) */
                  max-width: 200px;
             }
         }
@@ -226,7 +243,7 @@
         <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-3">
             <span class="text-muted mb-1 mb-sm-0">
                 {% if leader_for_display %}
-                    {% set displayed_leader_name = get_user_name(leader_for_display) %}
+                    {% set displayed_leader_name = get_user_name(leader_for_display) %} {# Предполагаем, что get_user_name доступна #}
                     <i class="bi bi-star-fill text-success"></i>
                     Ведущий: <strong>{{ displayed_leader_name or ('ID ' + leader_for_display|string) }}</strong>
                 {% else %}
@@ -234,7 +251,7 @@
                 {% endif %}
             </span>
             <span class="text-muted">
-                {% set next_leader_id = get_leading_user_id() %}
+                {% set next_leader_id = get_leading_user_id() %} {# Предполагаем, что get_leading_user_id доступна #}
                 {% if next_leader_id and next_leader_id != leader_for_display %}
                      {% set next_leader_name = get_user_name(next_leader_id) %}
                      <small>Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong></small>
@@ -264,7 +281,6 @@
 
         <hr class="my-3 my-sm-4">
 
-
         <h2>Общий стол</h2>
         <div class="border p-2 p-sm-3 mb-4 rounded">
             {# --- Мобильная версия: Карусель --- #}
@@ -275,7 +291,6 @@
                             {% for table_image in table_images %}
                                 <div class="carousel-item {% if loop.first %}active{% endif %}">
                                     <div class="d-flex justify-content-center">
-                                        {# ИСПРАВЛЕНО: убран self. #}
                                         {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
                                     </div>
                                 </div>
@@ -306,7 +321,6 @@
                 <div class="desktop-card-row">
                     {% if table_images %}
                         {% for table_image in table_images %}
-                            {# ИСПРАВЛЕНО: убран self. #}
                             {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
                         {% endfor %}
                     {% else %}
@@ -325,7 +339,6 @@
                         {% for card_item in cards %}
                             <div class="carousel-item {% if loop.first %}active{% endif %}">
                                 <div class="d-flex justify-content-center">
-                                     {# ИСПРАВЛЕНО: убран self. #}
                                      {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                                 </div>
                             </div>
@@ -356,7 +369,6 @@
             <div class="desktop-card-row">
                 {% if cards %}
                     {% for card_item in cards %}
-                        {# ИСПРАВЛЕНО: убран self. #}
                         {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                     {% endfor %}
                 {% else %}
