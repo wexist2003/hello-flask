@@ -1,6 +1,111 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light">
 
+{# === Макроси повинні бути визначені тут або імпортовані === #}
+{% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
+     <div class="card">
+        {% if g.show_card_info %}
+        <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
+            <h6 class="card-subtitle text-muted text-center mb-1">
+                <small>Чья:</small>
+                <strong>{{ get_user_name_func(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
+                {% if leader_for_display == table_image.owner_id %}
+                    <span class="badge bg-success ms-1" title="Ведущий"><i class="bi bi-star-fill"></i></span>
+                {% endif %}
+            </h6>
+        </div>
+        {% endif %}
+        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+             class="card-img-top px-2 px-sm-3"
+             alt="Карта {{ table_image.id }}" loading="lazy"
+             style="margin-top: 0.5rem;">
+        <div class="card-body pt-2">
+            {% if g.show_card_info %}
+                <p class="card-text mb-1"><small>Предположения:</small></p>
+                <ul class="list-unstyled mb-2" style="font-size: 0.85em;">
+                    {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
+                        <li><small>
+                            {{ get_user_name_func(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
+                            {{ get_user_name_func(guessed_user_id) or 'ID ' + guessed_user_id|string }}
+                            {% if guessed_user_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
+                        </small></li>
+                    {% else %}
+                        <li><small class="text-muted">Нет</small></li>
+                    {% endfor %}
+                </ul>
+                <hr class="my-1">
+                <p class="card-text mb-0" style="font-size: 0.9em;"><small>
+                    {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
+                    {% if my_guess_owner_id is not none %}
+                        Ваше предположение: <strong>{{ get_user_name_func(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
+                        {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
+                    {% else %}
+                        {% if table_image.owner_id == g.user_id %}<span class="text-primary fw-bold">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %}
+                    {% endif %}
+                </small></p>
+            {% else %}
+                {% if table_image.owner_id == g.user_id %}
+                    <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
+                {% else %}
+                     {% if not g.game_over %}
+                        <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
+                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
+                                <option value="">-- Выберите --</option>
+                                {% for user_loop_var in all_users %}
+                                    {% if user_loop_var.id != g.user_id %}
+                                        {% set current_guess = table_image.guesses.get(g.user_id|string) %}
+                                        <option value="{{ user_loop_var.id }}" {% if current_guess == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                             </select>
+                             <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                 {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
+                             </button>
+                        </form>
+                        {% if table_image.guesses and g.user_id|string in table_image.guesses %}
+                        <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p>
+                        {% endif %}
+                     {% else %}
+                        <p class="text-center text-muted"><small>Игра окончена!</small></p>
+                     {% endif %}
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+{% endmacro %}
+
+{% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
+    <div class="card">
+         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
+              class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
+         <div class="card-body text-center">
+            {% if not g.game_over %}
+                {% if not on_table %}
+                    {% if get_leading_user_id_func() == g.user_id %}
+                       <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
+                           <button type="submit" class="btn btn-success btn-sm w-100">
+                               <i class="bi bi-send"></i> Выложить (Ведущий)
+                           </button>
+                       </form>
+                    {% else %}
+                         <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
+                           <button type="submit" class="btn btn-secondary btn-sm w-100">
+                               <i class="bi bi-send"></i> Выложить на стол
+                           </button>
+                       </form>
+                    {% endif %}
+                {% else %}
+                     <small class="text-muted">Вы уже выложили карту</small>
+                {% endif %}
+            {% else %}
+                <p class="text-center text-muted"><small>Игра окончена!</small></p>
+            {% endif %}
+         </div>
+    </div>
+{% endmacro %}
+
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,16 +123,16 @@
             transition: transform 0.2s ease-in-out;
         }
         .card { /* Стиль для ОДНОЙ карточки */
-             width: auto; /* Позволяем Bootstrap или flex-контейнеру управлять этим */
+             width: auto;
              min-width: 180px;
              max-width: 220px;
-             flex-shrink: 0; /* Чтобы карточки не сжимались в flex-контейнере для десктопа */
-             margin-bottom: 1rem; /* Добавим отступ снизу для ряда на десктопе */
+             flex-shrink: 0;
+             margin-bottom: 1rem;
         }
         .desktop-card-row { /* Контейнер для десктопного ряда */
             display: flex;
             flex-direction: row;
-            overflow-x: auto; /* Горизонтальная прокрутка */
+            overflow-x: auto;
             gap: 1rem;
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
@@ -46,8 +151,35 @@
         }
 
         /* Стили для увеличения изображения */
-        .image-zoom-overlay { /* ... без изменений ... */ }
-        .card-img-top.zoomed { /* ... без изменений ... */ }
+        .image-zoom-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 1999;
+            cursor: zoom-out;
+        }
+        .card-img-top.zoomed {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            z-index: 2000;
+            cursor: zoom-out;
+            border-radius: 0;
+            box-shadow: 0 0 0 transparent;
+            object-fit: contain;
+        }
+        .card-img-top.zoomed {
+            max-width: none !important;
+        }
 
         /* Стили для контролов карусели в темной теме */
         html[data-bs-theme="dark"] .carousel-control-prev-icon,
@@ -62,10 +194,9 @@
             display: flex;
             align-items: center;
         }
-         .carousel .card { /* Убираем лишний margin для карточки внутри карусели, если он мешает */
+         .carousel .card {
             margin-bottom: 0;
         }
-
 
         @media (max-width: 576px) {
             body { padding: 1rem !important; }
@@ -76,121 +207,14 @@
         }
         @media (min-width: 768px) { /* md breakpoint for Bootstrap */
             .carousel .card {
-                 max-width: 200px; /* Можно чуть уменьшить карты в карусели на больших экранах, если она останется */
+                 max-width: 200px;
             }
         }
     </style>
 </head>
 
 <body class="p-4">
-    {# === Макросы должны быть определены здесь или импортированы === #}
-    {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
-        {# ... КОД МАКРОСА render_table_card ИЗ ШАГА 1 ... #}
-         <div class="card">
-            {% if g.show_card_info %}
-            <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
-                <h6 class="card-subtitle text-muted text-center mb-1">
-                    <small>Чья:</small>
-                    <strong>{{ get_user_name_func(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
-                    {% if leader_for_display == table_image.owner_id %}
-                        <span class="badge bg-success ms-1" title="Ведущий"><i class="bi bi-star-fill"></i></span>
-                    {% endif %}
-                </h6>
-            </div>
-            {% endif %}
-            <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-                 class="card-img-top px-2 px-sm-3"
-                 alt="Карта {{ table_image.id }}" loading="lazy"
-                 style="margin-top: 0.5rem;">
-            <div class="card-body pt-2">
-                {% if g.show_card_info %}
-                    <p class="card-text mb-1"><small>Предположения:</small></p>
-                    <ul class="list-unstyled mb-2" style="font-size: 0.85em;">
-                        {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
-                            <li><small>
-                                {{ get_user_name_func(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
-                                {{ get_user_name_func(guessed_user_id) or 'ID ' + guessed_user_id|string }}
-                                {% if guessed_user_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
-                            </small></li>
-                        {% else %}
-                            <li><small class="text-muted">Нет</small></li>
-                        {% endfor %}
-                    </ul>
-                    <hr class="my-1">
-                    <p class="card-text mb-0" style="font-size: 0.9em;"><small>
-                        {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
-                        {% if my_guess_owner_id is not none %}
-                            Ваше предположение: <strong>{{ get_user_name_func(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
-                            {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
-                        {% else %}
-                            {% if table_image.owner_id == g.user_id %}<span class="text-primary fw-bold">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %}
-                        {% endif %}
-                    </small></p>
-                {% else %}
-                    {% if table_image.owner_id == g.user_id %}
-                        <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
-                    {% else %}
-                         {% if not g.game_over %}
-                            <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                                 <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
-                                 <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
-                                    <option value="">-- Выберите --</option>
-                                    {% for user_loop_var in all_users %}
-                                        {% if user_loop_var.id != g.user_id %}
-                                            {% set current_guess = table_image.guesses.get(g.user_id|string) %}
-                                            <option value="{{ user_loop_var.id }}" {% if current_guess == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                 </select>
-                                 <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                                     {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
-                                 </button>
-                            </form>
-                            {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                            <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p>
-                            {% endif %}
-                         {% else %}
-                            <p class="text-center text-muted"><small>Игра окончена!</small></p>
-                         {% endif %}
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-    {% endmacro %}
-
-    {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
-        {# ... КОД МАКРОСА render_my_card ИЗ ШАГА 1 ... #}
-        <div class="card">
-             <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
-                  class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
-             <div class="card-body text-center">
-                {% if not g.game_over %}
-                    {% if not on_table %}
-                        {% if get_leading_user_id_func() == g.user_id %}
-                           <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
-                               <button type="submit" class="btn btn-success btn-sm w-100">
-                                   <i class="bi bi-send"></i> Выложить (Ведущий)
-                               </button>
-                           </form>
-                        {% else %}
-                             <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
-                               <button type="submit" class="btn btn-secondary btn-sm w-100">
-                                   <i class="bi bi-send"></i> Выложить на стол
-                               </button>
-                           </form>
-                        {% endif %}
-                    {% else %}
-                         <small class="text-muted">Вы уже выложили карту</small>
-                    {% endif %}
-                {% else %}
-                    <p class="text-center text-muted"><small>Игра окончена!</small></p>
-                {% endif %}
-             </div>
-        </div>
-    {% endmacro %}
-
     <div class="container-fluid">
-        {# ... (Кнопка темы, Приветствие, Рейтинг, Ведущие - без изменений) ... #}
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
              <i class="bi bi-circle-half"></i>
              <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
@@ -244,14 +268,15 @@
         <h2>Общий стол</h2>
         <div class="border p-2 p-sm-3 mb-4 rounded">
             {# --- Мобильная версия: Карусель --- #}
-            <div class="d-block d-md-none"> {# Видно только на экранах меньше md #}
+            <div class="d-block d-md-none">
                 <div id="tableImagesCarousel" class="carousel slide" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true">
                     <div class="carousel-inner">
                         {% if table_images %}
                             {% for table_image in table_images %}
                                 <div class="carousel-item {% if loop.first %}active{% endif %}">
                                     <div class="d-flex justify-content-center">
-                                        {{ self.render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
+                                        {# ИСПРАВЛЕНО: убран self. #}
+                                        {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
                                     </div>
                                 </div>
                             {% endfor %}
@@ -277,11 +302,12 @@
             </div>
 
             {# --- Десктопная версия: Ряд с прокруткой --- #}
-            <div class="d-none d-md-block"> {# Видно только на экранах md и больше #}
+            <div class="d-none d-md-block">
                 <div class="desktop-card-row">
                     {% if table_images %}
                         {% for table_image in table_images %}
-                            {{ self.render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
+                            {# ИСПРАВЛЕНО: убран self. #}
+                            {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
                         {% endfor %}
                     {% else %}
                         <p class="text-muted w-100 text-center">На столе пока нет карточек.</p>
@@ -299,7 +325,8 @@
                         {% for card_item in cards %}
                             <div class="carousel-item {% if loop.first %}active{% endif %}">
                                 <div class="d-flex justify-content-center">
-                                     {{ self.render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
+                                     {# ИСПРАВЛЕНО: убран self. #}
+                                     {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                                 </div>
                             </div>
                         {% endfor %}
@@ -329,7 +356,8 @@
             <div class="desktop-card-row">
                 {% if cards %}
                     {% for card_item in cards %}
-                        {{ self.render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
+                        {# ИСПРАВЛЕНО: убран self. #}
+                        {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                     {% endfor %}
                 {% else %}
                     <p class="text-muted w-100 text-center">У вас пока нет карт на руках.</p>
@@ -343,8 +371,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Скрипт смены темы (без изменений)
-        // ... (ваш скрипт смены темы) ...
+        // Скрипт смены темы
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
@@ -370,9 +397,7 @@
             applyTheme(defaultTheme);
         })();
 
-
-        // Скрипт для увеличения изображений (без изменений)
-        // ... (ваш скрипт увеличения изображений) ...
+        // Скрипт для увеличения изображений
         document.addEventListener('DOMContentLoaded', () => {
             const imagesToZoom = document.querySelectorAll('.card-img-top');
             const overlay = document.querySelector('.image-zoom-overlay');
