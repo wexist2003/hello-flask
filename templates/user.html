@@ -3,6 +3,7 @@
 
 {# === Макроси === #}
 {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
+    {# ... (зміст макросу render_table_card без змін) ... #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
@@ -76,6 +77,7 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
+    {# ... (зміст макросу render_my_card без змін) ... #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
@@ -105,7 +107,6 @@
     </div>
 {% endmacro %}
 
-{# === ОНОВЛЕНИЙ МАКРОС для клітинки ігрового поля === #}
 {% macro render_game_board_cell(cell_data, get_user_name_func) %}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
@@ -123,7 +124,7 @@
                 </div>
             {% endfor %}
         {% else %}
-            <div class="player-name-on-board-empty">&nbsp;</div> {# Для збереження висоти, якщо гравців немає #}
+            <div class="player-name-on-board-empty">&nbsp;</div>
         {% endif %}
     </div>
 </div>
@@ -221,7 +222,7 @@
             padding: 1rem 0;
         }
         .carousel-inner {
-            min-height: 300px; /* Для карток гравців та столу */
+            min-height: 300px; 
             display: flex;
             align-items: center;
         }
@@ -263,7 +264,7 @@
             color: #212529; 
             padding: 0px 3px; 
             border-radius: 0.2rem; 
-            font-size: 0.65em; /* Розмір шрифту номера */
+            font-size: 0.65em; 
             font-weight: bold;
             border: 1px solid rgba(0,0,0,0.1);
             line-height: 1.1;
@@ -276,44 +277,55 @@
 
         .game-board-player-names-area { 
             width: 60px; 
-            font-size: 0.65em; /* Шрифт імен такий же, як у номера */
-            line-height: 1.2; /* Трохи більший міжрядковий інтервал для читабельності */
-            max-height: 3.6em; /* 3 рядки * 1.2em */
+            font-size: 0.75em; /* ЗБІЛЬШЕНО шрифт для імен */
+            line-height: 1.2; 
+            max-height: 2.6em; /* Приблизно 2 рядки (0.75em * 1.2 * 2 = 1.8em, + запас) */
+            min-height: 1.5em; /* Гарантована мінімальна висота */
             overflow-y: auto; 
             text-align: center;
-            margin-top: 2px; /* Невеликий відступ зверху */
+            margin-top: 3px; 
+            padding: 1px 0;
+            border: 1px solid green; /* ТИМЧАСОВА ЗЕЛЕНА РАМКА для відладки */
+            background-color: rgba(0, 255, 0, 0.05); /* ТИМЧАСОВИЙ СВІТЛО-ЗЕЛЕНИЙ ФОН */
         }
         .player-name-on-board {
             display: block; 
-            white-space: normal; /* Дозволити перенос довгих імен */
-            word-wrap: break-word; /* Дозволити розрив слів, якщо вони дуже довгі */
-            /* Нижче колір тексту для імен, що адаптується до теми */
+            white-space: normal; 
+            word-wrap: break-word; 
+            padding: 0 1px;
         }
         html[data-bs-theme="dark"] .player-name-on-board {
-            color: #e0e0e0; /* Світло-сірий для темної теми, для кращої видимості */
+            color: #ffffff; /* Чисто білий для максимального контрасту на темному */
         }
         html[data-bs-theme="light"] .player-name-on-board {
-            color: #212529; /* Стандартний темний для світлої теми */
+            color: #000000; /* Чисто чорний для максимального контрасту на світлому */
         }
         .player-name-on-board-empty { 
-            height: 1.2em; /* Висота одного рядка тексту, щоб контейнер не "стрибав" */
+            height: 1.5em; /* Висота, щоб відповідати приблизно одному рядку тексту імен */
+            line-height: 1.5em;
         }
 
+        /* Для мобільної каруселі */
         #gameBoardCarousel .carousel-inner {
-            min-height: 120px; 
+            min-height: 130px; /* Загальна мін. висота для каруселі поля */
         }
         #gameBoardCarousel .carousel-item .d-flex { 
-            min-height: 110px; 
+            min-height: 120px; 
             align-items: center; 
         }
-        #gameBoardCarousel .game-board-pictogram { /* Для мобільної каруселі */
+        #gameBoardCarousel .game-board-pictogram {
             width: 70px;
             height: 70px;
         }
-        #gameBoardCarousel .game-board-player-names-area { /* Для мобільної каруселі */
+        #gameBoardCarousel .game-board-player-names-area {
             width: 70px;
-            font-size: 0.7em; /* Трохи більший шрифт для імен на мобільному */
-            max-height: 3.5em; /* (0.7 * 1.2 * ~3 рядки) + запас */
+            font-size: 0.8em; 
+            max-height: 2.8em; 
+            min-height: 1.6em;
+        }
+        #gameBoardCarousel .player-name-on-board-empty {
+            height: 1.6em;
+            line-height: 1.6em;
         }
         /* Кінець ОНОВЛЕНИХ СТИЛІВ */
 
@@ -322,12 +334,12 @@
             h1 { font-size: 2rem; }
             h2 { font-size: 1.5rem; }
             .card-body { padding: 0.75rem; }
-            /* .carousel-inner { min-height: 280px; } Загальна висота, не для gameBoardCarousel */
+            /* .carousel-inner { min-height: 280px; } Загальна, не для gameBoardCarousel */
             .theme-toggle-button {
                 top: 0.5rem;
                 right: 0.5rem;
             }
-            #gameBoardCarousel .carousel-inner { min-height: 130px; } /* Специфічно для мобільного поля */
+            #gameBoardCarousel .carousel-inner { min-height: 140px; } /* Специфічно для мобільного поля */
 
         }
         @media (min-width: 768px) {
@@ -339,6 +351,7 @@
 </head>
 
 <body class="p-4">
+    {# ... (решта HTML без змін, починаючи з <div class="container-fluid">) ... #}
     <div class="container-fluid">
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
             <i class="bi bi-circle-half"></i>
@@ -502,7 +515,7 @@
                             {% endfor %}
                         {% else %}
                             <div class="carousel-item active">
-                                <div class="d-flex justify-content-center align-items-center" style="min-height: 120px;"> 
+                                <div class="d-flex justify-content-center align-items-center" style="min-height: 130px;"> 
                                     <p class="text-muted">Игровое поле не загружено.</p>
                                 </div>
                             </div>
