@@ -7,24 +7,20 @@ import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-# Проверка при запуске, что ключ установлен (важно!)
 if not app.config['SECRET_KEY']:
     raise ValueError("Не установлена переменная окружения SECRET_KEY!")
     
 DB_PATH = 'database.db'
 
-# --- ДОДАНО: Конфігурація для Ігрового Поля ---
-GAME_BOARD_POLE_IMG_SUBFOLDER = "pole"  # Підпапка відносно static/images/
-GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)]  # p1.jpg, ..., p7.jpg
-DEFAULT_NUM_BOARD_CELLS = 25  # Стандартна кількість клітинок
+# --- Конфігурація для Ігрового Поля ---
+GAME_BOARD_POLE_IMG_SUBFOLDER = "pole"
+GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)] 
+DEFAULT_NUM_BOARD_CELLS = 25 
 
-# Глобальні змінні для зберігання конфігурації поточного ігрового поля
 _current_game_board_pole_image_config = []
 _current_game_board_num_cells = 0
 # --- Кінець Конфігурації ---
 
-
-# --- Управление соединением с БД ---
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(DB_PATH, timeout=10)
@@ -37,10 +33,9 @@ def close_db(error=None):
     if db is not None:
         db.close()
 
-# --- ДОДАНО: Функції для ігрового поля ---
+# --- Функції для ігрового поля (залишаються з попередньої версії) ---
 def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_rating_check=None):
     global _current_game_board_pole_image_config, _current_game_board_num_cells
-
     if num_cells_for_board is None:
         max_rating = 0
         if all_users_for_rating_check:
@@ -50,13 +45,11 @@ def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_ra
                     user_rating = getattr(user_data, 'rating', 0)
                 elif isinstance(user_data, dict) or hasattr(user_data, 'keys'): 
                     user_rating = user_data.get('rating', 0)
-                
                 if isinstance(user_rating, int) and user_rating > max_rating:
                     max_rating = user_rating
         _current_game_board_num_cells = max(DEFAULT_NUM_BOARD_CELLS, max_rating + 5)
     else:
         _current_game_board_num_cells = num_cells_for_board
-    
     _current_game_board_pole_image_config = []
     if GAME_BOARD_POLE_IMAGES:
         for _ in range(_current_game_board_num_cells):
@@ -65,23 +58,17 @@ def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_ra
             _current_game_board_pole_image_config.append(image_path)
     else:
         print("ПОПЕРЕДЖЕННЯ: GAME_BOARD_POLE_IMAGES порожній. Використовуються placeholder'и.")
-        # Переконайтеся, що у вас є файл static/images/pole/placeholder_pole.jpg
         _current_game_board_pole_image_config = [f"{GAME_BOARD_POLE_IMG_SUBFOLDER}/placeholder_pole.jpg"] * _current_game_board_num_cells
-    
     print(f"Візуалізацію нового ігрового поля ініціалізовано для {_current_game_board_num_cells} клітинок.")
-    # У реальному додатку тут було б збереження в БД
-
 
 def generate_game_board_data_for_display(all_users_data):
     global _current_game_board_pole_image_config, _current_game_board_num_cells
-
     if not _current_game_board_pole_image_config or _current_game_board_num_cells == 0:
         print("ПОПЕРЕДЖЕННЯ: Візуалізація ігрового поля не ініціалізована! Спроба авто-ініціалізації.")
         initialize_new_game_board_visuals(num_cells_for_board=DEFAULT_NUM_BOARD_CELLS, all_users_for_rating_check=all_users_data)
         if not _current_game_board_pole_image_config or _current_game_board_num_cells == 0:
             print("ПОМИЛКА: Не вдалося ініціалізувати ігрове поле.")
             return []
-
     board_cells_data = []
     for i in range(_current_game_board_num_cells):
         cell_number = i + 1
@@ -91,23 +78,20 @@ def generate_game_board_data_for_display(all_users_data):
         else:
             print(f"ПОПЕРЕДЖЕННЯ: Немає конфігурації зображення для клітинки {cell_number}.")
             cell_image_path = f"{GAME_BOARD_POLE_IMG_SUBFOLDER}/placeholder_pole.jpg"
-
         users_in_this_cell = []
         for user_data in all_users_data:
             user_rating, user_name, user_id_for_name = None, None, 'N/A'
-            if hasattr(user_data, 'rating'): # Для об'єктів User
+            if hasattr(user_data, 'rating'):
                 user_rating = getattr(user_data, 'rating', None)
                 user_name = getattr(user_data, 'name', None)
                 user_id_for_name = getattr(user_data, 'id', 'N/A')
-            elif isinstance(user_data, dict) or hasattr(user_data, 'keys'): # Для sqlite3.Row
+            elif isinstance(user_data, dict) or hasattr(user_data, 'keys'):
                 user_rating = user_data.get('rating')
                 user_name = user_data.get('name')
                 user_id_for_name = user_data.get('id', 'N/A')
-
             if isinstance(user_rating, int) and user_rating == cell_number:
                 display_name = user_name if user_name else f"ID {user_id_for_name}"
                 users_in_this_cell.append({'name': display_name, 'rating': user_rating})
-        
         board_cells_data.append({
             'cell_number': cell_number,
             'image_path': cell_image_path,
@@ -115,8 +99,9 @@ def generate_game_board_data_for_display(all_users_data):
         })
     return board_cells_data
 
-# --- Инициализация БД (вызывается отдельно, если нужно) ---
+# --- Инициализация БД ---
 def init_db():
+    # ... (ваш код init_db залишається без змін) ...
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row 
     c = conn.cursor()
@@ -190,7 +175,8 @@ def init_db():
             conn.close() 
             print("init_db: Connection closed.")
 
-# --- Вспомогательные функции ---
+
+# --- Вспомогательные функции (залишаються ваші) ---
 def is_game_over():
     return get_setting('game_over') == 'true'
 
@@ -234,20 +220,20 @@ def get_leading_user_id():
     return None
 
 def set_leading_user_id(user_id):
-    value_to_set = str(user_id) if user_id is not None else ''
+    value_to_set = str(user_id) if user_id is not None else '' # Зберігаємо '' якщо user_id is None
     return set_setting('leading_user_id', value_to_set)
 
 def get_user_name(user_id):
     if user_id is None:
         return None
     try:
-        user_id_int = int(user_id)
+        user_id_int = int(user_id) # Переконуємося, що це число
         db_conn = get_db()
         c = db_conn.cursor()
         c.execute("SELECT name FROM users WHERE id = ?", (user_id_int,))
         user_name_row = c.fetchone()
         return user_name_row['name'] if user_name_row else None
-    except (ValueError, TypeError, sqlite3.Error) as e:
+    except (ValueError, TypeError, sqlite3.Error) as e: # ValueError для int(), TypeError для None
         print(f"Error in get_user_name for ID '{user_id}': {e}")
         return None
 
@@ -256,9 +242,272 @@ app.jinja_env.globals.update(
     get_user_name=get_user_name,
     get_leading_user_id=get_leading_user_id)
 
-# --- Обработчики запросов ---
+# --- ВІДНОВЛЕНО/ДОДАНО: Маршрут для відкриття карт та підрахунку результатів ---
+@app.route('/open_cards', methods=['POST'])
+def open_cards(): # Змінено назву функції на open_cards для відповідності url_for
+    if not session.get('is_admin'):
+        flash('Тільки адміністратор може виконувати цю дію.', 'danger')
+        return redirect(url_for('admin'))
+
+    db_conn = get_db()
+    c = db_conn.cursor()
+    print("--- Початок дії: Відкриття карт та підрахунок очок ---")
+    new_leader_id_for_redirect = get_leading_user_id() # За замовчуванням
+
+    try:
+        set_setting('show_card_info', 'true')
+        print("Налаштування 'show_card_info' встановлено на 'true'.")
+
+        c.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%'")
+        table_cards = c.fetchall()
+
+        if not table_cards:
+            flash("На столі немає карт для підрахунку очок.", "info")
+        else:
+            c.execute("SELECT id, rating FROM users")
+            users_ratings_list = c.fetchall()
+            user_ratings = {row['id']: row['rating'] for row in users_ratings_list}
+            points_awarded_info = {}
+
+            for card in table_cards:
+                actual_owner_id = card['owner_id']
+                guesses_for_card = json.loads(card['guesses'] or '{}')
+
+                if actual_owner_id is None:
+                    print(f"Попередження: Карта ID {card['id']} на столі, але не має власника.")
+                    continue
+
+                card_guessed_correctly_by_someone = False
+                for guesser_id_str, guessed_owner_id_str in guesses_for_card.items():
+                    try:
+                        guesser_id = int(guesser_id_str)
+                        guessed_owner_id = int(guessed_owner_id_str) # Це ID користувача, якого вгадали як власника
+                        
+                        # Перевіряємо, чи є такий користувач у нашій базі взагалі
+                        # (на випадок, якщо дані в guesses пошкоджені або застарілі)
+                        if guesser_id not in user_ratings:
+                             print(f"Попередження: Гравець ID {guesser_id}, що зробив припущення, не знайдений у списку гравців.")
+                             continue
+
+
+                        if guessed_owner_id == actual_owner_id:
+                            user_ratings[guesser_id] = user_ratings.get(guesser_id, 0) + 1
+                            points_awarded_info[guesser_id] = points_awarded_info.get(guesser_id, 0) + 1
+                            print(f"Гравець ID {guesser_id} вгадав карту ID {card['id']} (власник ID {actual_owner_id}). +1 бал.")
+                            card_guessed_correctly_by_someone = True
+                    except (ValueError, TypeError) as e_conv:
+                        print(f"Помилка конвертації ID '{guesser_id_str}' або '{guessed_owner_id_str}' у припущеннях для карти ID {card['id']}: {e_conv}")
+                
+                if card_guessed_correctly_by_someone and actual_owner_id in user_ratings:
+                    user_ratings[actual_owner_id] = user_ratings.get(actual_owner_id, 0) + 1
+                    points_awarded_info[actual_owner_id] = points_awarded_info.get(actual_owner_id, 0) + 1
+                    print(f"Власнику ID {actual_owner_id} карти ID {card['id']} +1 бал, оскільки його карту вгадали.")
+
+            for user_id_update, new_rating_update in user_ratings.items():
+                c.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating_update, user_id_update))
+            
+            if points_awarded_info:
+                awarded_summary_parts = []
+                for uid, pts in points_awarded_info.items():
+                    user_display_name = get_user_name(uid) or f'ID {uid}'
+                    awarded_summary_parts.append(f"{user_display_name}: +{pts}")
+                flash(f"Очки нараховані: {', '.join(awarded_summary_parts)}.", "success")
+
+            else:
+                flash("Ніхто не вгадав правильно, очки не нараховані.", "info")
+            print("Рейтинги оновлені в БД.")
+
+        current_leader_id_val = get_leading_user_id()
+        c.execute("SELECT id FROM users ORDER BY id")
+        all_user_ids_rows = c.fetchall()
+        all_user_ids = [row['id'] for row in all_user_ids_rows]
+        
+        new_leader_id_for_redirect = current_leader_id_val
+
+        if not all_user_ids:
+            print("Немає користувачів для визначення наступного ведучого.")
+            set_leading_user_id(None)
+            new_leader_id_for_redirect = None
+        elif current_leader_id_val is None or current_leader_id_val not in all_user_ids:
+            new_leader_id_for_redirect = all_user_ids[0]
+            print(f"Поточного ведучого не було. Новий ведучий: ID {new_leader_id_for_redirect}")
+        else:
+            try:
+                current_leader_index = all_user_ids.index(current_leader_id_val)
+                new_leader_index = (current_leader_index + 1) % len(all_user_ids)
+                new_leader_id_for_redirect = all_user_ids[new_leader_index]
+                print(f"Поточний ведучий: ID {current_leader_id_val}. Наступний ведучий: ID {new_leader_id_for_redirect}")
+            except ValueError:
+                new_leader_id_for_redirect = all_user_ids[0]
+                print(f"Поточний ведучий ID {current_leader_id_val} не знайдений. Новий ведучий: ID {new_leader_id_for_redirect}")
+        
+        if set_leading_user_id(new_leader_id_for_redirect):
+            if new_leader_id_for_redirect is not None:
+                 flash(f"Наступний ведучий: {get_user_name(new_leader_id_for_redirect) or ('ID '+str(new_leader_id_for_redirect))}.", "info")
+            else:
+                 flash("Ведучий не призначений (немає гравців).", "warning")
+        else:
+            flash("Помилка встановлення нового ведучого.", "danger")
+        
+        # Очищення столу: карти, що були 'На столе', стають просто 'Занято' у власників, guesses очищаються
+        # Це готує до того, що ведучий викладе нову карту-завдання.
+        if table_cards: # Тільки якщо були карти на столі
+            for card_on_table in table_cards:
+                if card_on_table['owner_id'] is not None:
+                    # Повертаємо карту власнику (статус 'Занято'), очищаємо припущення
+                    c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", 
+                              (f"Занято:{card_on_table['owner_id']}", card_on_table['id']))
+                else: 
+                    # Якщо карта на столі не мала власника (малоймовірно, але для безпеки)
+                    c.execute("UPDATE images SET status = 'Свободно', guesses = '{}', owner_id = NULL WHERE id = ?", 
+                              (card_on_table['id'],))
+            print("Стіл очищено для наступного раунду (карти повернені власникам, припущення скинуті).")
+
+
+        db_conn.commit()
+        print("Дія 'Відкриття карт' успішно завершена.")
+
+    except sqlite3.Error as e:
+        db_conn.rollback()
+        flash(f"Помилка бази даних при відкритті карт: {e}", "danger")
+        print(f"Database error during open_cards: {e}")
+    except Exception as e:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при відкритті карт: {e}", "danger")
+        print(f"Unexpected error during open_cards: {e}")
+
+    return redirect(url_for('admin', displayed_leader_id=new_leader_id_for_redirect))
+# --- Кінець маршруту open_cards ---
+
+
+# --- ВІДНОВЛЕНО/ДОДАНО: Маршрути для дій користувача (place_card, guess_image) ---
+@app.route('/place_card/<code>/<int:image_id>', methods=['POST'])
+def place_card(code, image_id):
+    # g.user_id встановлюється в before_request
+    if not g.user_id:
+        flash("Доступ заборонено. Необхідно увійти за кодом.", "danger")
+        return redirect(url_for('index'))
+    
+    db_conn = get_db()
+    c = db_conn.cursor()
+    
+    if is_game_over():
+        flash("Гра закінчена, викладати карти не можна.", "warning")
+        return redirect(url_for('user', code=code))
+
+    # Перевірка, чи користувач вже виклав карту
+    c.execute("SELECT 1 FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (g.user_id,))
+    if c.fetchone():
+        flash("Ви вже виклали карту в цьому раунді.", "warning")
+        return redirect(url_for('user', code=code))
+
+    # Перевірка, чи це карта користувача і чи вона ще не на столі
+    c.execute("SELECT status FROM images WHERE id = ? AND status = ?", (image_id, f"Занято:{g.user_id}"))
+    card_to_place = c.fetchone()
+
+    if not card_to_place:
+        flash("Це не ваша карта або вона вже була використана/викладена.", "warning")
+        return redirect(url_for('user', code=code))
+
+    try:
+        # Оновлюємо статус карти та встановлюємо її як власність гравця на столі
+        # Статус "На столе:ID_користувача" показує, що це карта, викладена гравцем.
+        c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", 
+                  (f"На столе:{g.user_id}", g.user_id, image_id))
+        db_conn.commit()
+        flash("Вашу карту викладено на стіл!", "success")
+    except sqlite3.Error as e:
+        db_conn.rollback()
+        flash(f"Помилка бази даних при викладанні карти: {e}", "danger")
+        print(f"DB error in place_card: {e}")
+    except Exception as e_gen:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при викладанні карти: {e_gen}", "danger")
+        print(f"Unexpected error in place_card: {e_gen}")
+
+
+    return redirect(url_for('user', code=code))
+
+
+@app.route('/guess_image/<code>/<int:image_id>', methods=['POST'])
+def guess_image(code, image_id):
+    if not g.user_id:
+        flash("Доступ заборонено. Необхідно увійти за кодом.", "danger")
+        return redirect(url_for('index'))
+
+    guessed_user_id_str = request.form.get('guessed_user_id')
+    if not guessed_user_id_str: # Пустий вибір
+        flash("Ви не обрали користувача для припущення.", "warning")
+        return redirect(url_for('user', code=code))
+
+    try:
+        guessed_user_id = int(guessed_user_id_str)
+    except ValueError:
+        flash("Невірний ID обраного користувача.", "danger")
+        return redirect(url_for('user', code=code))
+
+    db_conn = get_db()
+    c = db_conn.cursor()
+
+    if is_game_over():
+        flash("Гра закінчена, робити припущення не можна.", "warning")
+        return redirect(url_for('user', code=code))
+    
+    if get_setting('show_card_info') == 'true':
+        flash("Карти вже відкрито, робити припущення запізно.", "warning")
+        return redirect(url_for('user', code=code))
+
+    c.execute("SELECT owner_id, guesses FROM images WHERE id = ? AND status LIKE 'На столе:%'", (image_id,))
+    image_on_table = c.fetchone()
+
+    if not image_on_table:
+        flash("Карта не знайдена на столі або це не карта для припущень.", "danger")
+        return redirect(url_for('user', code=code))
+    
+    # Заборона гадати власника своєї ж викладеної карти (якщо б це було можливо)
+    # У поточній логіці шаблону це неможливо, бо форма для гадання не для своїх карт.
+    # Але для безпеки можна залишити:
+    # if image_on_table['owner_id'] == g.user_id:
+    #     flash("Ви не можете робити припущення щодо своєї карти.", "warning")
+    #     return redirect(url_for('user', code=code))
+    
+    # Заборона робити припущення щодо карти, яку сам гравець виклав (якщо це не ведучий)
+    # Ця перевірка актуальна, якщо будь-хто може класти карти на стіл.
+    # Якщо ж на стіл кладе тільки ведучий, то ця перевірка не потрібна,
+    # бо g.user_id не буде власником table_image.owner_id для інших гравців.
+    # if image_on_table['owner_id'] == g.user_id:
+    #     flash("Вы не можете угадывать свою собственную карту, выложенную на стол.", "warning")
+    #     return redirect(url_for('user', code=code))
+
+    try:
+        current_guesses = json.loads(image_on_table['guesses'] or '{}')
+        current_guesses[str(g.user_id)] = guessed_user_id # Зберігаємо ID того, КОГО вгадали
+        
+        c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(current_guesses), image_id))
+        db_conn.commit()
+        guessed_user_name = get_user_name(guessed_user_id) or f"ID {guessed_user_id}"
+        flash(f"Ваше припущення (що карта належить '{guessed_user_name}') прийнято!", "success")
+        
+    except sqlite3.Error as e:
+        db_conn.rollback()
+        flash(f"Помилка бази даних при збереженні припущення: {e}", "danger")
+        print(f"DB error in guess_image: {e}")
+    except json.JSONDecodeError:
+        # Малоймовірно, якщо ми завжди зберігаємо валідний JSON, але для безпеки
+        flash("Помилка обробки даних збережених припущень.", "danger")
+    except Exception as e_gen:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при збереженні припущення: {e_gen}", "danger")
+        print(f"Unexpected error in guess_image: {e_gen}")
+
+    return redirect(url_for('user', code=code))
+# --- Кінець маршрутів для дій користувача ---
+
+
+# --- Обработчики запросов (залишаються ваші index, login, logout, admin, start_new_game) ---
 @app.before_request
 def before_request():
+    # ... (ваш код before_request залишається без змін) ...
     db_conn = get_db()
     c = db_conn.cursor() 
     code = None
@@ -282,9 +531,9 @@ def before_request():
     g.show_card_info = show_card_info_setting == "true"
     g.game_over = is_game_over()
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # ... (ваш код login залишається без змін) ...
     if request.method == 'POST':
         password_attempt = request.form.get('password')
         correct_password = os.environ.get('ADMIN_PASSWORD')
@@ -304,17 +553,22 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # ... (ваш код logout залишається без змін) ...
     session.pop('is_admin', None)
     flash('Вы вышли из системы.', 'info')
     return redirect(url_for('login'))
     
 @app.route("/")
 def index():
+    # ... (ваш код index залишається без змін) ...
     return render_template("index.html")
     
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
+    # ... (ваш код admin з попередньої відповіді з інтеграцією game_board) ...
+    # Переконайтеся, що тут використовується generate_game_board_data_for_display(users_data_for_template)
+    # і game_board передається в render_template
     if not session.get('is_admin'):
         flash('Для доступа к этой странице требуется авторизация администратора.', 'warning')
         return redirect(url_for('login', next=request.url))
@@ -351,12 +605,11 @@ def admin():
         action_handled = False 
         leader_for_redirect = leader_to_display
         
-        # ВАЖЛИВО: Функція start_new_game тепер обробляє скидання гри та ініціалізацію поля.
-        # Якщо у вас є інші POST-дії в admin, які не є стартом нової гри, вони залишаються тут.
-        # Логіка для кнопки "reset_game_action" була перенесена в окремий маршрут /start_new_game
-        # тому тут її дублювати не потрібно, якщо ви використовуєте той маршрут.
+        # Важливо: маршрут /open_cards тепер обробляє відкриття карт.
+        # Маршрут /start_new_game обробляє повне скидання гри.
+        # Тут залишаються інші POST-дії адміна.
         
-        try: # Основний блок try для інших POST дій (створення користувача, зміна колоди, видалення)
+        try:
             if "name" in request.form: 
                 name = request.form.get("name", "").strip()
                 user_created_success = False 
@@ -469,28 +722,22 @@ def admin():
             flash(f"Произошла непредвиденная ошибка: {e}", "danger")
             db_conn.rollback()
 
-    # --- Получение данных для отображения (GET request или после ошибки POST) ---
     users_data_for_template, images_data_for_template, subfolders_data = [], [], []
     guess_counts_data, all_guesses_data, image_owners_data, user_has_duplicate_guesses_data = {}, {}, {}, {}
     free_image_count_data = 0
-    game_board_data_list = [] # ДОДАНО: ініціалізація
+    game_board_data_list = [] 
 
     try:
         c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
         users_data_for_template = c.fetchall() 
         print(f"Admin GET: Fetched {len(users_data_for_template)} users.")
-
-        # === ДОДАНО: Генерація даних для ігрового поля ===
         game_board_data_list = generate_game_board_data_for_display(users_data_for_template)
-        # ===============================================
-
         c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id")
         images_rows = c.fetchall()
         images_data_for_template = [] 
         all_guesses_data = {} 
         image_owners_data = {}
         print(f"Admin GET: Fetched {len(images_rows)} image rows. Active subfolder: '{current_active_subfolder}'")
-
         for img_row in images_rows:
             guesses_json_str = img_row['guesses'] or '{}'
             try:
@@ -508,7 +755,6 @@ def admin():
             if guesses_dict: 
                 all_guesses_data[img_row['id']] = guesses_dict 
         print(f"Admin GET: Processed images. Free count in active folder: {free_image_count_data}")
-
         user_has_duplicate_guesses_data = {user_row['id']: False for user_row in users_data_for_template}
         if all_guesses_data:
             for user_row in users_data_for_template:
@@ -519,7 +765,6 @@ def admin():
                         guesses_made_by_user.append(guesses_for_image[user_id_str])
                 if len(guesses_made_by_user) > len(set(guesses_made_by_user)):
                     user_has_duplicate_guesses_data[user_row['id']] = True
-
         guess_counts_data = {user_row['id']: 0 for user_row in users_data_for_template}
         for img_id, guesses_for_image in all_guesses_data.items():
             for guesser_id_str in guesses_for_image:
@@ -529,11 +774,9 @@ def admin():
                         guess_counts_data[guesser_id_int] += 1
                 except (ValueError, TypeError): pass
         print(f"Admin GET: Calculated guess counts and duplicates.")
-
         c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder")
         subfolders_data = [row['subfolder'] for row in c.fetchall()] or ['koloda1', 'koloda2']
         print(f"Admin GET: Found subfolders: {subfolders_data}")
-
     except sqlite3.Error as e:
         print(f"!!! ERROR caught in admin GET data fetch: {e}")
         flash(f"Ошибка чтения данных для отображения: {e}", "danger")
@@ -548,7 +791,6 @@ def admin():
         guess_counts_data, all_guesses_data, image_owners_data, user_has_duplicate_guesses_data = {}, {}, {}, {}
         free_image_count_data = 0
         game_board_data_list = []
-
     print(f"Admin GET: Rendering template. Users count: {len(users_data_for_template)}")
     return render_template("admin.html", users=users_data_for_template, images=images_data_for_template,
                            subfolders=subfolders_data, active_subfolder=current_active_subfolder,
@@ -558,17 +800,17 @@ def admin():
                            free_image_count=free_image_count_data,
                            image_owners=image_owners_data,
                            user_has_duplicate_guesses=user_has_duplicate_guesses_data,
-                           game_board=game_board_data_list) # ДОДАНО: передача даних ігрового поля
+                           game_board=game_board_data_list)
 
 @app.route("/start_new_game", methods=["POST"])
 def start_new_game():
-    if not session.get('is_admin'): # ДОДАНО: Перевірка прав адміністратора
+    # ... (ваш код start_new_game з попередньої відповіді з викликом initialize_new_game_board_visuals) ...
+    if not session.get('is_admin'): 
         flash('Тільки адміністратор може розпочати нову гру.', 'danger')
         return redirect(url_for('admin')) 
 
     db_conn = get_db() 
     c = db_conn.cursor()
-
     selected_deck = request.form.get("new_game_subfolder")
     try:
         num_cards_per_player = int(request.form.get("new_game_num_cards", 3))
@@ -577,27 +819,21 @@ def start_new_game():
     except (ValueError, TypeError):
         flash("Неверное количество карт для раздачи.", "danger")
         return redirect(url_for('admin'))
-
     if not selected_deck:
         flash("Колода для новой игры не выбрана.", "danger")
         return redirect(url_for('admin'))
-
     print(f"--- Начало новой игры с колодой: {selected_deck}, карт на игрока: {num_cards_per_player} ---")
-    new_leader_id = None # Ініціалізуємо, щоб уникнути UnboundLocalError у разі помилки перед призначенням
-
+    new_leader_id = None 
     try:
         print("Сброс рейтингов...")
         c.execute("UPDATE users SET rating = 0")
-
         print("Сброс состояния карт...")
         c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ'")
         c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_deck,))
-
         print("Сброс настроек игры...")
         set_game_over(False) 
-        set_setting("show_card_info", "false")
+        set_setting("show_card_info", "false") # Карти приховані на початку нового раунду
         set_setting("active_subfolder", selected_deck)
-
         c.execute("SELECT id FROM users ORDER BY id LIMIT 1")
         first_user = c.fetchone()
         if first_user:
@@ -608,21 +844,16 @@ def start_new_game():
             set_leading_user_id(None) 
             print("Пользователи не найдены, ведущий не назначен.")
         
-        # === ДОДАНО: Ініціалізація візуалізації ігрового поля ===
         c.execute("SELECT id, name, rating FROM users") 
         all_users_for_board_init = c.fetchall()
         initialize_new_game_board_visuals(all_users_for_rating_check=all_users_for_board_init)
-        # ======================================================
         
-        # Важливо: робимо commit основних скидань ДО роздачі карт,
-        # щоб у разі помилки роздачі, скидання гри вже було збережено.
         db_conn.commit() 
 
         c.execute("SELECT id FROM users ORDER BY id")
         user_ids = [row['id'] for row in c.fetchall()]
         num_users = len(user_ids)
         num_total_dealt = 0
-
         if not user_ids:
             flash("Пользователи не найдены. Новая игра начата, но карты не розданы.", "warning")
         else:
@@ -632,10 +863,8 @@ def start_new_game():
             random.shuffle(available_cards_ids)
             num_available = len(available_cards_ids)
             print(f"Доступно карт в колоде '{selected_deck}': {num_available}")
-
             if num_available < num_users * num_cards_per_player:
                 flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{selected_deck}' для раздачи по {num_cards_per_player} шт. всем {num_users} игрокам.", "warning")
-
             card_index = 0
             for user_id in user_ids:
                 cards_dealt_to_user = 0
@@ -650,10 +879,8 @@ def start_new_game():
                 if cards_dealt_to_user > 0:
                      num_total_dealt += cards_dealt_to_user
                      print(f"Пользователю ID {user_id} роздано {cards_dealt_to_user} карт.")
-            
             db_conn.commit() 
             flash(f"Новая игра успешно начата! Колода: '{selected_deck}'. Роздано карт: {num_total_dealt}.", "success")
-
     except sqlite3.Error as e:
         db_conn.rollback()
         flash(f"Ошибка базы данных при старте новой игры: {e}", "danger")
@@ -662,52 +889,38 @@ def start_new_game():
         db_conn.rollback()
         flash(f"Непредвиденная ошибка при старте новой игры: {e}", "danger")
         print(f"Unexpected error during start_new_game: {e}")
-        
     return redirect(url_for('admin', displayed_leader_id=new_leader_id))
 
-# --- ДОДАНО: Маршрут для сторінки користувача (приклад) ---
 @app.route('/user/<code>', methods=['GET', 'POST'])
-# @login_required # Використовуйте, якщо у вас є Flask-Login і він обробляє g.user
-def user(code_from_url): # Змінено ім'я параметра, щоб не конфліктувати з модулем code
-    # g.user_id має бути встановлено в before_request на основі code_from_url
-    if not g.user_id:
+def user(code_from_url): 
+    if not g.user_id: # g.user_id встановлюється в before_request
         flash("Неверный код доступа или сессия истекла.", "danger")
         return redirect(url_for('index'))
 
     db_conn = get_db()
     c = db_conn.cursor()
-
     current_user = None
     try:
         c.execute("SELECT id, name, rating, code FROM users WHERE id = ?", (g.user_id,))
         current_user = c.fetchone()
-        if not current_user: # Додаткова перевірка
+        if not current_user: 
             flash("Пользователь не найден.", "danger")
             return redirect(url_for('index'))
     except sqlite3.Error as e:
         flash(f"Ошибка при получении данных пользователя: {e}", "danger")
         return redirect(url_for('index'))
 
-    # Обробка POST запитів для дій користувача (place_card, guess_image)
-    # Ці дії, судячи з вашого шаблону user.html, є окремими маршрутами.
-    # Тому цей маршрут /user/<code> в основному для GET-запитів та відображення.
-    # Якщо у вас є POST-форми прямо на сторінці /user/<code>, обробляйте їх тут.
-    # if request.method == 'POST':
-    # ...
-
-    # Дані для відображення сторінки користувача
     user_cards = []
     table_images_list = []
-    all_users_list = []
+    all_users_list_for_forms = [] # Для випадаючих списків у формах
     user_placed_card = False
-    leader_id_for_display = get_leading_user_id() # Отримуємо актуального ведучого
+    leader_id_for_display = get_leading_user_id() 
+    game_board_data = [] # Ініціалізація
 
     try:
-        # Картки поточного користувача ("Мои карточки")
         c.execute("SELECT id, subfolder, image, status FROM images WHERE status = ?", (f"Занято:{g.user_id}",))
         user_cards = c.fetchall()
 
-        # Картки на столі ("Общий стол")
         c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE status LIKE 'На столе:%' ORDER BY id")
         raw_table_images = c.fetchall()
         for img_row in raw_table_images:
@@ -718,157 +931,276 @@ def user(code_from_url): # Змінено ім'я параметра, щоб н�
                 img_dict['guesses'] = {}
             table_images_list.append(img_dict)
         
-        # Перевірка, чи користувач вже виклав карту
         for img_on_table in table_images_list:
             if img_on_table['owner_id'] == g.user_id:
-                user_placed_card = True
+                user_placed_card = True # Прапор, що гравець вже виклав карту на стіл
                 break
         
-        # Всі користувачі (для форм припущень)
-        c.execute("SELECT id, name FROM users ORDER BY name ASC") # Не передаємо код сюди
-        all_users_list = c.fetchall()
+        c.execute("SELECT id, name FROM users ORDER BY name ASC") 
+        all_users_list_for_forms = c.fetchall()
 
-        # --- ДОДАНО: Генерація даних для ігрового поля ---
-        # Потрібен список всіх користувачів з їх рейтингами для generate_game_board_data_for_display
-        c.execute("SELECT id, name, rating FROM users")
-        all_users_for_board = c.fetchall()
-        game_board_data = generate_game_board_data_for_display(all_users_for_board)
-        # --- Кінець додавання ---
+        c.execute("SELECT id, name, rating FROM users") # Потрібні всі користувачі з рейтингами для поля
+        all_users_for_board_display = c.fetchall()
+        game_board_data = generate_game_board_data_for_display(all_users_for_board_display)
 
     except sqlite3.Error as e:
         flash(f"Ошибка при загрузке данных для страницы пользователя: {e}", "danger")
-        # Можна перенаправити або показати сторінку з помилкою
-        game_board_data = [] # Порожнє поле при помилці
+        game_board_data = [] 
 
     return render_template(
         "user.html",
         name=current_user['name'],
         rating=current_user['rating'],
-        code=current_user['code'], # Або code_from_url, якщо він потрібен для url_for в шаблоні
+        code=current_user['code'], 
         cards=user_cards,
         table_images=table_images_list,
-        on_table=user_placed_card,
-        all_users=all_users_list, # Для форм припущень
+        on_table=user_placed_card, 
+        all_users=all_users_list_for_forms, 
         leader_for_display=leader_id_for_display,
-        game_board=game_board_data, # ДОДАНО: передача даних ігрового поля
-        # g буде доступний автоматично, get_user_name та get_leading_user_id через app.jinja_env.globals
+        game_board=game_board_data,
+        # g, get_user_name, get_leading_user_id доступні глобально в Jinja
     )
 
-# --- ДОДАНО: Маршрути для дій користувача (place_card, guess_image) - ЗАГЛУШКИ ---
-# Вам потрібно буде реалізувати ці маршрути на основі вашої логіки
+@app.route('/open_cards', methods=['POST'])
+def open_cards(): 
+    if not session.get('is_admin'):
+        flash('Тільки адміністратор може виконувати цю дію.', 'danger')
+        return redirect(url_for('admin'))
+
+    db_conn = get_db()
+    c = db_conn.cursor()
+    print("--- Початок дії: Відкриття карт та підрахунок очок ---")
+    new_leader_id_for_redirect = get_leading_user_id() # За замовчуванням
+
+    try:
+        set_setting('show_card_info', 'true')
+        print("Налаштування 'show_card_info' встановлено на 'true'.")
+
+        c.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%'")
+        table_cards = c.fetchall()
+
+        if not table_cards:
+            flash("На столі немає карт для підрахунку очок. Карти відкрито.", "info") 
+            # Карти "відкрито" (show_card_info = true), але очок немає. Ведучий зміниться.
+        else:
+            c.execute("SELECT id, rating FROM users")
+            users_ratings_list = c.fetchall()
+            user_ratings = {row['id']: row['rating'] for row in users_ratings_list}
+            points_awarded_info = {}
+
+            for card in table_cards:
+                actual_owner_id = card['owner_id']
+                guesses_for_card = json.loads(card['guesses'] or '{}')
+
+                if actual_owner_id is None:
+                    print(f"Попередження: Карта ID {card['id']} на столі, але не має власника.")
+                    continue
+
+                card_guessed_correctly_by_someone = False
+                for guesser_id_str, guessed_owner_id_str in guesses_for_card.items():
+                    try:
+                        guesser_id = int(guesser_id_str)
+                        # guessed_owner_id - це ID користувача, якого вгадали як власника
+                        # карти card['id']
+                        guessed_owner_id = int(guessed_owner_id_str) 
+                        
+                        if guesser_id not in user_ratings:
+                             print(f"Попередження: Гравець ID {guesser_id}, що зробив припущення, не знайдений.")
+                             continue
+
+                        if guessed_owner_id == actual_owner_id:
+                            user_ratings[guesser_id] = user_ratings.get(guesser_id, 0) + 1
+                            points_awarded_info[guesser_id] = points_awarded_info.get(guesser_id, 0) + 1
+                            print(f"Гравець ID {guesser_id} вгадав карту ID {card['id']} (власник ID {actual_owner_id}). +1 бал.")
+                            card_guessed_correctly_by_someone = True
+                    except (ValueError, TypeError) as e_conv:
+                        print(f"Помилка конвертації ID '{guesser_id_str}' або '{guessed_owner_id_str}' у припущеннях для карти ID {card['id']}: {e_conv}")
+                
+                if card_guessed_correctly_by_someone and actual_owner_id in user_ratings:
+                    user_ratings[actual_owner_id] = user_ratings.get(actual_owner_id, 0) + 1
+                    points_awarded_info[actual_owner_id] = points_awarded_info.get(actual_owner_id, 0) + 1
+                    print(f"Власнику ID {actual_owner_id} карти ID {card['id']} +1 бал, оскільки його карту вгадали.")
+
+            for user_id_update, new_rating_update in user_ratings.items():
+                c.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating_update, user_id_update))
+            
+            if points_awarded_info:
+                awarded_summary_parts = []
+                for uid, pts in points_awarded_info.items():
+                    user_display_name = get_user_name(uid) or f'ID {uid}'
+                    awarded_summary_parts.append(f"{user_display_name}: +{pts}")
+                flash(f"Очки нараховані: {', '.join(awarded_summary_parts)}. Карти відкрито.", "success")
+            else:
+                flash("Ніхто не вгадав правильно, очки не нараховані. Карти відкрито.", "info")
+            print("Рейтинги оновлені в БД.")
+
+        # Визначення наступного ведучого (логіка залишається)
+        current_leader_id_val = get_leading_user_id()
+        c.execute("SELECT id FROM users ORDER BY id")
+        all_user_ids_rows = c.fetchall()
+        all_user_ids = [row['id'] for row in all_user_ids_rows]
+        
+        new_leader_id_for_redirect = current_leader_id_val
+
+        if not all_user_ids:
+            print("Немає користувачів для визначення наступного ведучого.")
+            set_leading_user_id(None)
+            new_leader_id_for_redirect = None
+        elif current_leader_id_val is None or current_leader_id_val not in all_user_ids:
+            new_leader_id_for_redirect = all_user_ids[0]
+            print(f"Поточного ведучого не було. Новий ведучий: ID {new_leader_id_for_redirect}")
+        else:
+            try:
+                current_leader_index = all_user_ids.index(current_leader_id_val)
+                new_leader_index = (current_leader_index + 1) % len(all_user_ids)
+                new_leader_id_for_redirect = all_user_ids[new_leader_index]
+                print(f"Поточний ведучий: ID {current_leader_id_val}. Наступний ведучий: ID {new_leader_id_for_redirect}")
+            except ValueError: # Якщо current_leader_id_val не знайдений у списку all_user_ids
+                if all_user_ids: # Перевіряємо, чи список не порожній
+                    new_leader_id_for_redirect = all_user_ids[0]
+                    print(f"Поточний ведучий ID {current_leader_id_val} не знайдений. Новий ведучий: ID {new_leader_id_for_redirect}")
+                else: # Якщо список all_user_ids порожній
+                    set_leading_user_id(None)
+                    new_leader_id_for_redirect = None
+                    print("Немає користувачів для призначення ведучого.")
+
+        if set_leading_user_id(new_leader_id_for_redirect):
+            if new_leader_id_for_redirect is not None:
+                 flash(f"Наступний ведучий: {get_user_name(new_leader_id_for_redirect) or ('ID '+str(new_leader_id_for_redirect))}.", "info")
+            else:
+                 flash("Ведучий не призначений (немає гравців).", "warning")
+        else:
+            flash("Помилка встановлення нового ведучого.", "danger")
+        
+        # --- БЛОК ОЧИЩЕННЯ СТОЛУ ВИДАЛЕНО ---
+        # Карти залишаються на столі зі статусом "На столе:%" та своїми припущеннями.
+        # show_card_info тепер true, тому інформація буде видима.
+        # Наступний хід/раунд має обробляти те, що відбувається з цими картами
+        # (наприклад, вони можуть бути прибрані, коли новий ведучий викладає свою карту).
+
+        db_conn.commit()
+        print("Дія 'Відкриття карт' успішно завершена. Стіл НЕ очищено автоматично.")
+
+    except sqlite3.Error as e:
+        db_conn.rollback()
+        flash(f"Помилка бази даних при відкритті карт: {e}", "danger")
+        print(f"Database error during open_cards: {e}")
+        # У разі помилки, намагаємося зберегти поточного ведучого для редиректу
+        new_leader_id_for_redirect = get_leading_user_id() 
+    except Exception as e:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при відкритті карт: {e}", "danger")
+        print(f"Unexpected error during open_cards: {e}")
+        new_leader_id_for_redirect = get_leading_user_id()
+
+    return redirect(url_for('admin', displayed_leader_id=new_leader_id_for_redirect))
+# --- Кінець маршруту open_cards ---
+
+# --- ВІДНОВЛЕНО/ДОДАНО: Маршрути для дій користувача (place_card, guess_image) ---
+# Ці функції залишаються такими ж, як у повідомленні #13 (тобто моїй попередній відповіді)
 @app.route('/place_card/<code>/<int:image_id>', methods=['POST'])
 def place_card(code, image_id):
-    if not g.user_id: # g.user_id встановлюється в before_request
-        flash("Доступ запрещен.", "danger")
+    # ... (код place_card з повідомлення #13) ...
+    if not g.user_id:
+        flash("Доступ заборонено. Необхідно увійти за кодом.", "danger")
         return redirect(url_for('index'))
     
     db_conn = get_db()
     c = db_conn.cursor()
     
-    # Перевірка, чи гра не закінчена
     if is_game_over():
-        flash("Игра окончена, выкладывать карты нельзя.", "warning")
+        flash("Гра закінчена, викладати карти не можна.", "warning")
         return redirect(url_for('user', code=code))
 
-    # Перевірка, чи це карта користувача і чи вона ще не на столі
-    c.execute("SELECT status, owner_id FROM images WHERE id = ? AND status = ?", (image_id, f"Занято:{g.user_id}"))
+    c.execute("SELECT 1 FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (g.user_id,))
+    if c.fetchone():
+        flash("Ви вже виклали карту в цьому раунді.", "warning")
+        return redirect(url_for('user', code=code))
+
+    c.execute("SELECT status FROM images WHERE id = ? AND status = ?", (image_id, f"Занято:{g.user_id}"))
     card_to_place = c.fetchone()
 
     if not card_to_place:
-        flash("Это не ваша карта или она уже была использована.", "warning")
+        flash("Це не ваша карта або вона вже була використана/викладена.", "warning")
         return redirect(url_for('user', code=code))
 
-    # Перевірка, чи користувач вже виклав карту в цьому раунді (якщо є таке правило)
-    # c.execute("SELECT 1 FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (g.user_id,))
-    # if c.fetchone():
-    #     flash("Вы уже выложили карту в этом раунде.", "warning")
-    #     return redirect(url_for('user', code=code))
-
     try:
-        # Оновлюємо статус карти та власника на столі
         c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", 
                   (f"На столе:{g.user_id}", g.user_id, image_id))
         db_conn.commit()
-        flash("Ваша карта выложена на стол!", "success")
+        flash("Вашу карту викладено на стіл!", "success")
     except sqlite3.Error as e:
         db_conn.rollback()
-        flash(f"Ошибка при выкладывании карты: {e}", "danger")
-
+        flash(f"Помилка бази даних при викладанні карти: {e}", "danger")
+        print(f"DB error in place_card: {e}")
+    except Exception as e_gen:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при викладанні карти: {e_gen}", "danger")
+        print(f"Unexpected error in place_card: {e_gen}")
     return redirect(url_for('user', code=code))
 
 
 @app.route('/guess_image/<code>/<int:image_id>', methods=['POST'])
 def guess_image(code, image_id):
+    # ... (код guess_image з повідомлення #13) ...
     if not g.user_id:
-        flash("Доступ запрещен.", "danger")
+        flash("Доступ заборонено. Необхідно увійти за кодом.", "danger")
         return redirect(url_for('index'))
 
     guessed_user_id_str = request.form.get('guessed_user_id')
-    if not guessed_user_id_str:
-        flash("Вы не выбрали пользователя.", "warning")
+    if not guessed_user_id_str: 
+        flash("Ви не обрали користувача для припущення.", "warning")
         return redirect(url_for('user', code=code))
 
     try:
         guessed_user_id = int(guessed_user_id_str)
     except ValueError:
-        flash("Неверный ID пользователя.", "danger")
+        flash("Невірний ID обраного користувача.", "danger")
         return redirect(url_for('user', code=code))
 
     db_conn = get_db()
     c = db_conn.cursor()
 
-    # Перевірка, чи гра не закінчена
     if is_game_over():
-        flash("Игра окончена, делать предположения нельзя.", "warning")
-        return redirect(url_for('user', code=code))
-
-    # Перевірка, чи це не карта самого гравця
-    c.execute("SELECT owner_id FROM images WHERE id = ?", (image_id,))
-    image_info = c.fetchone()
-    if not image_info:
-        flash("Карта не найдена.", "danger")
+        flash("Гра закінчена, робити припущення не можна.", "warning")
         return redirect(url_for('user', code=code))
     
-    if image_info['owner_id'] == g.user_id:
-        flash("Вы не можете угадывать свою собственную карту.", "warning")
+    if get_setting('show_card_info') == 'true':
+        flash("Карти вже відкрито, робити припущення запізно.", "warning")
         return redirect(url_for('user', code=code))
 
+    c.execute("SELECT owner_id, guesses FROM images WHERE id = ? AND status LIKE 'На столе:%'", (image_id,))
+    image_on_table = c.fetchone()
+
+    if not image_on_table:
+        flash("Карта не знайдена на столі або це не карта для припущень.", "danger")
+        return redirect(url_for('user', code=code))
+    
     try:
-        # Отримуємо поточні припущення для цієї карти
-        c.execute("SELECT guesses FROM images WHERE id = ?", (image_id,))
-        guesses_row = c.fetchone()
-        current_guesses = json.loads(guesses_row['guesses'] or '{}') if guesses_row else {}
-        
-        # Оновлюємо/додаємо припущення поточного користувача
-        current_guesses[str(g.user_id)] = guessed_user_id
+        current_guesses = json.loads(image_on_table['guesses'] or '{}')
+        current_guesses[str(g.user_id)] = guessed_user_id 
         
         c.execute("UPDATE images SET guesses = ? WHERE id = ?", (json.dumps(current_guesses), image_id))
         db_conn.commit()
-        flash("Ваше предположение принято!", "success")
+        guessed_user_name = get_user_name(guessed_user_id) or f"ID {guessed_user_id}"
+        flash(f"Ваше припущення (що карта належить '{guessed_user_name}') прийнято!", "success")
         
     except sqlite3.Error as e:
         db_conn.rollback()
-        flash(f"Ошибка при сохранении предположения: {e}", "danger")
+        flash(f"Помилка бази даних при збереженні припущення: {e}", "danger")
+        print(f"DB error in guess_image: {e}")
     except json.JSONDecodeError:
-        flash("Ошибка обработки данных предположений.", "danger")
-        
+        flash("Помилка обробки даних збережених припущень.", "danger")
+    except Exception as e_gen:
+        db_conn.rollback()
+        flash(f"Непередбачена помилка при збереженні припущення: {e_gen}", "danger")
+        print(f"Unexpected error in guess_image: {e_gen}")
     return redirect(url_for('user', code=code))
-# --- Кінець ЗАГЛУШОК для дій користувача ---
-
-
-if __name__ == "__main__":
-    # init_db() # Розкоментуйте для першої ініціалізації або повного скидання БД
-    # print("База данных инициализирована (если init_db был раскомментирован).")
     
-    # ДОДАНО: Ініціалізація візуалізації поля при першому запуску (якщо гра ще не починалася)
-    # Це потрібно, щоб поле не було порожнім до першого виклику /start_new_game
-    # Якщо ви керуєте цим через БД, цей блок може бути не потрібний тут.
-    if not _current_game_board_pole_image_config:
+if __name__ == "__main__":
+    # init_db() # Розкоментуйте для першої ініціалізації
+    if not _current_game_board_pole_image_config: # Ініціалізація поля при старті, якщо воно ще не було
          print("Первичная инициализация визуализации игрового поля при запуске приложения...")
-         # Потрібно отримати користувачів, якщо розмір поля залежить від них
-         # Однак, при першому запуску БД може бути порожньою.
-         # Тому краще використовувати num_cells_for_board=DEFAULT_NUM_BOARD_CELLS
          initialize_new_game_board_visuals(num_cells_for_board=DEFAULT_NUM_BOARD_CELLS)
-
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
