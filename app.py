@@ -244,7 +244,7 @@ app.jinja_env.globals.update(
 
 # --- ВІДНОВЛЕНО/ДОДАНО: Маршрут для відкриття карт та підрахунку результатів ---
 @app.route('/open_cards', methods=['POST'])
-def open_cards(): # Змінено назву функції на open_cards для відповідності url_for
+def open_cards(): 
     if not session.get('is_admin'):
         flash('Тільки адміністратор може виконувати цю дію.', 'danger')
         return redirect(url_for('admin'))
@@ -262,7 +262,8 @@ def open_cards(): # Змінено назву функції на open_cards д�
         table_cards = c.fetchall()
 
         if not table_cards:
-            flash("На столі немає карт для підрахунку очок.", "info")
+            flash("На столі немає карт для підрахунку очок. Карти відкрито.", "info") 
+            # Карти "відкрито" (show_card_info = true), але очок немає. Ведучий зміниться.
         else:
             c.execute("SELECT id, rating FROM users")
             users_ratings_list = c.fetchall()
@@ -281,14 +282,13 @@ def open_cards(): # Змінено назву функції на open_cards д�
                 for guesser_id_str, guessed_owner_id_str in guesses_for_card.items():
                     try:
                         guesser_id = int(guesser_id_str)
-                        guessed_owner_id = int(guessed_owner_id_str) # Це ID користувача, якого вгадали як власника
+                        # guessed_owner_id - це ID користувача, якого вгадали як власника
+                        # карти card['id']
+                        guessed_owner_id = int(guessed_owner_id_str) 
                         
-                        # Перевіряємо, чи є такий користувач у нашій базі взагалі
-                        # (на випадок, якщо дані в guesses пошкоджені або застарілі)
                         if guesser_id not in user_ratings:
-                             print(f"Попередження: Гравець ID {guesser_id}, що зробив припущення, не знайдений у списку гравців.")
+                             print(f"Попередження: Гравець ID {guesser_id}, що зробив припущення, не знайдений.")
                              continue
-
 
                         if guessed_owner_id == actual_owner_id:
                             user_ratings[guesser_id] = user_ratings.get(guesser_id, 0) + 1
@@ -311,12 +311,12 @@ def open_cards(): # Змінено назву функції на open_cards д�
                 for uid, pts in points_awarded_info.items():
                     user_display_name = get_user_name(uid) or f'ID {uid}'
                     awarded_summary_parts.append(f"{user_display_name}: +{pts}")
-                flash(f"Очки нараховані: {', '.join(awarded_summary_parts)}.", "success")
-
+                flash(f"Очки нараховані: {', '.join(awarded_summary_parts)}. Карти відкрито.", "success")
             else:
-                flash("Ніхто не вгадав правильно, очки не нараховані.", "info")
+                flash("Ніхто не вгадав правильно, очки не нараховані. Карти відкрито.", "info")
             print("Рейтинги оновлені в БД.")
 
+        # Визначення наступного ведучого (логіка залишається)
         current_leader_id_val = get_leading_user_id()
         c.execute("SELECT id FROM users ORDER BY id")
         all_user_ids_rows = c.fetchall()
@@ -337,10 +337,15 @@ def open_cards(): # Змінено назву функції на open_cards д�
                 new_leader_index = (current_leader_index + 1) % len(all_user_ids)
                 new_leader_id_for_redirect = all_user_ids[new_leader_index]
                 print(f"Поточний ведучий: ID {current_leader_id_val}. Наступний ведучий: ID {new_leader_id_for_redirect}")
-            except ValueError:
-                new_leader_id_for_redirect = all_user_ids[0]
-                print(f"Поточний ведучий ID {current_leader_id_val} не знайдений. Новий ведучий: ID {new_leader_id_for_redirect}")
-        
+            except ValueError: # Якщо current_leader_id_val не знайдений у списку all_user_ids
+                if all_user_ids: # Перевіряємо, чи список не порожній
+                    new_leader_id_for_redirect = all_user_ids[0]
+                    print(f"Поточний ведучий ID {current_leader_id_val} не знайдений. Новий ведучий: ID {new_leader_id_for_redirect}")
+                else: # Якщо список all_user_ids порожній
+                    set_leading_user_id(None)
+                    new_leader_id_for_redirect = None
+                    print("Немає користувачів для призначення ведучого.")
+
         if set_leading_user_id(new_leader_id_for_redirect):
             if new_leader_id_for_redirect is not None:
                  flash(f"Наступний ведучий: {get_user_name(new_leader_id_for_redirect) or ('ID '+str(new_leader_id_for_redirect))}.", "info")
@@ -349,35 +354,30 @@ def open_cards(): # Змінено назву функції на open_cards д�
         else:
             flash("Помилка встановлення нового ведучого.", "danger")
         
-        # Очищення столу: карти, що були 'На столе', стають просто 'Занято' у власників, guesses очищаються
-        # Це готує до того, що ведучий викладе нову карту-завдання.
-        if table_cards: # Тільки якщо були карти на столі
-            for card_on_table in table_cards:
-                if card_on_table['owner_id'] is not None:
-                    # Повертаємо карту власнику (статус 'Занято'), очищаємо припущення
-                    c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", 
-                              (f"Занято:{card_on_table['owner_id']}", card_on_table['id']))
-                else: 
-                    # Якщо карта на столі не мала власника (малоймовірно, але для безпеки)
-                    c.execute("UPDATE images SET status = 'Свободно', guesses = '{}', owner_id = NULL WHERE id = ?", 
-                              (card_on_table['id'],))
-            print("Стіл очищено для наступного раунду (карти повернені власникам, припущення скинуті).")
-
+        # --- БЛОК ОЧИЩЕННЯ СТОЛУ ВИДАЛЕНО ---
+        # Карти залишаються на столі зі статусом "На столе:%" та своїми припущеннями.
+        # show_card_info тепер true, тому інформація буде видима.
+        # Наступний хід/раунд має обробляти те, що відбувається з цими картами
+        # (наприклад, вони можуть бути прибрані, коли новий ведучий викладає свою карту).
 
         db_conn.commit()
-        print("Дія 'Відкриття карт' успішно завершена.")
+        print("Дія 'Відкриття карт' успішно завершена. Стіл НЕ очищено автоматично.")
 
     except sqlite3.Error as e:
         db_conn.rollback()
         flash(f"Помилка бази даних при відкритті карт: {e}", "danger")
         print(f"Database error during open_cards: {e}")
+        # У разі помилки, намагаємося зберегти поточного ведучого для редиректу
+        new_leader_id_for_redirect = get_leading_user_id() 
     except Exception as e:
         db_conn.rollback()
         flash(f"Непередбачена помилка при відкритті карт: {e}", "danger")
         print(f"Unexpected error during open_cards: {e}")
+        new_leader_id_for_redirect = get_leading_user_id()
 
     return redirect(url_for('admin', displayed_leader_id=new_leader_id_for_redirect))
 # --- Кінець маршруту open_cards ---
+
 
 
 # --- ВІДНОВЛЕНО/ДОДАНО: Маршрути для дій користувача (place_card, guess_image) ---
@@ -960,141 +960,6 @@ def user(code_from_url):
         game_board=game_board_data,
         # g, get_user_name, get_leading_user_id доступні глобально в Jinja
     )
-
-@app.route('/open_cards', methods=['POST'])
-def open_cards(): 
-    if not session.get('is_admin'):
-        flash('Тільки адміністратор може виконувати цю дію.', 'danger')
-        return redirect(url_for('admin'))
-
-    db_conn = get_db()
-    c = db_conn.cursor()
-    print("--- Початок дії: Відкриття карт та підрахунок очок ---")
-    new_leader_id_for_redirect = get_leading_user_id() # За замовчуванням
-
-    try:
-        set_setting('show_card_info', 'true')
-        print("Налаштування 'show_card_info' встановлено на 'true'.")
-
-        c.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%'")
-        table_cards = c.fetchall()
-
-        if not table_cards:
-            flash("На столі немає карт для підрахунку очок. Карти відкрито.", "info") 
-            # Карти "відкрито" (show_card_info = true), але очок немає. Ведучий зміниться.
-        else:
-            c.execute("SELECT id, rating FROM users")
-            users_ratings_list = c.fetchall()
-            user_ratings = {row['id']: row['rating'] for row in users_ratings_list}
-            points_awarded_info = {}
-
-            for card in table_cards:
-                actual_owner_id = card['owner_id']
-                guesses_for_card = json.loads(card['guesses'] or '{}')
-
-                if actual_owner_id is None:
-                    print(f"Попередження: Карта ID {card['id']} на столі, але не має власника.")
-                    continue
-
-                card_guessed_correctly_by_someone = False
-                for guesser_id_str, guessed_owner_id_str in guesses_for_card.items():
-                    try:
-                        guesser_id = int(guesser_id_str)
-                        # guessed_owner_id - це ID користувача, якого вгадали як власника
-                        # карти card['id']
-                        guessed_owner_id = int(guessed_owner_id_str) 
-                        
-                        if guesser_id not in user_ratings:
-                             print(f"Попередження: Гравець ID {guesser_id}, що зробив припущення, не знайдений.")
-                             continue
-
-                        if guessed_owner_id == actual_owner_id:
-                            user_ratings[guesser_id] = user_ratings.get(guesser_id, 0) + 1
-                            points_awarded_info[guesser_id] = points_awarded_info.get(guesser_id, 0) + 1
-                            print(f"Гравець ID {guesser_id} вгадав карту ID {card['id']} (власник ID {actual_owner_id}). +1 бал.")
-                            card_guessed_correctly_by_someone = True
-                    except (ValueError, TypeError) as e_conv:
-                        print(f"Помилка конвертації ID '{guesser_id_str}' або '{guessed_owner_id_str}' у припущеннях для карти ID {card['id']}: {e_conv}")
-                
-                if card_guessed_correctly_by_someone and actual_owner_id in user_ratings:
-                    user_ratings[actual_owner_id] = user_ratings.get(actual_owner_id, 0) + 1
-                    points_awarded_info[actual_owner_id] = points_awarded_info.get(actual_owner_id, 0) + 1
-                    print(f"Власнику ID {actual_owner_id} карти ID {card['id']} +1 бал, оскільки його карту вгадали.")
-
-            for user_id_update, new_rating_update in user_ratings.items():
-                c.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating_update, user_id_update))
-            
-            if points_awarded_info:
-                awarded_summary_parts = []
-                for uid, pts in points_awarded_info.items():
-                    user_display_name = get_user_name(uid) or f'ID {uid}'
-                    awarded_summary_parts.append(f"{user_display_name}: +{pts}")
-                flash(f"Очки нараховані: {', '.join(awarded_summary_parts)}. Карти відкрито.", "success")
-            else:
-                flash("Ніхто не вгадав правильно, очки не нараховані. Карти відкрито.", "info")
-            print("Рейтинги оновлені в БД.")
-
-        # Визначення наступного ведучого (логіка залишається)
-        current_leader_id_val = get_leading_user_id()
-        c.execute("SELECT id FROM users ORDER BY id")
-        all_user_ids_rows = c.fetchall()
-        all_user_ids = [row['id'] for row in all_user_ids_rows]
-        
-        new_leader_id_for_redirect = current_leader_id_val
-
-        if not all_user_ids:
-            print("Немає користувачів для визначення наступного ведучого.")
-            set_leading_user_id(None)
-            new_leader_id_for_redirect = None
-        elif current_leader_id_val is None or current_leader_id_val not in all_user_ids:
-            new_leader_id_for_redirect = all_user_ids[0]
-            print(f"Поточного ведучого не було. Новий ведучий: ID {new_leader_id_for_redirect}")
-        else:
-            try:
-                current_leader_index = all_user_ids.index(current_leader_id_val)
-                new_leader_index = (current_leader_index + 1) % len(all_user_ids)
-                new_leader_id_for_redirect = all_user_ids[new_leader_index]
-                print(f"Поточний ведучий: ID {current_leader_id_val}. Наступний ведучий: ID {new_leader_id_for_redirect}")
-            except ValueError: # Якщо current_leader_id_val не знайдений у списку all_user_ids
-                if all_user_ids: # Перевіряємо, чи список не порожній
-                    new_leader_id_for_redirect = all_user_ids[0]
-                    print(f"Поточний ведучий ID {current_leader_id_val} не знайдений. Новий ведучий: ID {new_leader_id_for_redirect}")
-                else: # Якщо список all_user_ids порожній
-                    set_leading_user_id(None)
-                    new_leader_id_for_redirect = None
-                    print("Немає користувачів для призначення ведучого.")
-
-        if set_leading_user_id(new_leader_id_for_redirect):
-            if new_leader_id_for_redirect is not None:
-                 flash(f"Наступний ведучий: {get_user_name(new_leader_id_for_redirect) or ('ID '+str(new_leader_id_for_redirect))}.", "info")
-            else:
-                 flash("Ведучий не призначений (немає гравців).", "warning")
-        else:
-            flash("Помилка встановлення нового ведучого.", "danger")
-        
-        # --- БЛОК ОЧИЩЕННЯ СТОЛУ ВИДАЛЕНО ---
-        # Карти залишаються на столі зі статусом "На столе:%" та своїми припущеннями.
-        # show_card_info тепер true, тому інформація буде видима.
-        # Наступний хід/раунд має обробляти те, що відбувається з цими картами
-        # (наприклад, вони можуть бути прибрані, коли новий ведучий викладає свою карту).
-
-        db_conn.commit()
-        print("Дія 'Відкриття карт' успішно завершена. Стіл НЕ очищено автоматично.")
-
-    except sqlite3.Error as e:
-        db_conn.rollback()
-        flash(f"Помилка бази даних при відкритті карт: {e}", "danger")
-        print(f"Database error during open_cards: {e}")
-        # У разі помилки, намагаємося зберегти поточного ведучого для редиректу
-        new_leader_id_for_redirect = get_leading_user_id() 
-    except Exception as e:
-        db_conn.rollback()
-        flash(f"Непередбачена помилка при відкритті карт: {e}", "danger")
-        print(f"Unexpected error during open_cards: {e}")
-        new_leader_id_for_redirect = get_leading_user_id()
-
-    return redirect(url_for('admin', displayed_leader_id=new_leader_id_for_redirect))
-# --- Кінець маршруту open_cards ---
 
 # --- ВІДНОВЛЕНО/ДОДАНО: Маршрути для дій користувача (place_card, guess_image) ---
 # Ці функції залишаються такими ж, як у повідомленні #13 (тобто моїй попередній відповіді)
