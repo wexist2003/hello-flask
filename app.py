@@ -233,37 +233,118 @@ def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_ra
         print(f"Використовуються placeholder'и для ігрового поля: {default_placeholder}")
     print(f"Візуалізацію ігрового поля ініціалізовано/оновлено для {_current_game_board_num_cells} клітинок.")
 
-def generate_game_board_data_for_display(all_users_data_for_board): # Змінено all_users_data на all_users_data_for_board
+def generate_game_board_data_for_display(all_users_data_for_board):
     global _current_game_board_pole_image_config, _current_game_board_num_cells
+    
+    # Ініціалізація візуалізації поля, якщо потрібно (як було раніше)
     if not _current_game_board_pole_image_config or _current_game_board_num_cells == 0:
-        print("ПОПЕРЕДЖЕННЯ: Візуалізація ігрового поля не ініціалізована! Спроба авто-ініціалізації.")
+        print("DEBUG_GB: Board visuals not initialized or num_cells is 0. Attempting to initialize...")
+        # Передаємо all_users_data_for_board, оскільки він може містити актуальні рейтинги
         initialize_new_game_board_visuals(all_users_for_rating_check=all_users_data_for_board)
         if not _current_game_board_pole_image_config or _current_game_board_num_cells == 0:
-            print("ПОМИЛКА: Не вдалося ініціалізувати ігрове поле після спроби авто-ініціалізації.")
-            return []             
+            print("DEBUG_GB: ERROR - Failed to initialize game board visuals even after auto-attempt.")
+            return [] # Повертаємо порожній список, якщо ініціалізація не вдалася
+
+    print(f"DEBUG_GB: generate_game_board_data_for_display called.")
+    print(f"DEBUG_GB: Received {len(all_users_data_for_board)} users for board generation.")
+    # Виведемо дані про перших кількох гравців для перевірки
+    for i, u_debug in enumerate(all_users_data_for_board):
+        if i < 3: # Логуємо тільки перших 3 для короткості
+            try:
+                user_id_debug = u_debug.get('id') if isinstance(u_debug, dict) else u_debug['id']
+                user_name_debug = u_debug.get('name') if isinstance(u_debug, dict) else u_debug['name']
+                user_rating_debug = u_debug.get('rating') if isinstance(u_debug, dict) else u_debug['rating']
+                print(f"DEBUG_GB: User sample: id={user_id_debug}, name='{user_name_debug}', rating={user_rating_debug} (type: {type(user_rating_debug)})")
+            except Exception as e_debug_user:
+                print(f"DEBUG_GB: Error accessing user sample data: {e_debug_user}, user_data: {u_debug}")
+        else:
+            break
+
     board_cells_data = []
+    print(f"DEBUG_GB: Board is configured for {_current_game_board_num_cells} cells.")
+
+    if not _current_game_board_pole_image_config:
+        print("DEBUG_GB: ERROR - _current_game_board_pole_image_config is empty! Cannot generate board.")
+        # Спробуємо ще раз ініціалізувати, хоча це вже мало б статися вище
+        initialize_new_game_board_visuals(all_users_for_rating_check=all_users_data_for_board)
+        if not _current_game_board_pole_image_config:
+             print("DEBUG_GB: CRITICAL - _current_game_board_pole_image_config still empty after re-init. Returning empty board.")
+             return []
+
+
     for i in range(_current_game_board_num_cells):
         cell_number = i + 1 
-        cell_image_path = _current_game_board_pole_image_config[i % len(_current_game_board_pole_image_config)]
+        
+        # Захист від порожнього _current_game_board_pole_image_config або виходу за межі індексу
+        cell_image_path = "static/images/default_pole_image.png" # Шлях до запасного зображення за замовчуванням
+        if _current_game_board_pole_image_config: # Перевірка, що список не порожній
+            try:
+                cell_image_path_idx = i % len(_current_game_board_pole_image_config)
+                cell_image_path = _current_game_board_pole_image_config[cell_image_path_idx]
+            except IndexError:
+                 print(f"DEBUG_GB: IndexError for pole image config. Index: {i}, Len: {len(_current_game_board_pole_image_config)}. Using default.")
+            except TypeError: # Якщо _current_game_board_pole_image_config несподівано None
+                 print(f"DEBUG_GB: TypeError - _current_game_board_pole_image_config is None. Using default image.")
+        # else: # Цей випадок вже оброблено вище, але для безпеки
+        #      print(f"DEBUG_GB: _current_game_board_pole_image_config is empty for cell {cell_number}. Using default image.")
+
+
         users_in_this_cell = []
-        for user_data_item_board in all_users_data_for_board: # Змінено user_data_item на user_data_item_board
-            user_rating, user_name, user_id_for_name = 0, "N/A", "N/A"
-            if isinstance(user_data_item_board, dict):
-                user_rating = user_data_item_board.get('rating', 0)
-                user_name = user_data_item_board.get('name')
-                user_id_for_name = user_data_item_board.get('id', 'N/A')
-            elif hasattr(user_data_item_board, 'rating'):
-                user_rating = getattr(user_data_item_board, 'rating', 0)
-                user_name = getattr(user_data_item_board, 'name', None)
-                user_id_for_name = getattr(user_data_item_board, 'id', 'N/A')
-            if isinstance(user_rating, int) and user_rating == cell_number:
-                display_name = user_name if user_name else f"ID {user_id_for_name}"
-                users_in_this_cell.append({'id': user_id_for_name, 'name': display_name, 'rating': user_rating})
+        # print(f"DEBUG_GB: Processing cell {cell_number}") # Можна розкоментувати для дуже детального логу
+
+        for user_data_item_board in all_users_data_for_board:
+            user_rating_raw = None
+            user_name = "Unknown"
+            user_id_for_name = "UnknownID"
+
+            if isinstance(user_data_item_board, sqlite3.Row):
+                try:
+                    user_rating_raw = user_data_item_board['rating']
+                    user_name = user_data_item_board['name']
+                    user_id_for_name = user_data_item_board['id']
+                except IndexError as e_sqlite_row: # Якщо ключ 'rating', 'name' або 'id' відсутній
+                    print(f"DEBUG_GB: KeyError accessing sqlite3.Row: {e_sqlite_row}. Row keys: {user_data_item_board.keys()}")
+                    continue 
+            elif isinstance(user_data_item_board, dict):
+                user_rating_raw = user_data_item_board.get('rating') # .get() безпечніший, поверне None якщо немає
+                user_name = user_data_item_board.get('name', "N/A")
+                user_id_for_name = user_data_item_board.get('id', "N/A_ID")
+            else:
+                print(f"DEBUG_GB: Unexpected user_data_item_board type: {type(user_data_item_board)}. Skipping this user item.")
+                continue
+            
+            # print(f"DEBUG_GB:   User {user_id_for_name} ('{user_name}') has raw rating '{user_rating_raw}' (type: {type(user_rating_raw)}). Comparing with cell_number {cell_number} (type: {type(cell_number)})")
+
+            current_user_rating_int = 0 # За замовчуванням
+            if user_rating_raw is not None:
+                try:
+                    current_user_rating_int = int(user_rating_raw)
+                except (ValueError, TypeError) as e_conv:
+                    print(f"DEBUG_GB: Could not convert rating '{user_rating_raw}' to int for user {user_id_for_name} ('{user_name}'). Error: {e_conv}. Defaulting to 0.")
+                    current_user_rating_int = 0 # Явно присвоюємо 0 у випадку помилки конвертації
+            # else: # Якщо user_rating_raw is None, current_user_rating_int залишиться 0
+            #    print(f"DEBUG_GB: User {user_id_for_name} ('{user_name}') has None rating. Defaulting to 0.")
+
+
+            if current_user_rating_int == cell_number:
+                display_name = user_name if user_name and str(user_name).strip() else f"ID {user_id_for_name}"
+                users_in_this_cell.append({'id': user_id_for_name, 'name': display_name, 'rating': current_user_rating_int})
+                print(f"DEBUG_GB: ---> ADDED User '{display_name}' (Actual Rating for check: {current_user_rating_int}) to cell {cell_number}")
+            
+        if not users_in_this_cell and cell_number <= _current_game_board_num_cells : # Логуємо для всіх порожніх клітин
+             # Це повідомлення з'явиться в консолі Flask, а не на веб-сторінці
+             # На веб-сторінці вже є (No players in cell X) з шаблону
+             if cell_number <= 5 or cell_number == _current_game_board_num_cells: # Обмежимо логування, щоб не спамити
+                print(f"DEBUG_GB: Server-side: Cell {cell_number} determined to be empty.")
+
+
         board_cells_data.append({
             'cell_number': cell_number,
-            'image_path': cell_image_path, # Шлях вже відносно static
+            'image_path': cell_image_path,
             'users_in_cell': users_in_this_cell
         })
+    
+    print(f"DEBUG_GB: Finished generating board data. Total cells processed: {len(board_cells_data)}")
     return board_cells_data
 
 # --- Глобальные переменные и функции для Jinja ---
