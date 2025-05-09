@@ -238,79 +238,82 @@
             padding-bottom: 0.5rem;
             justify-content: flex-start; 
         }
-        .game-board-spot-container { /* Загальний контейнер для клітинки + імен під нею */
+        .game-board-spot-container { 
             display: flex;
             flex-direction: column;
             align-items: center;
             flex-shrink: 0; 
-            /* margin: 0.125rem; Замінено на m-1 в макросі */
         }
-        .game-board-pictogram { /* Контейнер для самої піктограми/фону */
-            width: 60px;  /* Розмір піктограми */
-            height: 60px; /* Розмір піктограми */
+        .game-board-pictogram { 
+            width: 60px;  
+            height: 60px; 
             position: relative; 
             background-size: contain; 
             background-position: center; 
             background-repeat: no-repeat;
             border: 1px solid #dee2e6; 
             border-radius: .25rem; 
-            margin-bottom: 3px; /* Відступ між піктограмою та іменами */
+            margin-bottom: 3px; 
         }
         .game-board-cell-number {
             position: absolute; 
             top: 1px; 
             left: 1px; 
             background-color: rgba(255,255,255,0.85); 
-            color: #212529; /* Темний колір для світлої теми */
+            color: #212529; 
             padding: 0px 3px; 
             border-radius: 0.2rem; 
-            font-size: 0.65em; /* Ще менший шрифт для номера */
+            font-size: 0.65em; /* Розмір шрифту номера */
             font-weight: bold;
             border: 1px solid rgba(0,0,0,0.1);
             line-height: 1.1;
         }
         html[data-bs-theme="dark"] .game-board-cell-number {
             background-color: rgba(40,40,40,0.85);
-            color: #f8f9fa; /* Світлий колір для темної теми */
+            color: #f8f9fa; 
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .game-board-player-names-area { /* Контейнер для імен ПІД піктограмою */
-            width: 60px; /* Та сама ширина, що й у піктограми */
-            font-size: 0.6em; 
-            line-height: 1.1;
-            max-height: 3.3em; /* Приблизно 3 рядки тексту */
+        .game-board-player-names-area { 
+            width: 60px; 
+            font-size: 0.65em; /* Шрифт імен такий же, як у номера */
+            line-height: 1.2; /* Трохи більший міжрядковий інтервал для читабельності */
+            max-height: 3.6em; /* 3 рядки * 1.2em */
             overflow-y: auto; 
             text-align: center;
-            border: 1px dashed transparent; /* Для відладки, можна прибрати */
+            margin-top: 2px; /* Невеликий відступ зверху */
         }
         .player-name-on-board {
             display: block; 
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis; 
-            /* Колір тексту буде успадковуватися або можна задати явно */
+            white-space: normal; /* Дозволити перенос довгих імен */
+            word-wrap: break-word; /* Дозволити розрив слів, якщо вони дуже довгі */
+            /* Нижче колір тексту для імен, що адаптується до теми */
         }
-        .player-name-on-board-empty { /* Для збереження висоти, якщо немає гравців */
-            height: 0.7em; 
+        html[data-bs-theme="dark"] .player-name-on-board {
+            color: #e0e0e0; /* Світло-сірий для темної теми, для кращої видимості */
+        }
+        html[data-bs-theme="light"] .player-name-on-board {
+            color: #212529; /* Стандартний темний для світлої теми */
+        }
+        .player-name-on-board-empty { 
+            height: 1.2em; /* Висота одного рядка тексту, щоб контейнер не "стрибав" */
         }
 
         #gameBoardCarousel .carousel-inner {
-            min-height: 120px; /* Висота для каруселі поля (піктограма + імена) */
+            min-height: 120px; 
         }
         #gameBoardCarousel .carousel-item .d-flex { 
             min-height: 110px; 
-            align-items: center; /* Вертикальне центрування spot-container в каруселі */
+            align-items: center; 
         }
-        /* Стилі для .game-board-spot-container всередині каруселі можуть бути ті ж самі,
-           або можна трохи збільшити розмір піктограми, якщо потрібно */
-        #gameBoardCarousel .game-board-pictogram {
+        #gameBoardCarousel .game-board-pictogram { /* Для мобільної каруселі */
             width: 70px;
             height: 70px;
         }
-        #gameBoardCarousel .game-board-player-names-area {
+        #gameBoardCarousel .game-board-player-names-area { /* Для мобільної каруселі */
             width: 70px;
-            font-size: 0.65em;
+            font-size: 0.7em; /* Трохи більший шрифт для імен на мобільному */
+            max-height: 3.5em; /* (0.7 * 1.2 * ~3 рядки) + запас */
         }
         /* Кінець ОНОВЛЕНИХ СТИЛІВ */
 
@@ -319,11 +322,13 @@
             h1 { font-size: 2rem; }
             h2 { font-size: 1.5rem; }
             .card-body { padding: 0.75rem; }
-            .carousel-inner { min-height: 280px; } 
+            /* .carousel-inner { min-height: 280px; } Загальна висота, не для gameBoardCarousel */
             .theme-toggle-button {
                 top: 0.5rem;
                 right: 0.5rem;
             }
+            #gameBoardCarousel .carousel-inner { min-height: 130px; } /* Специфічно для мобільного поля */
+
         }
         @media (min-width: 768px) {
             .carousel .card { 
