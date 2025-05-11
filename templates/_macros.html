@@ -1,0 +1,24 @@
+{# === Макросы === #}
+{% macro render_game_board_cell(cell_data, get_user_name_func) %}
+<div class="game-board-spot-container m-1 text-center">
+    <div class="game-board-pictogram"
+         title="Клетка #{{ cell_data.cell_number }}"
+         style="background-image: url('{{ url_for('static', filename=cell_data.image_path) }}');">
+        <div class="game-board-cell-number">
+            {{ cell_data.cell_number }}
+        </div>
+    </div>
+    <div class="game-board-player-names-area">
+        {% if cell_data.users_in_cell %}
+            {% for player in cell_data.users_in_cell %}
+                <span class="player-avatar-on-board" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
+                    {{ player.name[0]|upper if player.name and player.name|trim else '?' }}
+                </span>{%- if not loop.last %}<span class="avatar-separator">, </span>{% endif -%}
+            {% endfor %}
+        {% else %}
+            <div class="player-name-on-board-empty">&nbsp;</div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+{# === Конец Макросов === #}
