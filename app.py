@@ -378,67 +378,63 @@ def before_request():
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
-    if not session.get('is_admin'):
+    # Проверка авторизации администратора
+    if not session.get('is_admin'): # В вашем коде используется is_admin
         flash('Для доступа к этой странице требуется авторизация администратора.', 'warning')
         return redirect(url_for('login', next=request.url))
     
     db = get_db()
     c = db.cursor()
-    leader_to_display = None
-    current_active_subfolder = '' 
-    show_card_info_admin_page = False # Змінено show_card_info на show_card_info_admin_page
+    
+    # Инициализация переменных, которые будут переданы в шаблон
+    # Используем имена переменных из вашего существующего кода admin(), где это возможно
+    leader_to_display = get_leading_user_id() 
+    current_active_subfolder = get_setting('active_subfolder') or ''
+    show_card_info_status = get_setting('show_card_info') == "true"
 
-    try:
-        current_actual_leader_id = get_leading_user_id() 
-        current_active_subfolder = get_setting('active_subfolder') or '' 
-        show_card_info_admin_page = get_setting('show_card_info') == "true" 
+    # Логика для displayed_leader_id из URL для GET запросов (как в вашем коде)
+    if request.method == "GET":
         displayed_leader_id_from_url_str = request.args.get('displayed_leader_id')
         if displayed_leader_id_from_url_str:
             try:
                 leader_to_display = int(displayed_leader_id_from_url_str)
             except (ValueError, TypeError):
-                leader_to_display = current_actual_leader_id 
-        else:
-            leader_to_display = current_actual_leader_id
-    except Exception as e:
-        print(f"CRITICAL Error reading initial settings in admin: {e}")
-        flash(f"Критическая ошибка чтения начальных настроек: {e}", "danger")
-        return render_template("admin.html", users=[], images=[], subfolders=['koloda1', 'koloda2'],
-                               active_subfolder='', guess_counts_by_user={}, all_guesses={},
-                               show_card_info=False, leader_to_display=None,
-                               free_image_count=0, image_owners={}, user_has_duplicate_guesses={},
-                               game_board=[] ) # Додано порожній game_board для помилки
+                pass # Оставляем leader_to_display как get_leading_user_id() если ошибка
 
+    # Обработка POST-запросов
     if request.method == "POST":
         action_handled = False 
-        leader_for_redirect = leader_to_display
+        leader_for_redirect = leader_to_display # ID лидера для URL после редиректа
+
         try:
+            # --- Создание пользователя ---
             if "name" in request.form:
-                name_admin_form = request.form.get("name", "").strip() # Змінено name
-                user_created_success = False 
+                name_admin_form = request.form.get("name", "").strip()
+                user_created_success = False
                 if not name_admin_form:
                      flash("Имя пользователя не может быть пустым.", "warning")
                 else:
                     num_cards = int(request.form.get("num_cards", 3))
                     if num_cards < 1: num_cards = 1
-                    code_admin_form = generate_unique_code() # Змінено code
+                    code_admin_form = generate_unique_code()
                     c.execute("SELECT 1 FROM users WHERE name = ?", (name_admin_form,))
                     if c.fetchone():
                         flash(f"Имя пользователя '{name_admin_form}' уже существует.", "danger")
                     else:
                         c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (name_admin_form, code_admin_form))
-                        user_id_admin_form = c.lastrowid # Змінено user_id
+                        user_id_admin_form = c.lastrowid
                         flash(f"Пользователь '{name_admin_form}' добавлен.", "success")
-                        user_created_success = True 
+                        user_created_success = True
+                        
+                        current_actual_leader_id = get_leading_user_id() # Обновляем перед проверкой
                         if current_actual_leader_id is None:
                             if set_leading_user_id(user_id_admin_form):
                                 flash(f"Пользователь '{name_admin_form}' назначен Ведущим.", "info")
-                                current_actual_leader_id = user_id_admin_form
-                                if leader_to_display is None:
-                                    leader_to_display = current_actual_leader_id
+                                leader_for_redirect = user_id_admin_form # Обновляем для редиректа
                             else:
                                 flash("Ошибка назначения ведущего.", "warning")
-                        if current_active_subfolder:
+                        
+                        if current_active_subfolder: # Используем обновленное значение current_active_subfolder
                             c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (current_active_subfolder,))
                             available_cards_ids = [row['id'] for row in c.fetchall()]
                             if len(available_cards_ids) < num_cards:
@@ -446,7 +442,7 @@ def admin():
                                  num_cards = len(available_cards_ids)
                             if num_cards > 0:
                                 selected_cards_ids = random.sample(available_cards_ids, num_cards)
-                                for card_id_admin_form in selected_cards_ids: # Змінено card_id
+                                for card_id_admin_form in selected_cards_ids:
                                     c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id_admin_form}", card_id_admin_form))
                                 flash(f"'{name_admin_form}' назначено {num_cards} карт.", "info")
                         else:
@@ -454,37 +450,42 @@ def admin():
                 if user_created_success:
                      db.commit() 
                      action_handled = True
-                     leader_for_redirect = current_actual_leader_id
+                     # leader_for_redirect уже установлен, если новый лидер был назначен
+            
+            # --- Смена активной колоды ---
             elif "active_subfolder" in request.form:
-                selected = request.form.get("active_subfolder")
-                if set_setting('active_subfolder', selected): 
+                selected_subfolder = request.form.get("active_subfolder")
+                if set_setting('active_subfolder', selected_subfolder): 
                     try:
-                        updated_inactive = c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected,)).rowcount
+                        updated_inactive = c.execute("UPDATE images SET status = 'Занято:Админ' WHERE subfolder != ? AND status = 'Свободно'", (selected_subfolder,)).rowcount
                         db.commit()
-                        flash_message_text = f"Выбрана активная колода: {selected}."
+                        flash_message_text = f"Выбрана активная колода: {selected_subfolder}."
                         if updated_inactive > 0:
                             flash_message_text += f" Карты в других колодах ({updated_inactive} шт.) помечены как неактивные."
                         flash(flash_message_text, "success")
-                        current_active_subfolder = selected 
+                        current_active_subfolder = selected_subfolder # Обновляем для текущего контекста
                     except sqlite3.Error as e:
                         db.rollback()
                         flash(f"Ошибка обновления статусов карт: {e}", "danger")
                 else:
                     flash("Ошибка сохранения настройки активной колоды.", "danger")
-                leader_for_redirect = leader_to_display
                 action_handled = True
+            
+            # --- Удаление пользователя ---
             elif "delete_user_id" in request.form:
                 user_id_to_delete = int(request.form.get("delete_user_id"))
-                was_leader = (current_actual_leader_id == user_id_to_delete)
+                current_actual_leader_id_before_delete = get_leading_user_id()
+                was_leader = (current_actual_leader_id_before_delete == user_id_to_delete)
+                
                 c.execute("SELECT name FROM users WHERE id = ?", (user_id_to_delete,))
-                user_to_delete = c.fetchone()
-                if user_to_delete:
-                    user_name_deleted = user_to_delete['name']
+                user_to_delete_row = c.fetchone()
+                if user_to_delete_row:
+                    user_name_deleted = user_to_delete_row['name']
                     c.execute("DELETE FROM users WHERE id = ?", (user_id_to_delete,))
                     c.execute("UPDATE images SET status = 'Свободно' WHERE status = ?", (f"Занято:{user_id_to_delete}",))
                     c.execute("UPDATE images SET status = 'Свободно', owner_id = NULL, guesses = '{}' WHERE owner_id = ?", (user_id_to_delete,))
                     flash(f"Пользователь '{user_name_deleted}' удален.", "success")
-                    new_leader_id_after_delete = current_actual_leader_id 
+                    
                     if was_leader:
                         c.execute("SELECT id FROM users ORDER BY id")
                         remaining_users = c.fetchall()
@@ -493,54 +494,95 @@ def admin():
                             if set_leading_user_id(new_leader_id_after_delete):
                                 new_leader_name = get_user_name(new_leader_id_after_delete) or f"ID {new_leader_id_after_delete}"
                                 flash(f"Удаленный пользователь был Ведущим. Новый Ведущий: {new_leader_name}.", "info")
+                                leader_for_redirect = new_leader_id_after_delete
                             else:
                                 flash("Ошибка назначения нового ведущего.", "warning")
-                        else:
-                            new_leader_id_after_delete = None
+                        else: # Пользователей не осталось
                             set_leading_user_id(None)
                             flash("Удаленный пользователь был Ведущим. Пользователей не осталось.", "warning")
-                        leader_for_redirect = new_leader_id_after_delete
-                    else:
-                         leader_for_redirect = current_actual_leader_id
+                            leader_for_redirect = None 
+                    # Если удаляли не ведущего, leader_for_redirect остается leader_to_display
                     db.commit() 
                 else:
                     flash(f"Пользователь с ID {user_id_to_delete} не найден.", "danger")
-                    leader_for_redirect = leader_to_display 
                 action_handled = True
+
+            # --- Переключение видимости информации о картах ---
+            elif 'toggle_show_card_info' in request.form: # Добавим этот блок, если его нет
+                current_show_info_str = get_setting('show_card_info', 'false')
+                new_show_info_val = 'false' if current_show_info_str == 'true' else 'true'
+                if set_setting('show_card_info', new_show_info_val):
+                    flash(f'Показ информации о картах для пользователей {"включен" if new_show_info_val == "true" else "отключен"}.', 'info')
+                    show_card_info_status = (new_show_info_val == "true") # Обновляем для текущего контекста
+                else:
+                    flash('Ошибка изменения настройки показа информации о картах.', 'danger')
+                action_handled = True
+
+            # --- Сброс/инициализация визуализации игрового поля ---
+            elif 'reset_game_board_visuals' in request.form:
+                num_cells_str = request.form.get('num_cells_for_board_reset')
+                num_cells = None
+                if num_cells_str:
+                    try:
+                        num_cells = int(num_cells_str)
+                        if num_cells <= 0:
+                             flash('Количество ячеек должно быть положительным числом.', 'warning')
+                             num_cells = None
+                    except ValueError:
+                        flash('Некорректное количество ячеек. Введите число.', 'warning')
+                
+                c.execute("SELECT id, name, rating FROM users ORDER BY id")
+                all_users_for_rating_check_post = c.fetchall()
+                initialize_new_game_board_visuals(num_cells_for_board=num_cells, all_users_for_rating_check=all_users_for_rating_check_post)
+                flash(f'Визуализация игрового поля переинициализирована для {_current_game_board_num_cells} ячеек.', 'info')
+                action_handled = True
+            
+            # Редирект после успешного POST действия
             if action_handled:
-                return redirect(url_for('admin', displayed_leader_id=leader_for_redirect))
-        except sqlite3.IntegrityError as e:
-             if "UNIQUE constraint failed" not in str(e):
-                 flash(f"Ошибка целостности базы данных: {e}", "danger")
+                return redirect(url_for('admin', displayed_leader_id=leader_for_redirect if leader_for_redirect is not None else ''))
+
+        # Обработка ошибок во время POST
+        except sqlite3.IntegrityError as e_integrity:
+             if "UNIQUE constraint failed" in str(e_integrity): # Более точная проверка на дубликат имени
+                 flash(f"Имя пользователя уже существует или другая ошибка уникальности: {e_integrity}", "danger")
+             else:
+                 flash(f"Ошибка целостности базы данных: {e_integrity}", "danger")
              db.rollback()
-        except (sqlite3.Error, ValueError, TypeError) as e:
-             flash(f"Ошибка при обработке запроса: {e}", "danger")
+        except (sqlite3.Error, ValueError, TypeError) as e_sql_val_type:
+             flash(f"Ошибка при обработке запроса: {e_sql_val_type}", "danger")
              db.rollback()
-        except Exception as e:
-              print(f"!!! UNEXPECTED ERROR during admin POST: {e}") 
-              flash(f"Произошла непредвиденная ошибка: {e}", "danger")
+        except Exception as e_general_post:
+              print(f"!!! UNEXPECTED ERROR during admin POST: {e_general_post}") 
+              print(traceback.format_exc()) # Печатаем полный трейсбек
+              flash(f"Произошла непредвиденная ошибка: {e_general_post}", "danger")
               db.rollback()
-    
-    users_admin_page, images_admin_page, subfolders_admin_page = [], [], [] # Змінено users, images, subfolders
-    guess_counts_by_user_admin_page, all_guesses_admin_page = {}, {} # Змінено
-    free_image_count_admin_page = 0 # Змінено
-    image_owners_admin_page = {} # Змінено
-    user_has_duplicate_guesses_admin_page = {} # Змінено
-    game_board_admin_page = [] # ДОДАНО: для ігрового поля
+        # Если была ошибка и не было редиректа, выполнение перейдет к GET-части ниже для отображения страницы
+
+    # --- Получение данных для отображения (GET-запрос или после ошибки POST без редиректа) ---
+    users_for_template = []
+    images_for_template = []
+    subfolders_for_template = []
+    guess_counts_by_user_for_template = {}
+    all_guesses_for_template = {}
+    free_image_count_for_template = 0
+    image_owners_for_template = {}
+    user_has_duplicate_guesses_for_template = {}
+    game_board_data_for_template = [] # Инициализация для игрового поля
 
     try:
+        # Получаем пользователей
         c.execute("SELECT id, name, code, rating FROM users ORDER BY name ASC")
-        users_admin_page = c.fetchall()
-        print(f"Admin GET: Fetched {len(users_admin_page)} users.")
+        users_for_template = c.fetchall()
 
-        game_board_admin_page = generate_game_board_data_for_display(users_admin_page) # ДОДАНО
+        # --- Генерация данных игрового поля ---
+        # Используем users_for_template, который содержит всех пользователей
+        game_board_data_for_template = generate_game_board_data_for_display(users_for_template)
+        # --- Конец генерации данных игрового поля ---
 
+        # Получаем изображения
         c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id")
         images_rows = c.fetchall()
-        images_admin_page = []
-        all_guesses_admin_page = {}
-        print(f"Admin GET: Fetched {len(images_rows)} image rows. Active subfolder: '{current_active_subfolder}'")
-
+        
         for img_row in images_rows:
             guesses_json_str = img_row['guesses'] or '{}'
             try:
@@ -548,64 +590,87 @@ def admin():
             except json.JSONDecodeError as json_e:
                  print(f"Warning: JSONDecodeError for image ID {img_row['id']} - guesses: '{guesses_json_str}'. Error: {json_e}. Using empty dict.")
                  guesses_dict = {}
-            img_dict = dict(img_row)
-            img_dict['guesses'] = guesses_dict
-            images_admin_page.append(img_dict)
-            if img_dict['owner_id'] is not None:
-                image_owners_admin_page[img_dict['id']] = img_dict['owner_id']
-            if img_dict['status'] == 'Свободно' and img_dict['subfolder'] == current_active_subfolder:
-                free_image_count_admin_page += 1
-            if guesses_dict:
-                 all_guesses_admin_page[img_row['id']] = guesses_dict
-        print(f"Admin GET: Processed images. Free count in active folder: {free_image_count_admin_page}")
-        user_has_duplicate_guesses_admin_page = {user_item_admin['id']: False for user_item_admin in users_admin_page} # Змінено user
-        if all_guesses_admin_page:
-            for user_item_admin in users_admin_page: # Змінено user
-                user_id_str = str(user_item_admin['id'])
+            
+            # Преобразуем sqlite3.Row в dict для унификации, если это нужно в шаблоне,
+            # или оставляем как sqlite3.Row, если шаблон это поддерживает (Jinja обычно поддерживает доступ по ключу).
+            # В вашем коде `images_admin_page.append(img_dict)` уже делает это.
+            img_dict_for_template = dict(img_row) 
+            img_dict_for_template['guesses'] = guesses_dict
+            images_for_template.append(img_dict_for_template)
+
+            if img_dict_for_template['owner_id'] is not None:
+                image_owners_for_template[img_dict_for_template['id']] = img_dict_for_template['owner_id']
+            if img_dict_for_template['status'] == 'Свободно' and img_dict_for_template['subfolder'] == current_active_subfolder:
+                free_image_count_for_template += 1
+            if guesses_dict: # Если есть угадывания
+                 all_guesses_for_template[img_row['id']] = guesses_dict
+        
+        # Проверка дубликатов в предположениях
+        user_has_duplicate_guesses_for_template = {user_item['id']: False for user_item in users_for_template}
+        if all_guesses_for_template:
+            for user_item in users_for_template:
+                user_id_str = str(user_item['id'])
                 guesses_made_by_user = []
-                for image_id_admin_page, guesses_for_image in all_guesses_admin_page.items(): # Змінено image_id
+                for image_id_admin_get, guesses_for_image in all_guesses_for_template.items():
                     if user_id_str in guesses_for_image:
                         guesses_made_by_user.append(guesses_for_image[user_id_str])
                 if len(guesses_made_by_user) > len(set(guesses_made_by_user)):
-                     user_has_duplicate_guesses_admin_page[user_item_admin['id']] = True
-        guess_counts_by_user_admin_page = {user_item_admin['id']: 0 for user_item_admin in users_admin_page} # Змінено user
-        for img_id_admin_page, guesses_for_image in all_guesses_admin_page.items(): # Змінено img_id
+                     user_has_duplicate_guesses_for_template[user_item['id']] = True
+        
+        # Подсчет сделанных предположений каждым пользователем
+        guess_counts_by_user_for_template = {user_item['id']: 0 for user_item in users_for_template}
+        for img_id_admin_get, guesses_for_image in all_guesses_for_template.items():
             for guesser_id_str in guesses_for_image:
                  try:
-                     if int(guesser_id_str) in guess_counts_by_user_admin_page:
-                         guess_counts_by_user_admin_page[int(guesser_id_str)] += 1
-                 except (ValueError, TypeError): pass
-        print(f"Admin GET: Calculated guess counts and duplicates.")
+                     guesser_id_int = int(guesser_id_str)
+                     if guesser_id_int in guess_counts_by_user_for_template:
+                         guess_counts_by_user_for_template[guesser_id_int] += 1
+                 except (ValueError, TypeError): 
+                     pass # Игнорируем некорректные ID угадывающих
+        
+        # Получение списка папок
         c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder")
-        subfolders_admin_page = [row['subfolder'] for row in c.fetchall()] or ['koloda1', 'koloda2']
-        print(f"Admin GET: Found subfolders: {subfolders_admin_page}")
-    except sqlite3.Error as e:
-        print(f"!!! ERROR caught in admin GET data fetch: {e}")
-        flash(f"Ошибка чтения данных для отображения: {e}", "danger")
-        users_admin_page, images_admin_page, subfolders_admin_page, guess_counts_by_user_admin_page, all_guesses_admin_page = [], [], [], {}, {}
-        free_image_count_admin_page = 0
-        image_owners_admin_page = {}
-        user_has_duplicate_guesses_admin_page = {}
-        game_board_admin_page = [] 
-    except Exception as e: 
-         print(f"!!! UNEXPECTED ERROR caught in admin GET data fetch: {e}")
-         flash(f"Непредвиденная ошибка при чтении данных: {e}", "danger")
-         users_admin_page, images_admin_page, subfolders_admin_page, guess_counts_by_user_admin_page, all_guesses_admin_page = [], [], [], {}, {}
-         free_image_count_admin_page = 0
-         image_owners_admin_page = {}
-         user_has_duplicate_guesses_admin_page = {}
-         game_board_admin_page = [] 
+        subfolders_for_template = [row['subfolder'] for row in c.fetchall()]
+        if not subfolders_for_template and os.path.exists(os.path.join('static', 'images', 'koloda1')): # Запасной вариант
+            subfolders_for_template = ['koloda1']
 
-    print(f"Admin GET: Rendering template. Users count: {len(users_admin_page)}")
-    return render_template("admin.html", users=users_admin_page, images=images_admin_page,
-                           subfolders=subfolders_admin_page, active_subfolder=current_active_subfolder,
-                           guess_counts_by_user=guess_counts_by_user_admin_page, all_guesses=all_guesses_admin_page,
-                           show_card_info=show_card_info_admin_page, 
-                           leader_to_display=leader_to_display,
-                           free_image_count=free_image_count_admin_page,
-                           image_owners=image_owners_admin_page,
-                           user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page,
-                           game_board=game_board_admin_page) # ДОДАНО
+    except sqlite3.Error as e_sql_get:
+        print(f"!!! ERROR caught in admin GET data fetch: {e_sql_get}")
+        flash(f"Ошибка чтения данных для отображения: {e_sql_get}", "danger")
+        # Сброс к пустым данным при ошибке, чтобы шаблон не сломался
+        users_for_template, images_for_template, subfolders_for_template = [], [], []
+        guess_counts_by_user_for_template, all_guesses_for_template = {}, {}
+        free_image_count_for_template, image_owners_for_template, user_has_duplicate_guesses_for_template = 0, {}, {}
+        game_board_data_for_template = [] 
+    except Exception as e_general_get: 
+         print(f"!!! UNEXPECTED ERROR caught in admin GET data fetch: {e_general_get}")
+         print(traceback.format_exc())
+         flash(f"Непредвиденная ошибка при чтении данных: {e_general_get}", "danger")
+         users_for_template, images_for_template, subfolders_for_template = [], [], []
+         guess_counts_by_user_for_template, all_guesses_for_template = {}, {}
+         free_image_count_for_template, image_owners_for_template, user_has_duplicate_guesses_for_template = 0, {}, {}
+         game_board_data_for_template = []
+
+    # Отладочный вывод перед рендерингом
+    # print(f"ADMIN_DEBUG: Rendering admin.html. _current_game_board_num_cells = {_current_game_board_num_cells}")
+
+    return render_template("admin.html", 
+                           users=users_for_template, 
+                           images=images_for_template,
+                           subfolders=subfolders_for_template, 
+                           active_subfolder=current_active_subfolder, # Используем значение, обновленное в POST, если было
+                           guess_counts_by_user=guess_counts_by_user_for_template, 
+                           all_guesses=all_guesses_for_template,
+                           show_card_info=show_card_info_status, # Используем обновленное значение
+                           leader_to_display=leader_to_display, # Это ID для отображения
+                           free_image_count=free_image_count_for_template,
+                           image_owners=image_owners_for_template,
+                           user_has_duplicate_guesses=user_has_duplicate_guesses_for_template,
+                           # --- Передача данных для игрового поля ---
+                           game_board=game_board_data_for_template,
+                           get_user_name_func=get_user_name, # Передаем вашу функцию get_user_name
+                           current_num_board_cells=_current_game_board_num_cells # Передаем текущее количество ячеек
+                           )
     
 @app.route("/start_new_game", methods=["POST"])
 def start_new_game():
