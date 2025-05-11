@@ -17,7 +17,7 @@ DB_PATH = 'database.db'
 # --- ДОДАНО: Конфігурація для Ігрового Поля ---
 GAME_BOARD_POLE_IMG_SUBFOLDER = "pole" 
 GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)] 
-DEFAULT_NUM_BOARD_CELLS = 30 
+DEFAULT_NUM_BOARD_CELLS = 40 
 
 _current_game_board_pole_image_config = []
 _current_game_board_num_cells = 0
