@@ -3,7 +3,7 @@
 
 {# === Макроси === #}
 {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
-    {# ... (зміст макросу render_table_card без змін з попередньої відповіді) ... #}
+    {# ... (зміст макросу render_table_card без змін) ... #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
@@ -77,7 +77,7 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
-    {# ... (зміст макросу render_my_card без змін з попередньої відповіді) ... #}
+    {# ... (зміст макросу render_my_card без змін) ... #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
@@ -117,34 +117,15 @@
             {{ cell_data.cell_number }}
         </div>
     </div>
-    {# Цей блок .game-board-player-names-area вже має зелену рамку та фон для відладки з CSS #}
-    <div class="game-board-player-names-area"> 
+    <div class="game-board-player-names-area">
         {% if cell_data.users_in_cell %}
             {% for player in cell_data.users_in_cell %}
-                <div class="player-name-on-board" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
-                    {# --- РАДИКАЛЬНЕ ВІДЛАДЖЕННЯ player.name --- #}
-                    <span style="color: #FF00FF !important; /* Яскравий маджента */
-                                 font-size: 10px !important; /* Великий фіксований розмір */
-                                 font-weight: bold !important;
-                                 background-color: #FFFF00 !important; /* Яскравий жовтий фон */
-                                 display: inline !important; /* Щоб не залежати від display:block батька */
-                                 white-space: pre !important; /* Покаже пробіли, якщо вони є */
-                                 padding: 2px !important;
-                                 border: 1px solid blue !important;">
-                        PLAYER_NAME:[{{ player.name }}]
-                    </span>
-                    {# --- КІНЕЦЬ РАДИКАЛЬНОГО ВІДЛАДЖЕННЯ --- #}
-                </div>
+                <span class="player-avatar-on-board" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
+                    {{ player.name[0]|upper if player.name and player.name|trim else '?' }}
+                </span>{%- if not loop.last %}<span class="avatar-separator">, </span>{% endif -%}
             {% endfor %}
         {% else %}
-            {# Якщо немає гравців, виведемо це повідомлення з помітним стилем #}
-            <div class="player-name-on-board-empty" 
-                 style="color: #0000FF !important; /* Синій */
-                        font-size: 8px !important; 
-                        background-color: #ADD8E6 !important; /* Світло-блакитний фон */
-                        padding: 2px !important;">
-                (No players in cell {{ cell_data.cell_number }})
-            </div>
+            <div class="player-name-on-board-empty">&nbsp;</div>
         {% endif %}
     </div>
 </div>
@@ -250,7 +231,7 @@
             margin-bottom: 0;
         }
 
-        /* ОНОВЛЕНІ ТА НОВІ СТИЛІ для ІГРОВОГО ПОЛЯ */
+        /* ОНОВЛЕНІ СТИЛІ для ІГРОВОГО ПОЛЯ */
         .game-board-desktop-container {
             display: flex;
             flex-wrap: wrap; 
@@ -297,32 +278,60 @@
 
         .game-board-player-names-area { 
             width: 60px; 
-            /* font-size: 0.75em; Задається в span відладки або в .player-name-on-board */
             line-height: 1.2; 
-            max-height: 3.0em; /* Зменшено, щоб відповідати 2 рядкам тексту 10px + відступи */
-            min-height: 1.5em; 
+            max-height: 3.6em; /* Дозволяє приблизно 2-3 рядки аватарів/тексту */
+            min-height: 1.8em; /* Висота для одного рядка аватарів */
             overflow-y: auto; 
             text-align: center;
             margin-top: 3px; 
             padding: 1px 0;
-            border: 1px solid green !important; 
-            background-color: rgba(0, 255, 0, 0.05) !important; 
+            /* Відладочні рамка та фон видалені */
+            display: flex; /* Для розташування аватарів в рядок */
+            flex-wrap: wrap; /* Дозволяє перенос аватарів */
+            justify-content: center; /* Центрування аватарів */
+            align-items: center; /* Вертикальне вирівнювання */
+            gap: 1px 3px; /* Відстань між аватарами (вертикальна, горизонтальна) */
         }
-        .player-name-on-board {
-            display: block; 
-            white-space: normal; 
-            word-wrap: break-word; 
-            padding: 0 1px;
-            /* Колір та розмір шрифту тепер задаються в span відладки */
-        }
-        /* Ці правила кольору для .player-name-on-board зараз не діють через !important в span */
-        /* html[data-bs-theme="dark"] .player-name-on-board { color: #ffffff; } */
-        /* html[data-bs-theme="light"] .player-name-on-board { color: #000000; } */
         
+        .player-avatar-on-board {
+            display: inline-flex;
+            width: 1.7em;  /* Розмір аватара відносно шрифту .game-board-player-names-area */
+            height: 1.7em;
+            border-radius: 50%; /* Круглий аватар */
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8em; /* Розмір літери всередині аватара */
+            padding: 0;
+            overflow: hidden;
+            vertical-align: middle; /* Краще вирівнювання з комою */
+        }
+        html[data-bs-theme="dark"] .player-avatar-on-board {
+            background-color: #4A5568; /* Темніший фон для аватара в темній темі */
+            color: #E2E8F0; 
+        }
+        html[data-bs-theme="light"] .player-avatar-on-board {
+            background-color: #E2E8F0; /* Світліший фон для аватара в світлій темі */
+            color: #2D3748; 
+        }
+
+        .avatar-separator {
+            font-size: 0.9em; /* Розмір коми */
+            padding: 0 1px; /* Невеликий відступ навколо коми */
+            vertical-align: middle; /* Краще вирівнювання з аватаром */
+        }
+        html[data-bs-theme="dark"] .avatar-separator {
+            color: #A0AEC0;
+        }
+        html[data-bs-theme="light"] .avatar-separator {
+            color: #4A5568;
+        }
+
         .player-name-on-board-empty { 
-            height: auto; /* Задається стилями в макросі */
-            line-height: normal; /* Задається стилями в макросі */
-             /* padding та background задані в макросі */
+            height: 1.8em; 
+            line-height: 1.8em;
+            width: 100%; /* Щоб &nbsp; займав всю ширину */
+            font-size: 0.8em; /* Щоб відповідати приблизному розміру аватара */
         }
 
         /* Для мобільної каруселі */
@@ -339,9 +348,18 @@
         }
         #gameBoardCarousel .game-board-player-names-area {
             width: 70px;
-            /* font-size: 0.8em; Задається в span відладки */
-            max-height: 3.2em; 
-            min-height: 1.6em;
+            max-height: 3.8em; 
+            min-height: 1.9em;
+        }
+        #gameBoardCarousel .player-avatar-on-board {
+            font-size: 0.85em; 
+            width: 1.8em;
+            height: 1.8em;
+        }
+        #gameBoardCarousel .player-name-on-board-empty {
+            height: 1.9em;
+            line-height: 1.9em;
+            font-size: 0.85em;
         }
         /* Кінець ОНОВЛЕНИХ СТИЛІВ */
 
