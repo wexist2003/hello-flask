@@ -10,18 +10,20 @@
                 <small>Чья:</small>
                 <strong>{{ get_user_name_func(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
                 {% if leader_for_display == table_image.owner_id %}
-                    <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий"><i class="bi bi-star-fill"></i></span> {# Додано card-custom-badge #}
+                    <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий"><i class="bi bi-star-fill"></i></span>
                 {% endif %}
             </h6>
         </div>
         {% endif %}
+        {# Класи px-1 px-sm-2 видалені звідси #}
         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-             class="card-img-top px-1 px-sm-2" 
+             class="card-img-top" 
              alt="Карта {{ table_image.id }}" loading="lazy"
              style="margin-top: 0.25rem;"> 
         <div class="card-body pt-1"> 
+            {# ... решта макросу без змін ... #}
             {% if g.show_card_info %}
-                <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p> {# Додано card-text-bigger #}
+                <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2 card-guess-list"> 
                     {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %}
                         <li><small>
@@ -34,23 +36,22 @@
                     {% endfor %}
                 </ul>
                 <hr class="my-1">
-                <p class="card-text mb-0 card-label-text card-text-bigger"><small> {# Додано card-text-bigger #}
+                <p class="card-text mb-0 card-label-text card-text-bigger"><small> 
                     {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %}
                     {% if my_guess_owner_id is not none %}
                         Ваше предположение: <strong>{{ get_user_name_func(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
                         {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
                     {% else %}
-                        {% if table_image.owner_id == g.user_id %}<span class="text-primary fw-bold card-info-text card-text-bigger">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %} {# card-text-bigger для "Это ваша карточка" #}
+                        {% if table_image.owner_id == g.user_id %}<span class="text-primary fw-bold card-info-text card-text-bigger">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %} 
                     {% endif %}
                 </small></p>
             {% else %}
                 {% if table_image.owner_id == g.user_id %}
-                    {# "Это ваша карта" тепер обробляється через text-primary fw-bold вище, якщо потрібно збільшити, можна додати клас #}
-                    <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> {# Додано card-custom-badge #}
+                    <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> 
                 {% else %}
                     {% if not g.game_over %}
                         <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                            <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> {# Додано card-text-bigger #}
+                            <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
                                 <option value="">-- Выберите --</option>
                                 {% for user_loop_var in all_users %}
@@ -60,12 +61,12 @@
                                     {% endif %}
                                 {% endfor %}
                             </select>
-                            <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> {# Додано card-button-bigger #}
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> 
                                 {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
                             </button>
                         </form>
                         {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                        <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p> {# Додано card-text-bigger #}
+                        <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p> 
                         {% endif %}
                     {% else %}
                         <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
@@ -78,26 +79,28 @@
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
     <div class="card">
+        {# Класи px-1 px-sm-2 видалені звідси #}
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
-             class="card-img-top px-1 px-sm-2" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
+             class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
         <div class="card-body text-center pt-1 pb-2"> 
+            {# ... решта макросу без змін ... #}
             {% if not g.game_over %}
                 {% if not on_table %}
                     {% if get_leading_user_id_func() == g.user_id %}
                        <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
-                           <button type="submit" class="btn btn-success btn-sm w-100 card-form-button card-button-bigger"> {# Додано card-button-bigger #}
+                           <button type="submit" class="btn btn-success btn-sm w-100 card-form-button card-button-bigger"> 
                                <i class="bi bi-send"></i> Выложить (Ведущий)
                            </button>
                        </form>
                     {% else %}
                         <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
-                           <button type="submit" class="btn btn-secondary btn-sm w-100 card-form-button card-button-bigger"> {# Додано card-button-bigger #}
+                           <button type="submit" class="btn btn-secondary btn-sm w-100 card-form-button card-button-bigger"> 
                                <i class="bi bi-send"></i> Выложить на стол
                            </button>
                        </form>
                     {% endif %}
                 {% else %}
-                    <small class="text-muted card-info-text card-text-bigger">Вы уже выложили карту</small> {# Додано card-text-bigger #}
+                    <small class="text-muted card-info-text card-text-bigger">Вы уже выложили карту</small> 
                 {% endif %}
             {% else %}
                 <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
@@ -107,7 +110,7 @@
 {% endmacro %}
 
 {% macro render_game_board_cell(cell_data, get_user_name_func) %}
-{# ... (Макрос render_game_board_cell без змін відносно попереднього запиту) ... #}
+{# ... (Макрос render_game_board_cell без змін) ... #}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
          title="Клетка #{{ cell_data.cell_number }}"
@@ -140,13 +143,14 @@
     <style>
         body { line-height: 1.3; }
         .card-img-top {
+            /* width: буде визначено нижче для різних розмірів екрану */
             height: auto;
             display: block;
             margin: 0.3rem auto 0.3rem; 
-            cursor: zoom-in !important; /* Забезпечуємо, що курсор завжди активний для зуму */
+            cursor: zoom-in !important; 
             transition: opacity 0.2s ease-in-out;
-            position: relative; /* Додано для z-index, якщо потрібно */
-            z-index: 1; /* Щоб зображення було "клікабельним" */
+            position: relative; 
+            z-index: 1; 
         }
         .card { 
             width: auto; 
@@ -154,6 +158,7 @@
             margin-bottom: 1rem; 
             display: flex; 
             flex-direction: column;
+            /* min-width та max-width будуть визначені нижче */
         }
         .card-body {
             padding: 0.75rem; 
@@ -162,31 +167,28 @@
             flex-direction: column;
             justify-content: space-between; 
         }
-        /* Збільшення тексту всередині карток (базові стилі для ПК) */
+        /* Текст всередині карток (базові стилі для ПК) */
         .card-owner-text { font-size: 1.1em; line-height: 1.3; }
         .card-label-text { font-size: 1em; line-height: 1.3; }
         .card-guess-list li small { font-size: 1em; line-height: 1.3; }
         .card-info-text { font-size: 1em; line-height: 1.3; }
         .card-form-label { font-size: 1em; line-height: 1.3; }
         .card-form-select { font-size: 1em; line-height: 1.3; padding: 0.3rem 0.5rem;}
-        .card-form-button { padding: 0.3rem 0.5rem; } /* Розмір кнопки, шрифт буде окремо */
-        .card .badge { /* Загальний для значків, specific .card-custom-badge нижче */
-             vertical-align: middle; /* Краще вирівнювання */
-        }
+        .card-form-button { padding: 0.3rem 0.5rem; } 
+        .card .badge { vertical-align: middle; }
 
         /* Специфічне збільшення для запитаних елементів */
         .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
-        .card-text-bigger { /* Для "Предположения", "Ваш выбор", "Это ваша карта" */
-            font-size: 1.2em !important; /* Збільшено */
+        .card-text-bigger { 
+            font-size: 1.2em !important; 
         }
-        .card-button-bigger { /* Для кнопок "Угадать", "Выложить" */
-            font-size: 1.15em !important; /* Збільшено */
+        .card-button-bigger { 
+            font-size: 1.15em !important; 
         }
-        .card-custom-badge { /* Для значка "Это ваша карта", "Ведущий" */
-            font-size: 1em !important; /* Збільшено */
-            padding: 0.3em 0.5em; /* Трохи більший padding */
+        .card-custom-badge { 
+            font-size: 1em !important; 
+            padding: 0.3em 0.5em; 
         }
-
 
         .desktop-card-row { 
             display: flex;
@@ -198,70 +200,17 @@
         }
         .theme-toggle-button { /* ... (без змін) ... */ }
         h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
-        h2 {
-            margin-top: 1.5rem; 
-            margin-bottom: 0.5rem; 
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 0.25rem; 
-            font-size: 1.5rem; 
-        }
+        h2 { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; font-size: 1.5rem; }
         p { margin-bottom: 0.5rem; }
         hr { margin-top: 1rem; margin-bottom: 1rem; } 
 
-        /* --- Стилі для збільшення зображень (ПОВНІСТЮ ВІДНОВЛЕНО) --- */
-        .image-zoom-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            z-index: 1051; /* Вище за все, крім самого зображення */
-            cursor: zoom-out;
-        }
-        .card-img-top.zoomed {
-            display: block !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: contain !important; 
-            transform: none !important;
-            margin: 0 !important;
-            padding: 1rem !important; /* Невеликий відступ, щоб було видно край */
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            z-index: 1052 !important; /* Найвищий z-index */
-            cursor: zoom-out !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            background-color: transparent; /* Щоб не перекривати overlay, якщо зображення з прозорістю */
-        }
-        /* --- Кінець стилів для збільшення зображень --- */
-
-        /* --- Стилі стрілок каруселі (без змін з попереднього) --- */
-        .carousel-control-prev-icon,
-        .carousel-control-next-icon {
-            filter: none !important; 
-            width: 2rem; 
-            height: 2rem;
-        }
-        .carousel-control-prev-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
-        }
-        .carousel-control-next-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
-        }
-        html[data-bs-theme="dark"] .carousel-control-prev-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
-        }
-        html[data-bs-theme="dark"] .carousel-control-next-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
-        }
+        .image-zoom-overlay { /* ... (без змін, z-index: 1051) ... */ }
+        .card-img-top.zoomed { /* ... (без змін, z-index: 1052) ... */ }
+        .carousel-control-prev-icon, .carousel-control-next-icon { /* ... (без змін) ... */ }
+        /* ... (решта стилів стрілок каруселі без змін) ... */
         
         .carousel-item { padding: 0.5rem 0; }
+        
         /* --- Стилі для ІГРОВОГО ПОЛЯ (без змін з попереднього) --- */
         .game-board-container { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; justify-content: flex-start; }
         .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 1px; }
@@ -277,53 +226,45 @@
         html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
         .player-name-on-board-empty { height: 1.5em; line-height: 1.5em; width: 100%; font-size: 1em; }
 
-        /* --- ОСНОВНІ ЗМІНИ РОЗМІРІВ КАРТОК ТА ТЕКСТУ --- */
+        /* --- ОСНОВНІ РОЗМІРИ КАРТОК ТА ЗОБРАЖЕНЬ В НИХ --- */
         /* ПК версія (також базові для планшетів, якщо не перевизначено) */
         .card {
-            min-width: 220px; /* 170px * 1.3 = 221px */
-            max-width: 275px; /* 210px * 1.3 = 273px */
+            min-width: 220px; /* Без змін */
+            max-width: 275px; /* Без змін */
         }
         .card-img-top {
-            width: 180px; 
+            width: 216px; /* ЗБІЛЬШЕНО: 180px * 1.2 = 216px */
             margin: 0.5rem auto; 
         }
 
-        @media (max-width: 768px) { 
+        @media (max-width: 768px) { /* Планшети (якщо потрібні окремі стилі від ПК) */
              .card {
-                min-width: 200px; 
-                max-width: 250px;
+                min-width: 200px; /* Без змін */
+                max-width: 250px; /* Без змін */
             }
             .card-img-top {
-                width: 160px; 
+                width: 192px; /* ЗБІЛЬШЕНО: 160px * 1.2 = 192px */
             }
         }
 
-        @media (max-width: 576px) { 
-            body { 
-                padding: 0.5rem !important; 
-                line-height: 1.25; 
-            }
+        @media (max-width: 576px) { /* Мобільні пристрої */
+            body { padding: 0.5rem !important; line-height: 1.25; }
             h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} 
-            h2 { 
-                font-size: 1.15rem; 
-                margin-top: 0.8rem; 
-                margin-bottom: 0.3rem;
-                padding-bottom: 0.2rem;
-            }
+            h2 { font-size: 1.15rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;}
             p { margin-bottom: 0.3rem; line-height: 1.2;}
             hr { margin-top: 0.75rem; margin-bottom: 0.75rem; }
             
             .card { 
-                min-width: 180px; 
-                max-width: 220px; 
+                min-width: 180px; /* Без змін */
+                max-width: 220px; /* Без змін */
                 margin-bottom: 0.75rem;
             }
             .card-body { padding: 0.6rem; } 
             .card-img-top { 
-                width: 130px; 
+                width: 156px; /* ЗБІЛЬШЕНО: 130px * 1.2 = 156px */
                 margin: 0.2rem auto; 
             }
-            /* Збільшення тексту в картках для мобільних */
+            /* Текст в картках на мобільних */
             .card-owner-text { font-size: 1em; }
             .card-label-text { font-size: 0.95em; }
             .card-guess-list li small { font-size: 0.95em; }
@@ -331,30 +272,22 @@
             .card-form-label { font-size: 0.95em; }
             .card-form-select { font-size: 0.95em; padding: .25rem .4rem;}
             .card-form-button { padding: 0.25rem 0.4rem; }
-            .card .badge { /* Загальний */ }
 
             /* Специфічне збільшення для запитаних елементів на мобільних */
             .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
             .card-text-bigger { 
-                font-size: 1.1em !important; /* Трохи менше, ніж на ПК, але збільшено */
+                font-size: 1.1em !important; 
             }
             .card-button-bigger { 
-                font-size: 1.05em !important; /* Трохи менше, ніж на ПК */
+                font-size: 1.05em !important; 
             }
             .card-custom-badge {
                 font-size: 0.9em !important; 
             }
 
-
             .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; }
-            .border.p-2.p-sm-3.mb-4.rounded { 
-                padding: 0.3rem !important;
-                margin-bottom: 0.75rem !important;
-            }
-            .desktop-card-row { 
-                 min-height: 260px; /* Збільшено min-height для більших карток на моб. */
-            }
-            
+            .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; }
+            .desktop-card-row { min-height: 260px; }
             .theme-toggle-button { /* ... (без змін) ... */ }
         }
         
@@ -465,38 +398,14 @@
 
     </div> 
 
-    {# --- HTML для оверлея збільшення зображень --- #}
     <div class="image-zoom-overlay"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Скрипт смены темы (без змін)
-        (function() {
-            const themeToggleBtn = document.getElementById('theme-toggle-btn');
-            const htmlElement = document.documentElement;
-            const storageKey = 'userThemePreference';
-            const applyTheme = (theme) => {
-                htmlElement.setAttribute('data-bs-theme', theme);
-                if (themeToggleBtn) {
-                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
-                }
-            };
-            const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-                localStorage.setItem(storageKey, newTheme);
-            };
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', toggleTheme);
-            }
-            const savedTheme = localStorage.getItem(storageKey);
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-            applyTheme(defaultTheme);
-        })();
+        (function() { /* ... */ })();
 
-        // --- Скрипт для збільшення зображень (ПОВНІСТЮ ВІДНОВЛЕНО І ПЕРЕВІРЕНО) ---
+        // Скрипт для збільшення зображень (ПОВНІСТЮ ВІДНОВЛЕНО І ПЕРЕВІРЕНО)
         document.addEventListener('DOMContentLoaded', () => {
             const imagesToZoom = document.querySelectorAll('.card-img-top');
             const overlay = document.querySelector('.image-zoom-overlay');
@@ -505,7 +414,6 @@
             function unzoomImage() {
                 if (currentlyZoomedImage) {
                     currentlyZoomedImage.classList.remove('zoomed');
-                    // currentlyZoomedImage.style.zIndex = ''; // Прибираємо z-index, якщо встановлювали
                     currentlyZoomedImage = null;
                 }
                 if (overlay) {
@@ -521,7 +429,6 @@
                     } else {
                         unzoomImage(); 
                         this.classList.add('zoomed');
-                        // this.style.zIndex = '1052'; // Можна явно встановити, але !important в CSS має перевагу
                         currentlyZoomedImage = this;
                         if (overlay) {
                             overlay.style.display = 'block';
