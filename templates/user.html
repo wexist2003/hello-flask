@@ -3,6 +3,7 @@
 
 {# === Макроси === #}
 {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
+    {# ... (Макрос render_table_card з повідомлення #48) ... #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
@@ -15,13 +16,11 @@
             </h6>
         </div>
         {% endif %}
-        {# Класи px-1 px-sm-2 видалені звідси #}
         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
              class="card-img-top" 
              alt="Карта {{ table_image.id }}" loading="lazy"
              style="margin-top: 0.25rem;"> 
         <div class="card-body pt-1"> 
-            {# ... решта макросу без змін ... #}
             {% if g.show_card_info %}
                 <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2 card-guess-list"> 
@@ -78,12 +77,11 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
+    {# ... (Макрос render_my_card з повідомлення #48) ... #}
     <div class="card">
-        {# Класи px-1 px-sm-2 видалені звідси #}
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
         <div class="card-body text-center pt-1 pb-2"> 
-            {# ... решта макросу без змін ... #}
             {% if not g.game_over %}
                 {% if not on_table %}
                     {% if get_leading_user_id_func() == g.user_id %}
@@ -110,7 +108,7 @@
 {% endmacro %}
 
 {% macro render_game_board_cell(cell_data, get_user_name_func) %}
-{# ... (Макрос render_game_board_cell без змін) ... #}
+{# ... (Макрос render_game_board_cell з повідомлення #48) ... #}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
          title="Клетка #{{ cell_data.cell_number }}"
@@ -135,6 +133,7 @@
 {# === Кінець Макросів === #}
 
 <head>
+    {# ... (Секція <head> з повідомлення #48, включаючи всі стилі CSS) ... #}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Профиль {{ name }}</title>
@@ -143,7 +142,6 @@
     <style>
         body { line-height: 1.3; }
         .card-img-top {
-            /* width: буде визначено нижче для різних розмірів екрану */
             height: auto;
             display: block;
             margin: 0.3rem auto 0.3rem; 
@@ -151,6 +149,7 @@
             transition: opacity 0.2s ease-in-out;
             position: relative; 
             z-index: 1; 
+            pointer-events: auto !important; 
         }
         .card { 
             width: auto; 
@@ -158,7 +157,6 @@
             margin-bottom: 1rem; 
             display: flex; 
             flex-direction: column;
-            /* min-width та max-width будуть визначені нижче */
         }
         .card-body {
             padding: 0.75rem; 
@@ -167,7 +165,6 @@
             flex-direction: column;
             justify-content: space-between; 
         }
-        /* Текст всередині карток (базові стилі для ПК) */
         .card-owner-text { font-size: 1.1em; line-height: 1.3; }
         .card-label-text { font-size: 1em; line-height: 1.3; }
         .card-guess-list li small { font-size: 1em; line-height: 1.3; }
@@ -177,7 +174,6 @@
         .card-form-button { padding: 0.3rem 0.5rem; } 
         .card .badge { vertical-align: middle; }
 
-        /* Специфічне збільшення для запитаних елементів */
         .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
         .card-text-bigger { 
             font-size: 1.2em !important; 
@@ -198,20 +194,63 @@
             padding-top: 0.5rem; 
             padding-bottom: 0.5rem; 
         }
-        .theme-toggle-button { /* ... (без змін) ... */ }
+        .desktop-card-row-empty-placeholder { 
+            width: 100%;
+            text-align: center;
+            padding: 2rem 0; 
+            color: #6c757d; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle-button { position: fixed; top: 1rem; right: 1rem; z-index: 1050; }
         h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
         h2 { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; font-size: 1.5rem; }
         p { margin-bottom: 0.5rem; }
         hr { margin-top: 1rem; margin-bottom: 1rem; } 
 
-        .image-zoom-overlay { /* ... (без змін, z-index: 1051) ... */ }
-        .card-img-top.zoomed { /* ... (без змін, z-index: 1052) ... */ }
-        .carousel-control-prev-icon, .carousel-control-next-icon { /* ... (без змін) ... */ }
-        /* ... (решта стилів стрілок каруселі без змін) ... */
+        .image-zoom-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.88); 
+            z-index: 1051; 
+            cursor: zoom-out;
+        }
+        .card-img-top.zoomed {
+            display: block !important;
+            position: fixed !important;
+            top: 50% !important; 
+            left: 50% !important; 
+            max-width: 90vw !important; 
+            max-height: 90vh !important; 
+            width: auto !important; 
+            height: auto !important; 
+            transform: translate(-50%, -50%) !important; 
+            margin: 0 !important;
+            padding: 0 !important; 
+            border-radius: 0.5rem !important; 
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.3) !important; 
+            z-index: 1052 !important; 
+            cursor: zoom-out !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            background-color: transparent; 
+        }
+        
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon { filter: none !important; width: 2rem; height: 2rem; }
+        .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
+        .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
+        html[data-bs-theme="dark"] .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
+        html[data-bs-theme="dark"] .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
         
         .carousel-item { padding: 0.5rem 0; }
         
-        /* --- Стилі для ІГРОВОГО ПОЛЯ (без змін з попереднього) --- */
         .game-board-container { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; justify-content: flex-start; }
         .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 1px; }
         .game-board-pictogram { width: 42px; height: 42px; position: relative; background-size: contain; background-position: center; background-repeat: no-repeat; border: 1px solid #ccc; border-radius: .2rem; margin-bottom: 2px; }
@@ -226,45 +265,25 @@
         html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
         .player-name-on-board-empty { height: 1.5em; line-height: 1.5em; width: 100%; font-size: 1em; }
 
-        /* --- ОСНОВНІ РОЗМІРИ КАРТОК ТА ЗОБРАЖЕНЬ В НИХ --- */
-        /* ПК версія (також базові для планшетів, якщо не перевизначено) */
-        .card {
-            min-width: 220px; /* Без змін */
-            max-width: 275px; /* Без змін */
-        }
-        .card-img-top {
-            width: 216px; /* ЗБІЛЬШЕНО: 180px * 1.2 = 216px */
-            margin: 0.5rem auto; 
+        .card { min-width: 220px; max-width: 275px; }
+        .card-img-top { width: 216px; margin: 0.5rem auto; }
+
+        @media (max-width: 768px) { 
+             .card { min-width: 200px; max-width: 250px; }
+            .card-img-top { width: 192px; }
         }
 
-        @media (max-width: 768px) { /* Планшети (якщо потрібні окремі стилі від ПК) */
-             .card {
-                min-width: 200px; /* Без змін */
-                max-width: 250px; /* Без змін */
-            }
-            .card-img-top {
-                width: 192px; /* ЗБІЛЬШЕНО: 160px * 1.2 = 192px */
-            }
-        }
-
-        @media (max-width: 576px) { /* Мобільні пристрої */
+        @media (max-width: 576px) { 
             body { padding: 0.5rem !important; line-height: 1.25; }
             h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} 
             h2 { font-size: 1.15rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;}
             p { margin-bottom: 0.3rem; line-height: 1.2;}
             hr { margin-top: 0.75rem; margin-bottom: 0.75rem; }
             
-            .card { 
-                min-width: 180px; /* Без змін */
-                max-width: 220px; /* Без змін */
-                margin-bottom: 0.75rem;
-            }
+            .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; }
             .card-body { padding: 0.6rem; } 
-            .card-img-top { 
-                width: 156px; /* ЗБІЛЬШЕНО: 130px * 1.2 = 156px */
-                margin: 0.2rem auto; 
-            }
-            /* Текст в картках на мобільних */
+            .card-img-top { width: 156px; margin: 0.2rem auto; }
+            
             .card-owner-text { font-size: 1em; }
             .card-label-text { font-size: 0.95em; }
             .card-guess-list li small { font-size: 0.95em; }
@@ -273,43 +292,37 @@
             .card-form-select { font-size: 0.95em; padding: .25rem .4rem;}
             .card-form-button { padding: 0.25rem 0.4rem; }
 
-            /* Специфічне збільшення для запитаних елементів на мобільних */
             .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
-            .card-text-bigger { 
-                font-size: 1.1em !important; 
-            }
-            .card-button-bigger { 
-                font-size: 1.05em !important; 
-            }
-            .card-custom-badge {
-                font-size: 0.9em !important; 
-            }
+            .card-text-bigger { font-size: 1.1em !important; }
+            .card-button-bigger { font-size: 1.05em !important; }
+            .card-custom-badge { font-size: 0.9em !important; }
 
             .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; }
             .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; }
-            .desktop-card-row { min-height: 260px; }
-            .theme-toggle-button { /* ... (без змін) ... */ }
+            .desktop-card-row { min-height: auto; }
+            .desktop-card-row-empty-placeholder { padding: 1rem 0; }
+            
+            .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
         }
         
-        /* Розміри ігрового поля для планшетів та десктопів (перевизначення базових) */
-        @media (min-width: 577px) and (max-width: 991px) { /* Планшети */
+        @media (min-width: 577px) and (max-width: 991px) { 
             .game-board-pictogram { width: 54px; height: 54px; }
             .game-board-player-names-area { width: 54px; }
             .player-avatar-on-board { font-size: 1.35em; }
             .game-board-cell-number { font-size: 0.6em; }
         }
-        @media (min-width: 992px) { /* Десктопи */
+        @media (min-width: 992px) { 
             .game-board-pictogram { width: 72px; height: 72px; }
             .game-board-player-names-area { width: 72px; }
             .player-avatar-on-board { font-size: 1.45em; }
             .game-board-cell-number { font-size: 0.65em; }
         }
-
     </style>
 </head>
 
 <body class="p-4"> 
     <div class="container-fluid">
+        {# ... (HTML-структура body з повідомлення #48, включаючи кнопку теми, заголовки, секції Общий стол, Мои карточки, Игровое Поле з виправленими плейсхолдерами) ... #}
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
             <i class="bi bi-circle-half"></i>
             <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
@@ -367,7 +380,7 @@
                         {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
                     {% endfor %}
                 {% else %}
-                     <p class="text-muted w-100 text-center" style="min-height: 240px; display:flex; align-items:center; justify-content:center;">На столе пока нет карточек.</p>
+                     <p class="desktop-card-row-empty-placeholder">На столе пока нет карточек.</p>
                 {% endif %}
             </div>
         </div>
@@ -379,7 +392,7 @@
                     {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
                 {% endfor %}
             {% else %}
-                 <p class="text-muted w-100 text-center" style="min-height: 240px; display:flex; align-items:center; justify-content:center;">У вас пока нет карт на руках.</p>
+                 <p class="desktop-card-row-empty-placeholder">У вас пока нет карт на руках.</p>
             {% endif %}
         </div>
 
@@ -391,27 +404,76 @@
                         {{ render_game_board_cell(cell_data, get_user_name) }}
                     {% endfor %}
                 {% else %}
-                    <p class="text-muted w-100 text-center" style="min-height: 80px; display:flex; align-items:center; justify-content:center;">Игровое поле не загружено.</p>
+                    <p class="text-muted w-100 text-center" style="padding: 1rem 0; display:flex; align-items:center; justify-content:center;">Игровое поле не загружено.</p>
                 {% endif %}
             </div>
         </div>
-
     </div> 
 
     <div class="image-zoom-overlay"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Скрипт смены темы (без змін)
-        (function() { /* ... */ })();
+        // Скрипт смены темы (З ДОДАНИМИ CONSOLE.LOG)
+        (function() {
+            console.log('Theme script initializing...'); // ВІДЛАДКА
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const htmlElement = document.documentElement;
+            const storageKey = 'userThemePreference';
+
+            const applyTheme = (theme) => {
+                console.log('Applying theme:', theme); // ВІДЛАДКА
+                htmlElement.setAttribute('data-bs-theme', theme);
+                if (themeToggleBtn) {
+                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
+                }
+            };
+
+            const toggleTheme = () => {
+                console.log('toggleTheme function called.'); // ВІДЛАДКА
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                console.log(`Switching theme from ${currentTheme} to ${newTheme}`); // ВІДЛАДКА
+                applyTheme(newTheme);
+                localStorage.setItem(storageKey, newTheme);
+            };
+
+            if (themeToggleBtn) {
+                console.log('Theme toggle button FOUND. Adding click listener.'); // ВІДЛАДКА
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            } else {
+                console.error('Theme toggle button with id "theme-toggle-btn" NOT FOUND!'); // ВІДЛАДКА
+            }
+
+            // Load saved theme or use system preference
+            try {
+                const savedTheme = localStorage.getItem(storageKey);
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+                console.log('Initial theme to apply:', defaultTheme, '(saved:', savedTheme, 'prefersDark:', prefersDark, ')'); // ВІДЛАДКА
+                applyTheme(defaultTheme);
+            } catch (e) {
+                console.error('Error applying initial theme:', e); // ВІДЛАДКА
+                 // Fallback to light theme if localStorage fails or other error
+                applyTheme('light');
+            }
+        })();
 
         // Скрипт для збільшення зображень (ПОВНІСТЮ ВІДНОВЛЕНО І ПЕРЕВІРЕНО)
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('Zoom script DOMContentLoaded.'); // ВІДЛАДКА
             const imagesToZoom = document.querySelectorAll('.card-img-top');
             const overlay = document.querySelector('.image-zoom-overlay');
             let currentlyZoomedImage = null;
 
+            console.log(`Found ${imagesToZoom.length} images to zoom.`); // ВІДЛАДКА
+            if (!overlay) {
+                console.error('Image zoom overlay NOT FOUND!'); // ВІДЛАДКА
+            }
+
+
             function unzoomImage() {
+                // console.log('unzoomImage called.'); // ВІДЛАДКА (може бути забагато логів)
                 if (currentlyZoomedImage) {
                     currentlyZoomedImage.classList.remove('zoomed');
                     currentlyZoomedImage = null;
@@ -421,17 +483,24 @@
                 }
             }
 
-            imagesToZoom.forEach(image => {
+            imagesToZoom.forEach((image, index) => {
+                // console.log(`Attaching click listener to image ${index + 1}`); // ВІДЛАДКА
                 image.addEventListener('click', function(event) {
+                    console.log('Image clicked:', this); // ВІДЛАДКА
                     event.stopPropagation(); 
                     if (this.classList.contains('zoomed')) {
+                        console.log('Image is already zoomed, unzooming.'); // ВІДЛАДКА
                         unzoomImage();
                     } else {
+                        console.log('Image is not zoomed, zooming.'); // ВІДЛАДКА
                         unzoomImage(); 
                         this.classList.add('zoomed');
                         currentlyZoomedImage = this;
                         if (overlay) {
+                            console.log('Displaying overlay.'); // ВІДЛАДКА
                             overlay.style.display = 'block';
+                        } else {
+                             console.error('Overlay not found when trying to display it for zoom!'); // ВІДЛАДКА
                         }
                     }
                 });
@@ -439,12 +508,16 @@
 
             if (overlay) {
                 overlay.addEventListener('click', function() {
+                    console.log('Overlay clicked, unzooming.'); // ВІДЛАДКА
                     unzoomImage();
                 });
+            } else {
+                 console.error('Overlay not found, cannot attach click listener to it.'); // ВІДЛАДКА
             }
 
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape' || event.key === 'Esc') { 
+                    // console.log('Escape key pressed, unzooming.'); // ВІДЛАДКА
                     unzoomImage();
                 }
             });
