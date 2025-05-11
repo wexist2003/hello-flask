@@ -3,7 +3,7 @@
 
 {# === Макроси === #}
 {% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
-    {# ... (Макрос render_table_card з повідомлення #50) ... #}
+    {# ... (Макрос render_table_card з повідомлення #51) ... #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
@@ -77,7 +77,7 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
-    {# ... (Макрос render_my_card з повідомлення #50) ... #}
+    {# ... (Макрос render_my_card з повідомлення #51) ... #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
@@ -108,7 +108,7 @@
 {% endmacro %}
 
 {% macro render_game_board_cell(cell_data, get_user_name_func) %}
-{# ... (Макрос render_game_board_cell з повідомлення #50) ... #}
+{# ... (Макрос render_game_board_cell з повідомлення #51) ... #}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
          title="Клетка #{{ cell_data.cell_number }}"
@@ -133,7 +133,7 @@
 {# === Кінець Макросів === #}
 
 <head>
-    {# ... (Секція <head> з повідомлення #50, до змін в .card-img-top.zoomed) ... #}
+    {# ... (Секція <head> з повідомлення #51, до змін в .card-form-select) ... #}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Профиль {{ name }}</title>
@@ -176,8 +176,14 @@
             line-height: 1.3; 
         }
         .card-info-text { font-size: 1em; line-height: 1.3; }
-        .card-form-label { font-size: 1em; line-height: 1.3; }
-        .card-form-select { font-size: 1em; line-height: 1.3; padding: 0.3rem 0.5rem;}
+        .card-form-label { font-size: 1em; line-height: 1.3; } /* Базовий розмір для мітки, .card-text-bigger його збільшить */
+        
+        /* ЗМІНА: Збільшення шрифту для випадаючого списку на ПК */
+        .card-form-select { 
+            font-size: 1.2em !important; /* Такий же, як .card-text-bigger для мітки */
+            line-height: 1.3; /* Зберігаємо line-height */
+            padding: 0.3rem 0.5rem; /* Зберігаємо padding */
+        }
         .card-form-button { padding: 0.3rem 0.5rem; } 
         .card .badge { vertical-align: middle; }
 
@@ -217,7 +223,7 @@
         p { margin-bottom: 0.5rem; }
         hr { margin-top: 1rem; margin-bottom: 1rem; } 
 
-        /* --- Стилі для збільшення зображень (ПОВЕРНЕНО ДО РАНІШНЬОЇ ВЕРСІЇ) --- */
+        /* --- Стилі для збільшення зображень (з повідомлення #51) --- */
         .image-zoom-overlay {
             display: none;
             position: fixed;
@@ -234,23 +240,22 @@
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;       /* Максимальна ширина */
-            height: 100vh !important;      /* Максимальна висота */
-            object-fit: contain !important; /* Ключова властивість для вписування зі збереженням пропорцій */
-            transform: none !important;     /* Трансформація не потрібна для цього методу */
+            width: 100vw !important;       
+            height: 100vh !important;      
+            object-fit: contain !important; 
+            transform: none !important;     
             margin: 0 !important;
-            padding: 0 !important;          /* Без внутрішніх відступів */
-            border-radius: 0 !important;    /* Без закруглення для повноекранного ефекту */
-            box-shadow: none !important;    /* Без тіні */
+            padding: 0 !important;          
+            border-radius: 0 !important;    
+            box-shadow: none !important;    
             z-index: 1052 !important; 
             cursor: zoom-out !important;
             opacity: 1 !important;
             visibility: visible !important;
             background-color: transparent; 
         }
-        /* --- Кінець стилів для збільшення зображень --- */
         
-        /* --- Стилі стрілок каруселі (з повідомлення #50) --- */
+        /* --- Стилі стрілок каруселі (з повідомлення #51) --- */
         .carousel-control-prev-icon,
         .carousel-control-next-icon { filter: none !important; width: 2rem; height: 2rem; }
         .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
@@ -260,7 +265,7 @@
         
         .carousel-item { padding: 0.5rem 0; }
         
-        /* --- Стилі для ІГРОВОГО ПОЛЯ (з повідомлення #50) --- */
+        /* --- Стилі для ІГРОВОГО ПОЛЯ (з повідомлення #51) --- */
         .game-board-container { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; justify-content: flex-start; }
         .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 1px; }
         .game-board-pictogram { width: 42px; height: 42px; position: relative; background-size: contain; background-position: center; background-repeat: no-repeat; border: 1px solid #ccc; border-radius: .2rem; margin-bottom: 2px; }
@@ -275,7 +280,7 @@
         html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
         .player-name-on-board-empty { height: 1.5em; line-height: 1.5em; width: 100%; font-size: 1em; }
 
-        /* --- ОСНОВНІ РОЗМІРИ КАРТОК ТА ЗОБРАЖЕНЬ В НИХ (з повідомлення #50) --- */
+        /* --- ОСНОВНІ РОЗМІРИ КАРТОК ТА ЗОБРАЖЕНЬ В НИХ (з повідомлення #51) --- */
         .card { min-width: 220px; max-width: 275px; }
         .card-img-top { width: 216px; margin: 0.5rem auto; }
 
@@ -304,8 +309,11 @@
                 font-size: 1.1em !important; 
             }
             .card-info-text { font-size: 0.95em; }
-            .card-form-label { font-size: 0.95em; }
-            .card-form-select { font-size: 0.95em; padding: .25rem .4rem;}
+            .card-form-label { font-size: 0.95em; } /* Базовий для моб, .card-text-bigger його збільшить */
+            .card-form-select { 
+                font-size: 0.95em !important; /* ЗАЛИШАЄМО мобільний розмір, НЕ 1.2em */
+                padding: .25rem .4rem;
+            }
             .card-form-button { padding: 0.25rem 0.4rem; }
 
             .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
@@ -327,7 +335,7 @@
             .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
         }
         
-        /* Розміри ігрового поля для планшетів та десктопів (з повідомлення #50) */
+        /* Розміри ігрового поля для планшетів та десктопів (з повідомлення #51) */
         @media (min-width: 577px) and (max-width: 991px) { 
             .game-board-pictogram { width: 54px; height: 54px; }
             .game-board-player-names-area { width: 54px; }
@@ -344,7 +352,7 @@
 </head>
 
 <body class="p-4"> 
-    {# ... (HTML body з повідомлення #50) ... #}
+    {# ... (HTML body з повідомлення #51) ... #}
     <div class="container-fluid">
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
             <i class="bi bi-circle-half"></i>
@@ -437,7 +445,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Скрипт смены темы (з повідомлення #50)
+        // Скрипт смены темы (з повідомлення #51)
         (function() {
             console.log('Theme script initializing...'); 
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -479,7 +487,7 @@
             }
         })();
 
-        // Скрипт для збільшення зображень (з повідомлення #50)
+        // Скрипт для збільшення зображень (з повідомлення #51)
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Zoom script DOMContentLoaded.'); 
             const imagesToZoom = document.querySelectorAll('.card-img-top');
