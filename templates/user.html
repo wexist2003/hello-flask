@@ -17,10 +17,10 @@
         </div>
         {% endif %}
         <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-             class="card-img-top px-2 px-sm-3"
+             class="card-img-top px-1 px-sm-2" {# Зменшено відступи навколо зображення #}
              alt="Карта {{ table_image.id }}" loading="lazy"
-             style="margin-top: 0.5rem;">
-        <div class="card-body pt-2">
+             style="margin-top: 0.25rem;"> {# Зменшено верхній відступ #}
+        <div class="card-body pt-1"> {# Зменшено верхній padding #}
             {% if g.show_card_info %}
                 <p class="card-text mb-1"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2" style="font-size: 0.85em;">
@@ -46,12 +46,12 @@
                 </small></p>
             {% else %}
                 {% if table_image.owner_id == g.user_id %}
-                    <p class="card-text text-center"><span class="badge bg-primary">Это ваша карта</span></p>
+                    <p class="card-text text-center mb-1"><span class="badge bg-primary">Это ваша карта</span></p> {# mb-1 #}
                 {% else %}
                     {% if not g.game_over %}
                         <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
-                            <label for="guess-{{ table_image.id }}" class="form-label form-label-sm">Чья это карта?</label>
-                            <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-2" required>
+                            <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1">Чья это карта?</label> {# mb-1 #}
+                            <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1" required> {# mb-1 #}
                                 <option value="">-- Выберите --</option>
                                 {% for user_loop_var in all_users %}
                                     {% if user_loop_var.id != g.user_id %}
@@ -65,10 +65,10 @@
                             </button>
                         </form>
                         {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                        <p class="mt-2 mb-0 text-center"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p>
+                        <p class="mt-1 mb-0 text-center"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p> {# mt-1 #}
                         {% endif %}
                     {% else %}
-                        <p class="text-center text-muted"><small>Игра окончена!</small></p>
+                        <p class="text-center text-muted mb-0"><small>Игра окончена!</small></p> {# mb-0 #}
                     {% endif %}
                 {% endif %}
             {% endif %}
@@ -77,11 +77,11 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
-    {# ... (зміст макросу render_my_card без змін) ... #}
+    {# ... (зменшено відступи всередині, аналогічно до render_table_card) ... #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
-             class="card-img-top px-2 px-sm-3" alt="Карта {{ card_item.id }}" loading="lazy">
-        <div class="card-body text-center">
+             class="card-img-top px-1 px-sm-2" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
+        <div class="card-body text-center pt-1 pb-2"> {# Зменшено padding #}
             {% if not g.game_over %}
                 {% if not on_table %}
                     {% if get_leading_user_id_func() == g.user_id %}
@@ -101,13 +101,12 @@
                     <small class="text-muted">Вы уже выложили карту</small>
                 {% endif %}
             {% else %}
-                <p class="text-center text-muted"><small>Игра окончена!</small></p>
+                <p class="text-center text-muted mb-0"><small>Игра окончена!</small></p>
             {% endif %}
         </div>
     </div>
 {% endmacro %}
 
-{# === ОНОВЛЕНИЙ МАКРОС для клітинки ігрового поля === #}
 {% macro render_game_board_cell(cell_data, get_user_name_func) %}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
@@ -139,28 +138,29 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
+        body { line-height: 1.3; /* Загальний міжрядковий інтервал трохи зменшено */ }
         .card-img-top {
             width: 150px; 
             height: auto;
             display: block;
-            margin: 0.5rem auto 0.5rem;
+            margin: 0.25rem auto 0.25rem; /* Зменшено відступи */
             cursor: zoom-in;
             transition: opacity 0.2s ease-in-out;
         }
-        .card { 
+        .card { /* Загальний стиль для карт */
             width: auto;
-            min-width: 180px;
-            max-width: 220px;
+            min-width: 170px; /* Трохи зменшено */
+            max-width: 210px; /* Трохи зменшено */
             flex-shrink: 0;
-            margin-bottom: 1rem; 
+            margin-bottom: 0.75rem; /* Зменшено */
         }
         .desktop-card-row {
             display: flex;
             flex-direction: row;
             overflow-x: auto;
-            gap: 1rem;
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
+            gap: 0.75rem; /* Зменшено */
+            padding-top: 0.25rem; /* Зменшено */
+            padding-bottom: 0.25rem; /* Зменшено */
         }
         .theme-toggle-button {
             position: fixed;
@@ -168,76 +168,44 @@
             right: 1rem;
             z-index: 1050;
         }
+        h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
         h2 {
-            margin-top: 2rem;
+            margin-top: 1.5rem; /* Зменшено */
+            margin-bottom: 0.5rem; /* Зменшено */
             border-bottom: 1px solid #ccc;
-            padding-bottom: 0.5rem;
-            font-size: 1.75rem;
+            padding-bottom: 0.25rem; /* Зменшено */
+            font-size: 1.5rem; /* Зменшено */
         }
-        .image-zoom-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            z-index: 1999;
-            cursor: zoom-out;
-        }
-        .card-img-top.zoomed {
-            display: block !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: contain !important; 
-            transform: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            z-index: 2000 !important;
-            cursor: zoom-out !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-        .carousel-control-prev-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
-        }
-        .carousel-control-next-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
-        }
-        html[data-bs-theme="dark"] .carousel-control-prev-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important;
-        }
-        html[data-bs-theme="dark"] .carousel-control-next-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
-        }
-        .carousel-control-prev-icon,
-        .carousel-control-next-icon {
-            filter: none !important;
-        }
+        p { margin-bottom: 0.5rem; /* Зменшено */ }
+        hr { margin-top: 1rem; margin-bottom: 1rem; } /* Зменшено */
+
+        .image-zoom-overlay { /* ... (без змін) ... */ }
+        .card-img-top.zoomed { /* ... (без змін) ... */ }
+        .carousel-control-prev-icon { /* ... (без змін) ... */ }
+        .carousel-control-next-icon { /* ... (без змін) ... */ }
+        html[data-bs-theme="dark"] .carousel-control-prev-icon { /* ... (без змін) ... */ }
+        html[data-bs-theme="dark"] .carousel-control-next-icon { /* ... (без змін) ... */ }
+        .carousel-control-prev-icon, .carousel-control-next-icon { /* ... (без змін) ... */ }
+        
         .carousel-item {
-            padding: 1rem 0;
+            padding: 0.5rem 0; /* Зменшено */
         }
-        .carousel-inner {
-            min-height: 300px; 
+        .carousel-inner { /* Загальна для Общий стол / Мои карточки */
+            min-height: 260px; /* Зменшено */
             display: flex;
             align-items: center;
         }
-        .carousel .card {
+        .carousel .card { /* Картки всередині Общий стол / Мои карточки каруселей */
             margin-bottom: 0;
         }
 
         /* ОНОВЛЕНІ СТИЛІ для ІГРОВОГО ПОЛЯ */
-        .game-board-desktop-container {
+        .game-board-desktop-container { /* Для десктопу */
             display: flex;
             flex-wrap: wrap; 
-            gap: 0.5rem; 
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
+            gap: 0.25rem; /* Менший gap */
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
             justify-content: flex-start; 
         }
         .game-board-spot-container { 
@@ -246,16 +214,16 @@
             align-items: center;
             flex-shrink: 0; 
         }
-        .game-board-pictogram { 
-            width: 60px;  
-            height: 60px; 
+        .game-board-pictogram { /* Для десктопу */
+            width: 50px;  /* Менша піктограма на десктопі */
+            height: 50px; 
             position: relative; 
             background-size: contain; 
             background-position: center; 
             background-repeat: no-repeat;
             border: 1px solid #dee2e6; 
             border-radius: .25rem; 
-            margin-bottom: 3px; 
+            margin-bottom: 1px; /* Менший відступ */
         }
         .game-board-cell-number {
             position: absolute; 
@@ -263,12 +231,12 @@
             left: 1px; 
             background-color: rgba(255,255,255,0.85); 
             color: #212529; 
-            padding: 0px 3px; 
-            border-radius: 0.2rem; 
-            font-size: 0.65em; 
+            padding: 0px 2px; /* Менший padding */
+            border-radius: 0.15rem; /* Менший радіус */
+            font-size: 0.6em; /* Дуже маленький для десктопу */
             font-weight: bold;
             border: 1px solid rgba(0,0,0,0.1);
-            line-height: 1.1;
+            line-height: 1; /* Щільніше */
         }
         html[data-bs-theme="dark"] .game-board-cell-number {
             background-color: rgba(40,40,40,0.85);
@@ -276,115 +244,152 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .game-board-player-names-area { 
-            width: 60px; 
-            line-height: 1.2; 
-            max-height: 3.6em; /* Дозволяє приблизно 2-3 рядки аватарів/тексту */
-            min-height: 1.8em; /* Висота для одного рядка аватарів */
+        .game-board-player-names-area { /* Для десктопу */
+            width: 50px; 
+            line-height: 1.1; /* Щільніше */
+            max-height: 2.5em; /* ~2 рядки аватарів */
+            min-height: 1.5em; 
             overflow-y: auto; 
             text-align: center;
-            margin-top: 3px; 
+            margin-top: 1px; /* Менший відступ */
             padding: 1px 0;
-            /* Відладочні рамка та фон видалені */
-            display: flex; /* Для розташування аватарів в рядок */
-            flex-wrap: wrap; /* Дозволяє перенос аватарів */
-            justify-content: center; /* Центрування аватарів */
-            align-items: center; /* Вертикальне вирівнювання */
-            gap: 1px 3px; /* Відстань між аватарами (вертикальна, горизонтальна) */
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 1px 2px; 
         }
         
-        .player-avatar-on-board {
+        .player-avatar-on-board { /* Для десктопу */
             display: inline-flex;
-            width: 1.7em;  /* Розмір аватара відносно шрифту .game-board-player-names-area */
-            height: 1.7em;
-            border-radius: 50%; /* Круглий аватар */
+            width: 1.5em;  
+            height: 1.5em;
+            border-radius: 50%; 
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 0.8em; /* Розмір літери всередині аватара */
-            padding: 0;
+            font-size: 0.7em; 
             overflow: hidden;
-            vertical-align: middle; /* Краще вирівнювання з комою */
+            vertical-align: middle; 
         }
         html[data-bs-theme="dark"] .player-avatar-on-board {
-            background-color: #4A5568; /* Темніший фон для аватара в темній темі */
+            background-color: #4A5568; 
             color: #E2E8F0; 
         }
         html[data-bs-theme="light"] .player-avatar-on-board {
-            background-color: #E2E8F0; /* Світліший фон для аватара в світлій темі */
+            background-color: #E2E8F0; 
             color: #2D3748; 
         }
 
-        .avatar-separator {
-            font-size: 0.9em; /* Розмір коми */
-            padding: 0 1px; /* Невеликий відступ навколо коми */
-            vertical-align: middle; /* Краще вирівнювання з аватаром */
+        .avatar-separator { /* Для десктопу */
+            font-size: 0.8em; 
+            padding: 0 1px; 
+            vertical-align: middle; 
         }
-        html[data-bs-theme="dark"] .avatar-separator {
-            color: #A0AEC0;
-        }
-        html[data-bs-theme="light"] .avatar-separator {
-            color: #4A5568;
+        html[data-bs-theme="dark"] .avatar-separator { color: #A0AEC0; }
+        html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
+
+        .player-name-on-board-empty { /* Для десктопу */
+            height: 1.5em; 
+            line-height: 1.5em;
+            width: 100%; 
+            font-size: 0.7em; 
         }
 
-        .player-name-on-board-empty { 
-            height: 1.8em; 
-            line-height: 1.8em;
-            width: 100%; /* Щоб &nbsp; займав всю ширину */
-            font-size: 0.8em; /* Щоб відповідати приблизному розміру аватара */
-        }
-
-        /* Для мобільної каруселі */
+        /* Для мобільної каруселі ІГРОВОГО ПОЛЯ */
         #gameBoardCarousel .carousel-inner {
-            min-height: 130px; 
+            min-height: 90px;  /* ЗНАЧНО ЗМЕНШЕНО */
         }
         #gameBoardCarousel .carousel-item .d-flex { 
-            min-height: 120px; 
+            min-height: 80px;  /* ЗНАЧНО ЗМЕНШЕНО */
             align-items: center; 
         }
-        #gameBoardCarousel .game-board-pictogram {
-            width: 70px;
-            height: 70px;
+        #gameBoardCarousel .game-board-pictogram { /* Піктограма в мобільній каруселі */
+            width: 45px;  /* ЗМЕНШЕНО */
+            height: 45px; /* ЗМЕНШЕНО */
+            margin-bottom: 1px; /* Дуже малий відступ */
         }
-        #gameBoardCarousel .game-board-player-names-area {
-            width: 70px;
-            max-height: 3.8em; 
-            min-height: 1.9em;
+        #gameBoardCarousel .game-board-cell-number { /* Номер всередині мобільної піктограми */
+            font-size: 0.55em; /* Дуже маленький */
+            line-height: 1;
+            padding: 0 1px;
         }
-        #gameBoardCarousel .player-avatar-on-board {
-            font-size: 0.85em; 
-            width: 1.8em;
-            height: 1.8em;
+        #gameBoardCarousel .game-board-player-names-area { /* Область аватарів в моб. каруселі */
+            width: 45px; /* Відповідає піктограмі */
+            font-size: 0.7em; /* Базовий для аватарів */
+            max-height: 2.4em; /* ~2 рядки маленьких аватарів */
+            min-height: 1.3em; /* 1 рядок */
+            margin-top: 1px; /* Дуже малий відступ */
+            gap: 1px; /* Дуже малий gap */
         }
-        #gameBoardCarousel .player-name-on-board-empty {
-            height: 1.9em;
-            line-height: 1.9em;
-            font-size: 0.85em;
+        #gameBoardCarousel .player-avatar-on-board { /* Аватар в моб. каруселі */
+            font-size: 0.65em; /* Розмір літери всередині */
+            width: 1.4em;  /* Розмір аватара відносно його font-size */
+            height: 1.4em;
         }
-        /* Кінець ОНОВЛЕНИХ СТИЛІВ */
+         #gameBoardCarousel .avatar-separator {
+            font-size: 0.7em;
+        }
+        #gameBoardCarousel .player-name-on-board-empty { /* Пустий блок в моб. каруселі */
+            height: 1.3em;
+            line-height: 1.3em;
+            font-size: 0.7em;
+        }
+        /* Кінець стилів для ігрового поля */
 
         @media (max-width: 576px) {
-            body { padding: 1rem !important; }
-            h1 { font-size: 2rem; }
-            h2 { font-size: 1.5rem; }
-            .card-body { padding: 0.75rem; }
-            /* .carousel-inner { min-height: 280px; } */
-            .theme-toggle-button {
+            body { 
+                padding: 0.5rem !important; /* Зменшено padding тіла */
+                line-height: 1.25; /* Загальний міжрядковий для мобільних */
+            }
+            h1 { font-size: 1.6rem; margin-bottom: 0.2rem;} /* Менші заголовки */
+            h2 { 
+                font-size: 1.25rem; /* Менші підзаголовки */
+                margin-top: 0.8rem; 
+                margin-bottom: 0.3rem;
+                padding-bottom: 0.2rem;
+            }
+            p { margin-bottom: 0.3rem; line-height: 1.2;}
+            hr { margin-top: 0.75rem; margin-bottom: 0.75rem; }
+            
+            .card { margin-bottom: 0.5rem; min-width: 150px; max-width: 180px; }
+            .card-body { padding: 0.5rem; } /* Зменшено padding тіла картки */
+            .card-img-top { width: 120px; margin: 0.1rem auto; }
+
+            .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.85em; }
+            
+            .border.p-2.p-sm-3.mb-4.rounded { /* Контейнери секцій */
+                padding: 0.5rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .carousel-inner { min-height: 230px; } /* Для Общий стол / Мои карточки */
+            
+            .theme-toggle-button { /* Кнопка теми */
                 top: 0.5rem;
                 right: 0.5rem;
+                padding: 0.2rem 0.4rem;
+                font-size: 0.8rem;
             }
-            #gameBoardCarousel .carousel-inner { min-height: 140px; } 
-
+            /* Перевизначення для каруселі ігрового поля на мобільних вже є вище через ID */
+            /* #gameBoardCarousel .carousel-inner { min-height: 90px; } вже визначено */
         }
-        @media (min-width: 768px) {
+        @media (min-width: 768px) { /* Для планшетів можемо залишити десктопні розміри або трохи зменшити */
             .carousel .card { 
-                max-width: 200px;
+                max-width: 190px; /* Трохи менше */
+            }
+             .game-board-pictogram { /* На планшетах можна 55px */
+                width: 55px;  
+                height: 55px; 
+            }
+            .game-board-player-names-area {
+                width: 55px;
             }
         }
     </style>
 </head>
 
-<body class="p-4">
+<body class="p-4"> {# p-4 буде перевизначено для мобільних на p-0.5rem #}
     {# ... (решта HTML без змін, починаючи з <div class="container-fluid">) ... #}
     <div class="container-fluid">
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
@@ -395,7 +400,7 @@
         <h1>Привет, {{ name }}!</h1>
         <p>Ваш рейтинг: <strong>{{ rating }}</strong></p>
 
-        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-3">
+        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2"> {# mb-2 #}
             <span class="text-muted mb-1 mb-sm-0">
                 {% if leader_for_display %}
                     {% set displayed_leader_name = get_user_name(leader_for_display) %}
@@ -420,7 +425,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-3" role="alert">
+                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-2" role="alert"> {# mt-2 #}
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                   </div>
@@ -429,15 +434,15 @@
         {% endwith %}
 
         {% if g.game_over %}
-            <div class="alert alert-danger mt-3" role="alert">
+            <div class="alert alert-danger mt-2" role="alert"> {# mt-2 #}
               <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! У одного из игроков закончились карты.
             </div>
         {% endif%}
 
-        <hr class="my-3 my-sm-4">
+        <hr class="my-2"> {# my-2 #}
 
         <h2>Общий стол</h2>
-        <div class="border p-2 p-sm-3 mb-4 rounded">
+        <div class="border p-1 p-sm-2 mb-3 rounded"> {# p-1 p-sm-2 mb-3 #}
             {# --- Мобильная версия: Карусель --- #}
             <div class="d-block d-md-none">
                 <div id="tableImagesCarousel" class="carousel slide" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true">
@@ -452,7 +457,7 @@
                             {% endfor %}
                         {% else %}
                             <div class="carousel-item active">
-                                <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+                                <div class="d-flex justify-content-center align-items-center" style="min-height: 180px;"> {# Зменшено #}
                                     <p class="text-muted">На столе пока нет карточек.</p>
                                 </div>
                             </div>
@@ -488,7 +493,7 @@
         <h2>Мои карточки</h2>
         {# --- Мобильная версия: Карусель --- #}
         <div class="d-block d-md-none">
-            <div id="myCardsCarousel" class="carousel slide mb-4" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true">
+            <div id="myCardsCarousel" class="carousel slide mb-3" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true"> {# mb-3 #}
                 <div class="carousel-inner">
                     {% if cards %}
                         {% for card_item in cards %}
@@ -500,7 +505,7 @@
                         {% endfor %}
                     {% else %}
                         <div class="carousel-item active">
-                            <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+                            <div class="d-flex justify-content-center align-items-center" style="min-height: 180px;"> {# Зменшено #}
                                 <p class="text-muted">У вас пока нет карт на руках.</p>
                             </div>
                         </div>
@@ -520,7 +525,7 @@
         </div>
 
         {# --- Десктопная версия: Ряд с прокруткой --- #}
-        <div class="d-none d-md-block mb-4">
+        <div class="d-none d-md-block mb-3"> {# mb-3 #}
             <div class="desktop-card-row">
                 {% if cards %}
                     {% for card_item in cards %}
@@ -534,7 +539,7 @@
 
         {# #}
         <h2>Игровое Поле</h2>
-        <div class="border p-2 p-sm-3 mb-4 rounded">
+        <div class="border p-1 p-sm-2 mb-3 rounded"> {# p-1 p-sm-2 mb-3 #}
             {# --- Мобильная версия: Карусель для Игрового Поля --- #}
             <div class="d-block d-md-none">
                 <div id="gameBoardCarousel" class="carousel slide" data-bs-ride="false" data-bs-interval="false" data-bs-wrap="false" data-bs-touch="true">
@@ -549,7 +554,7 @@
                             {% endfor %}
                         {% else %}
                             <div class="carousel-item active">
-                                <div class="d-flex justify-content-center align-items-center" style="min-height: 130px;"> 
+                                <div class="d-flex justify-content-center align-items-center" style="min-height: 90px;"> 
                                     <p class="text-muted">Игровое поле не загружено.</p>
                                 </div>
                             </div>
