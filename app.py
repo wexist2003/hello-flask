@@ -617,7 +617,8 @@ def admin():
                            image_owners=image_owners_admin_page,
                            game_board=game_board_data,
                            get_user_name_func=get_user_name,
-                           user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page) # ДОДАНО
+                           user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page,
+                           current_num_board_cells=_current_game_board_num_cells) # ДОДАНО
     
 @app.route("/start_new_game", methods=["POST"])
 def start_new_game():
