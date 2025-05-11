@@ -17,7 +17,7 @@ DB_PATH = 'database.db'
 # --- ДОДАНО: Конфігурація для Ігрового Поля ---
 GAME_BOARD_POLE_IMG_SUBFOLDER = "pole" 
 GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)] 
-DEFAULT_NUM_BOARD_CELLS = 30 
+DEFAULT_NUM_BOARD_CELLS = 40 
 
 _current_game_board_pole_image_config = []
 _current_game_board_num_cells = 0
@@ -596,6 +596,17 @@ def admin():
          user_has_duplicate_guesses_admin_page = {}
          game_board_admin_page = [] 
 
+    # --- Начало изменений для игрового поля ---
+    # 1. Получаем всех пользователей (необходимо для generate_game_board_data_for_display)
+    c.execute("SELECT id, name, rating FROM users ORDER BY rating DESC, name") # или другой порядок
+    all_users_data = c.fetchall() # Это будет список объектов sqlite3.Row
+
+    # 2. Генерируем данные игрового поля
+    # Ваша функция generate_game_board_data_for_display может вызывать initialize_new_game_board_visuals,
+    # если _current_game_board_pole_image_config пуст.
+    game_board_data = generate_game_board_data_for_display(all_users_data)
+    # --- Конец изменений для игрового поля ---
+    
     print(f"Admin GET: Rendering template. Users count: {len(users_admin_page)}")
     return render_template("admin.html", users=users_admin_page, images=images_admin_page,
                            subfolders=subfolders_admin_page, active_subfolder=current_active_subfolder,
@@ -604,6 +615,8 @@ def admin():
                            leader_to_display=leader_to_display,
                            free_image_count=free_image_count_admin_page,
                            image_owners=image_owners_admin_page,
+                           game_board=game_board_data,               # Передаем данные поля
+                           get_user_name_func=get_user_name,       # Передаем вашу функцию get_user_name
                            user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page,
                            game_board=game_board_admin_page) # ДОДАНО
     
