@@ -615,10 +615,9 @@ def admin():
                            leader_to_display=leader_to_display,
                            free_image_count=free_image_count_admin_page,
                            image_owners=image_owners_admin_page,
-                           game_board=game_board_data,               # Передаем данные поля
-                           get_user_name_func=get_user_name,       # Передаем вашу функцию get_user_name
-                           user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page,
-                           game_board=game_board_admin_page) # ДОДАНО
+                           game_board=game_board_data,
+                           get_user_name_func=get_user_name,
+                           user_has_duplicate_guesses=user_has_duplicate_guesses_admin_page) # ДОДАНО
     
 @app.route("/start_new_game", methods=["POST"])
 def start_new_game():
