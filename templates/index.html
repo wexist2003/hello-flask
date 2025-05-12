@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         html, body {
-             height: 100%; /* Для flex контейнера */
+             height: 100%;
         }
         body {
             background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Убедитесь, что путь верен */
@@ -19,21 +19,32 @@
             background-attachment: fixed;
             background-color: var(--bs-body-bg);
             min-height: 100vh;
-             /* --- ИЗМЕНЕНО: Настройки Flexbox для Body --- */
             display: flex;
-            flex-direction: column; /* Элементы в колонку */
-            align-items: center;    /* Центрирование по горизонтали */
-            padding: 1rem;          /* Базовые отступы */
+            flex-direction: column; /* Главное направление - колонка */
+            /* align-items: center; */ /* Убираем отсюда, т.к. каждый блок будет центрироваться сам */
+            padding: 0; /* Убираем padding с body, он будет у оберток */
         }
+
+        /* --- НОВАЯ ОБЕРТКА для основного контента --- */
+        .main-content-area {
+            flex-grow: 1; /* Занимает все доступное пространство, отталкивая футер */
+            display: flex;
+            flex-direction: column; /* Чтобы .content-wrapper был в потоке */
+            align-items: center;    /* Центрирует .content-wrapper по горизонтали */
+            justify-content: center;/* Центрирует .content-wrapper по вертикали */
+            width: 100%;
+            padding: 1rem; /* Отступы для контента */
+        }
+        /* --- КОНЕЦ НОВОЙ ОБЕРТКИ --- */
+
         .content-wrapper {
             background-color: transparent;
             border-radius: 0.5rem;
             width: 100%;
             max-width: 600px;
-            margin-left: auto; /* Для центрирования при max-width */
-            margin-right: auto;/* Для центрирования при max-width */
-            margin-top: 10vh; /* Оставляем смещение сверху */
-            /* flex-grow: 1; */ /* Убираем растягивание, т.к. footer позиционируется иначе */
+            /* margin-left и margin-right auto НЕ НУЖНЫ, т.к. родитель центрирует по горизонтали */
+            /* --- УБИРАЕМ margin-top, т.к. родитель центрирует по вертикали --- */
+            /* margin-top: 10vh; */ 
         }
         .title-block {
             background-color: rgba(var(--bs-body-bg-rgb), 0.4);
@@ -89,10 +100,11 @@
         .footer-container { 
              width: 100%;
              max-width: 600px; 
-             margin-left: auto;  /* Для центрирования при max-width */
-             margin-right: auto; /* Для центрирования при max-width */
-             margin-top: auto; /* Прижимаем к низу колонки */
-             padding-bottom: 1rem; 
+             margin-left: auto;  
+             margin-right: auto; 
+             /* margin-top: auto; */ /* Больше не нужен, т.к. main-content-area отталкивает */
+             padding: 0 1rem 1rem 1rem; /* Добавляем отступы, чтобы не прилипал к низу */
+             flex-shrink: 0; /* Чтобы футер не сжимался */
         }
         .footer-links {
              padding: 0.5rem 0; 
@@ -125,54 +137,58 @@
         <i class="bi bi-circle-half"></i>
     </button>
 
-    {# --- ОСНОВНОЙ КОНТЕНТ --- #}
-    <div class="content-wrapper"> 
-        {# Содержимое .content-wrapper без изменений #}
-        <div class="title-block text-center">
-            <h2>Выберите колоду, которой хотели бы сыграть</h2>
-        </div>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
-                    {% for category, message in messages %}
-                      <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        <div class="deck-list">
-            {% if deck_votes %}
-                {% set current_vote = session.get('voted_for_deck') %} 
-                {% for deck in deck_votes %}
-                    <div class="deck-vote-item {% if deck.subfolder == current_vote %}voted-for{% endif %}">
-                        <div class="deck-info">
-                            <span>{{ deck.subfolder }}</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="vote-count" title="Текущее количество голосов">
-                                <i class="bi bi-hand-thumbs-up-fill"></i> {{ deck.votes }}
-                            </span>
-                            <form class="vote-form" action="{{ url_for('vote_deck') }}" method="post" style="margin-bottom: 0;">
-                                <input type="hidden" name="subfolder" value="{{ deck.subfolder }}">
-                                <button type="submit" class="btn btn-sm {% if deck.subfolder == current_vote %}btn-success{% else %}btn-outline-success{% endif %}">
-                                    {% if deck.subfolder == current_vote %}
-                                        <i class="bi bi-check-lg"></i> Выбрано
-                                    {% else %}
-                                        Голосовать
-                                    {% endif %}
-                                </button>
-                            </form>
-                        </div>
+    {# --- НОВАЯ ОБЕРТКА для основного контента --- #}
+    <div class="main-content-area">
+        <div class="content-wrapper"> 
+            <div class="title-block text-center">
+                <h2>Выберите колоду, которой хотели бы сыграть</h2>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
+                        {% for category, message in messages %}
+                          <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                          </div>
+                        {% endfor %}
                     </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-center text-muted bg-light p-3 rounded">Доступные колоды не найдены или не удалось загрузить данные.</p> 
-            {% endif %}
-        </div>
-    </div> {# Конец content-wrapper #}
+                {% endif %}
+            {% endwith %}
+
+            <div class="deck-list">
+                {% if deck_votes %}
+                    {% set current_vote = session.get('voted_for_deck') %} 
+                    {% for deck in deck_votes %}
+                        <div class="deck-vote-item {% if deck.subfolder == current_vote %}voted-for{% endif %}">
+                            <div class="deck-info">
+                                <span>{{ deck.subfolder }}</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="vote-count" title="Текущее количество голосов">
+                                    <i class="bi bi-hand-thumbs-up-fill"></i> {{ deck.votes }}
+                                </span>
+                                <form class="vote-form" action="{{ url_for('vote_deck') }}" method="post" style="margin-bottom: 0;">
+                                    <input type="hidden" name="subfolder" value="{{ deck.subfolder }}">
+                                    <button type="submit" class="btn btn-sm {% if deck.subfolder == current_vote %}btn-success{% else %}btn-outline-success{% endif %}">
+                                        {% if deck.subfolder == current_vote %}
+                                            <i class="bi bi-check-lg"></i> Выбрано
+                                        {% else %}
+                                            Голосовать
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-center text-muted bg-light p-3 rounded">Доступные колоды не найдены или не удалось загрузить данные.</p> 
+                {% endif %}
+            </div>
+        </div> {# Конец content-wrapper #}
+    </div> {#  Конец main-content-area #}
+
 
     {# --- НИЖНИЕ ССЫЛКИ --- #}
     <div class="footer-container">
@@ -185,7 +201,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     {# --- Скрипт смены темы (без изменений) --- #}
     <script>
-        (function() { /* ... код скрипта ... */ 
+        (function() { /* ... код скрипта без изменений ... */ 
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
             const storageKey = 'userThemePreference';
