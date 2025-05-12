@@ -39,8 +39,7 @@
             max-width: 600px; 
             margin-left: auto;
             margin-right: auto;
-            /* --- ИЗМЕНЕНО: Смещение вниз увеличено --- */
-            margin-top: 30vh; /* 10vh + 20vh */
+            margin-top: 30vh; /* Оставляем смещение для десктопа */
         }
         .title-block {
             background-color: rgba(var(--bs-body-bg-rgb), 0.4);
@@ -124,9 +123,9 @@
          }
         @media (max-width: 767.98px) {
             .content-wrapper {
-                /* --- ИЗМЕНЕНО: Смещение вниз увеличено для мобильных --- */
-                margin-top: 25vh; /* 5vh + 20vh */
-                width: 95vw; 
+                margin-top: 25vh; 
+                /* --- ИЗМЕНЕНО: Ширина на мобильных --- */
+                width: 90vw; /* Стало 90% от ширины окна */
                 max-width: none; 
             }
             .footer-container {
@@ -140,12 +139,14 @@
         }
     </style>
 </head>
+
 <body>
     <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
         <i class="bi bi-circle-half"></i>
     </button>
     <div class="main-content-area">
         <div class="content-wrapper"> 
+            {# Содержимое .content-wrapper без изменений #}
             <div class="title-block text-center">
                 <h2>Выберите колоду, которой хотели бы сыграть</h2>
             </div>
@@ -200,7 +201,7 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        (function() { 
+        (function() { /* ... JavaScript код ... */ 
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
             const storageKey = 'userThemePreference';
