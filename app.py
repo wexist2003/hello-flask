@@ -980,10 +980,9 @@ def user(code):
 
     if g.user is None:
         # Пользователь не найден по коду из URL или сессия недействительна
-        
         # Очищаем потенциально "сломанную" сессию игрока
         session.pop('user_id', None)
-        session.pop('user_name', None)
+        session.pop('user_name', None) 
         session.pop('user_code', None)
         
         flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
@@ -991,11 +990,10 @@ def user(code):
 
     # Пользователь НАЙДЕН (g.user существует)
     # Принудительно обновляем ключевые данные пользователя в сессии из g.user (базы данных)
-    # Это гарантирует, что сессия всегда содержит актуальное имя и код для этого пользователя.
     session['user_id'] = g.user['id']
-    session['user_name'] = g.user['name'] # Имя в сессии обновляется из БД
-    session['user_code'] = g.user['code'] # Код в сессии обновляется из БД
-    session.pop('is_admin', None)          # Сбрасываем флаг админа
+    session['user_name'] = g.user['name'] # Обновляем 'user_name' в сессии
+    session['user_code'] = g.user['code'] # Обновляем 'user_code' в сессии
+    session.pop('is_admin', None)         # Сбрасываем флаг админа
 
     # --- Остальная логика функции user(code) для загрузки данных игры ---
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
@@ -1007,7 +1005,7 @@ def user(code):
     user_cards = []
     if active_subfolder:
         c.execute("""
-            SELECT id, image, subfolder FROM images 
+            SELECT id, image, subfolder FROM images
             WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'
         """, (g.user['id'], active_subfolder))
         user_cards = c.fetchall()
@@ -1015,51 +1013,62 @@ def user(code):
     table_cards_raw = []
     if active_subfolder:
         c.execute("""
-            SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name 
+            SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name
             FROM images i JOIN users u ON i.owner_id = u.id
             WHERE i.subfolder = ? AND i.status LIKE 'На столе:%'
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
-    
-    table_cards = []
+
+    table_cards_for_template = [] # Используем имя, которое ожидает шаблон (table_images)
+    on_table_status = False
     for card_row in table_cards_raw:
         c.execute("SELECT guessed_user_id FROM guesses WHERE image_id = ? AND guessing_user_id = ?", (card_row['id'], g.user['id']))
         guess_for_this_card = c.fetchone()
         
-        table_cards.append({
+        # Проверяем, является ли текущий пользователь владельцем этой карты на столе
+        if card_row['owner_id'] == g.user['id']:
+            on_table_status = True
+
+        table_cards_for_template.append({
             'id': card_row['id'],
             'image': card_row['image'],
             'subfolder': card_row['subfolder'],
             'owner_id': card_row['owner_id'],
             'owner_name': card_row['owner_name'],
-            'has_guessed': True if guess_for_this_card else False,
-            'guessed_user_id': guess_for_this_card['guessed_user_id'] if guess_for_this_card else None
+            'guesses': json.loads(card_row['guesses'] or '{}'), # Убедимся, что guesses это словарь
+            'has_guessed': True if guess_for_this_card else False, # Для внутренней логики, если нужно
+            'guessed_user_id': guess_for_this_card['guessed_user_id'] if guess_for_this_card else None # Для внутренней логики
         })
 
     c.execute("SELECT id, name FROM users WHERE id != ?", (g.user['id'],))
-    other_users = c.fetchall()
-    
-    current_leader_id = get_current_leader_id() # Убедитесь, что эта функция определена
-    is_leader = (g.user['id'] == current_leader_id) if current_leader_id is not None else False
+    other_users_for_template = c.fetchall() # Используем имя, которое ожидает шаблон (all_users)
+
+    current_leader_id = get_current_leader_id()
+    is_leader_status = (g.user['id'] == current_leader_id) if current_leader_id is not None else False
 
     all_users_for_board_query = c.execute("SELECT id, name, rating FROM users").fetchall()
-    game_board_data = generate_game_board_data_for_display(all_users_for_board_query) # Убедитесь, что эта функция определена
+    game_board_data = generate_game_board_data_for_display(all_users_for_board_query)
     
-    current_board_cells_value = _current_game_board_num_cells 
+    current_board_cells_value = _current_game_board_num_cells
 
-    # Передаем имя пользователя из g.user в шаблон
-    return render_template('user.html', 
-                           user_name=g.user['name'], # Используем g.user['name']
-                           user_id=g.user['id'],
-                           user_code=g.user['code'],
-                           user_cards=user_cards,
-                           table_cards=table_cards,
-                           other_users=other_users,
-                           show_card_info=show_card_info,
-                           is_leader=is_leader,
+    # Передаем переменные в шаблон с именами, которые ожидает user.html
+    return render_template('user.html',
+                           name=g.user['name'],         # Для {{ name }}
+                           rating=g.user['rating'],     # Для {{ rating }}
+                           cards=user_cards,            # Для {{ cards }}
+                           table_images=table_cards_for_template, # Для {{ table_images }}
+                           all_users=other_users_for_template,   # Для {{ all_users }}
+                           code=code,                   # Для {{ code }} в url_for
+                           on_table=on_table_status,    # Для {{ on_table }}
+                           leader_for_display=current_leader_id, # Для {{ leader_for_display }}
+                           # g (включая g.user_id, g.show_card_info, g.game_over) доступен в шаблоне глобально
+                           # user_id и user_code также доступны через g.user, если где-то это нужно в шаблоне
+                           # но для ясности можно передать user_id=g.user['id'], user_code=g.user['code']
+                           is_leader=is_leader_status, # Передаем is_leader, если где-то используется
                            game_board=game_board_data,
-                           get_user_name_func=get_user_name, # Убедитесь, что эта функция определена
-                           current_num_board_cells=current_board_cells_value 
+                           get_user_name_func=get_user_name, # get_user_name уже в Jinja globals
+                           get_leading_user_id_func=get_leading_user_id, # get_leading_user_id уже в Jinja globals
+                           current_num_board_cells=current_board_cells_value
                            )
         
 # Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
