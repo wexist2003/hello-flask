@@ -10,37 +10,42 @@
     <style>
         body {
             /* Фоновое изображение */
-            /* --- ИЗМЕНЕНО: Имя файла фона --- */
-            background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Используем a.jpg */
+            background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Убедитесь, что путь верен */
             background-size: contain; 
             background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
             background-color: var(--bs-body-bg); 
             min-height: 100vh; 
-            /* --- НОВОЕ: Центрирование содержимого --- */
+            /* --- ИЗМЕНЕНО: Центрирование и отступ --- */
             display: flex;
-            align-items: center; /* Вертикальное центрирование */
-            justify-content: center; /* Горизонтальное центрирование */
-            padding-top: 2rem; /* Оставляем отступы на случай очень маленького экрана */
-            padding-bottom: 2rem;
+            /* align-items: center; */ /* Убираем вертикальное центрирование */
+            justify-content: center; /* Оставляем горизонтальное центрирование */
+            padding-top: 15vh; /* Сдвигаем контент вниз на 15% высоты окна */
+            padding-bottom: 5vh; /* Немного отступа снизу */
+            padding-left: 1rem; /* Небольшие боковые отступы */
+            padding-right: 1rem;
         }
         .content-wrapper { 
             background-color: transparent; 
             border-radius: 0.5rem;
-            max-width: 720px; 
-            width: 100%; /* Чтобы занимал доступную ширину в пределах max-width */
-            margin: auto; /* Дополнительно для центрирования */
+            /* --- ИЗМЕНЕНО: Ширина блока --- */
+            width: 80vw; /* 80% от ширины окна */
+            max-width: 800px; /* Ограничение максимальной ширины */
+            margin-left: auto;  /* Центрирование блока по горизонтали */
+            margin-right: auto; 
+            /* margin-top: auto; */ /* Убираем автоматический верхний отступ */
+            /* margin-bottom: auto; */ /* Убираем автоматический нижний отступ */
         }
         .title-block {
-            /* --- ИЗМЕНЕНО: Прозрачность фона --- */
-            background-color: rgba(var(--bs-body-bg-rgb), 0.4); /* Прозрачность 40% */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.4); 
             padding: 1.5rem;
             border-radius: 0.375rem;
             margin-bottom: 1.5rem; 
         }
+        /* --- ИЗМЕНЕНО: Размер шрифта заголовка --- */
         .title-block h2 {
-            font-size: 1rem; 
+            font-size: 1.5rem; /* 1rem * 1.5 */
             margin-bottom: 0; 
         }
 
@@ -52,10 +57,10 @@
             border: 1px solid var(--bs-border-color-translucent);
             border-radius: 0.375rem; 
             margin-bottom: 0.75rem;
-            /* --- ИЗМЕНЕНО: Прозрачность фона --- */
-            background-color: rgba(var(--bs-secondary-bg-rgb), 0.4); /* Прозрачность 40% */
+            background-color: rgba(var(--bs-secondary-bg-rgb), 0.4); 
             transition: all 0.2s ease-in-out; 
         }
+        /* --- Шрифты элементов голосования (уже увеличены в 1.5 раза) --- */
         .deck-info span {
             font-size: 1.65rem; 
             font-weight: 500; 
@@ -79,17 +84,16 @@
         }
         
         .theme-toggle-button {
-            position: fixed; /* Оставляем кнопку фиксированной */
+            position: fixed; 
             top: 1rem;
             right: 1rem;
             z-index: 1050;
         }
         .footer-links {
-             /* --- НОВОЕ: Фон для ссылок для читаемости --- */
-             background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Чуть менее прозрачный, чем форма */
+             background-color: rgba(var(--bs-body-bg-rgb), 0.6); 
              padding: 0.5rem;
              border-radius: 0.25rem;
-             margin-top: 1rem; /* Отступ от разделителя */
+             margin-top: 1rem; 
         }
         .footer-links a {
              color: var(--bs-emphasis-color); 
@@ -99,17 +103,15 @@
          .footer-links a:hover {
              text-decoration: underline;
         }
-        /* Опционально: Тень для текста для лучшей читаемости */
+         /* Опционально: Тень для текста для лучшей читаемости */
         /* h2, .deck-info span, .vote-count { text-shadow: 0px 0px 3px rgba(0, 0, 0, 0.6); } */
         /* html[data-bs-theme="dark"] h2, */
         /* html[data-bs-theme="dark"] .deck-info span, */
         /* html[data-bs-theme="dark"] .vote-count { text-shadow: 0px 0px 3px rgba(255, 255, 255, 0.4); } */
-
     </style>
 </head>
 
 <body>
-    {# Кнопка темы остается фиксированной справа вверху #}
     <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
         <i class="bi bi-circle-half"></i>
     </button>
