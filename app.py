@@ -381,6 +381,88 @@ app.jinja_env.globals.update(
     get_user_name=get_user_name,
     get_leading_user_id=get_leading_user_id) 
 
+@app.route('/login_player')
+def login_player():
+    """Отображает страницу для ввода имени игрока."""
+    return render_template('login_player.html')
+
+@app.route('/register_or_login_player', methods=['POST'])
+def register_or_login_player():
+    """Обрабатывает ввод имени игрока: регистрирует нового или находит существующего."""
+    player_name = request.form.get('name', '').strip()
+
+    if not player_name:
+        flash("Имя не может быть пустым.", "warning")
+        return redirect(url_for('login_player'))
+
+    # Ограничение длины имени (опционально)
+    if len(player_name) > 50:
+        flash("Имя слишком длинное (максимум 50 символов).", "warning")
+        return redirect(url_for('login_player'))
+
+    db = get_db()
+    c = db.cursor()
+    user_code = None
+    user_id = None
+
+    try:
+        # Ищем пользователя по имени (чувствительно к регистру)
+        c.execute("SELECT id, code FROM users WHERE name = ?", (player_name,))
+        existing_user = c.fetchone()
+
+        if existing_user:
+            # Пользователь найден
+            user_id = existing_user['id']
+            user_code = existing_user['code']
+            print(f"PLAYER_LOGIN: Found existing user '{player_name}' with code '{user_code}'")
+            flash(f"С возвращением, {player_name}!", "info")
+        else:
+            # Пользователь не найден, регистрируем нового
+            print(f"PLAYER_LOGIN: Registering new user '{player_name}'")
+            user_code = generate_unique_code()
+            try:
+                c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (player_name, user_code))
+                user_id = c.lastrowid
+                db.commit()
+                print(f"PLAYER_LOGIN: User '{player_name}' registered with code '{user_code}' and ID {user_id}")
+                flash(f"Добро пожаловать, {player_name}! Ваша уникальная ссылка создана.", "success")
+            except sqlite3.IntegrityError:
+                # Очень маловероятно, если generate_unique_code хороший, но обработаем
+                db.rollback()
+                flash("Произошла ошибка при регистрации (возможно, код не уникален). Попробуйте еще раз.", "danger")
+                print(f"PLAYER_LOGIN_ERROR: IntegrityError during registration for '{player_name}'")
+                return redirect(url_for('login_player'))
+            except sqlite3.Error as e_insert:
+                 db.rollback()
+                 flash(f"Ошибка базы данных при регистрации: {e_insert}", "danger")
+                 print(f"PLAYER_LOGIN_ERROR: DB Error during registration for '{player_name}': {e_insert}")
+                 return redirect(url_for('login_player'))
+
+        # Если есть код пользователя (новый или существующий)
+        if user_code:
+            # Устанавливаем сессию для пользователя (опционально, но полезно)
+            session['user_id'] = user_id
+            session['user_name'] = player_name
+            session['user_code'] = user_code
+            session.pop('is_admin', None) # Убедимся, что нет флага админа
+
+            # Перенаправляем на страницу пользователя
+            return redirect(url_for('user', code=user_code))
+        else:
+            # Сюда не должны попасть, если логика верна
+            flash("Произошла неизвестная ошибка.", "danger")
+            return redirect(url_for('login_player'))
+
+    except sqlite3.Error as e:
+        print(f"PLAYER_LOGIN_ERROR: DB Error for name '{player_name}': {e}")
+        flash(f"Ошибка базы данных: {e}", "danger")
+        return redirect(url_for('login_player'))
+    except Exception as e_general:
+        print(f"PLAYER_LOGIN_ERROR: Unexpected error for name '{player_name}': {e_general}")
+        print(traceback.format_exc())
+        flash(f"Произошла непредвиденная ошибка: {e_general}", "danger")
+        return redirect(url_for('login_player'))
+        
 @app.route('/vote_deck', methods=['POST'])
 def vote_deck():
     """Обрабатывает голос за выбранную колоду, отменяя предыдущий голос пользователя."""
