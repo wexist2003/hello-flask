@@ -8,32 +8,61 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        body { padding-top: 2rem; padding-bottom: 2rem; }
-        .container { max-width: 720px; }
+        body {
+            /* --- НОВОЕ: Фоновое изображение --- */
+            /* !!! ЗАМЕНИТЕ 'images/background.jpg' на реальный путь к вашему фону !!! */
+            background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); 
+            background-size: cover; /* Масштабировать, чтобы покрыть всю область */
+            background-position: center center; /* Центрировать фон */
+            background-repeat: no-repeat; /* Не повторять фон */
+            background-attachment: fixed; /* Фон остается неподвижным при прокрутке */
+            padding-top: 2rem; 
+            padding-bottom: 2rem; 
+            min-height: 100vh; /* Гарантируем, что body занимает всю высоту экрана */
+        }
+        .content-wrapper { /* Обертка для основного контента */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.92); /* Полупрозрачный фон для читаемости */
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 720px; 
+            margin: auto; /* Центрирование блока */
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); /* Небольшая тень для выделения */
+        }
         .deck-vote-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0.75rem 1rem;
             border: 1px solid var(--bs-border-color-translucent);
-            border-radius: 0.375rem; /* Bootstrap border-radius */
+            border-radius: 0.375rem; 
             margin-bottom: 0.75rem;
-            background-color: var(--bs-secondary-bg); /* Фон элемента */
+            background-color: var(--bs-secondary-bg); 
+            transition: all 0.2s ease-in-out; /* Плавный переход для подсветки */
         }
         .deck-info span {
             font-size: 1.1rem;
-            font-weight: 500; /* Полужирный */
+            font-weight: 500; 
         }
         .vote-count {
             font-size: 1rem;
             font-weight: bold;
-            color: var(--bs-primary); /* Синий цвет для счетчика */
-            margin-right: 1rem; /* Отступ справа от счетчика */
+            color: var(--bs-primary); 
+            margin-right: 1rem; 
         }
         .vote-form button {
-            font-size: 0.9rem; /* Чуть меньше кнопки */
+            font-size: 0.9rem; 
         }
-        /* Стиль для кнопки темы */
+        /* --- НОВОЕ: Стиль для выделения выбранной колоды --- */
+        .deck-vote-item.voted-for { 
+            border-color: var(--bs-success); /* Зеленая рамка */
+            box-shadow: 0 0 0 0.20rem rgba(var(--bs-success-rgb), 0.25); /* Легкое зеленое свечение */
+        }
+        /* --- НОВОЕ: Стиль для кнопки у выбранной колоды --- */
+        .deck-vote-item.voted-for button {
+            opacity: 0.7; /* Слегка приглушаем кнопку */
+            /* pointer-events: none; */ /* Можно раскомментировать, чтобы полностью отключить */
+        }
+        
         .theme-toggle-button {
             position: fixed;
             top: 1rem;
@@ -44,17 +73,19 @@
 </head>
 
 <body>
-    <div class="container">
+    {# Кнопка смены темы вне основного контейнера для фиксации #}
+    <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
+        <i class="bi bi-circle-half"></i>
+    </button>
 
-        {# --- Кнопка смены темы --- #}
-        <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
-            <i class="bi bi-circle-half"></i>
-        </button>
+    <div class="content-wrapper"> {# Обертка для контента #}
 
         <div class="text-center mb-4">
-            <img class="d-block mx-auto mb-3" src="{{ url_for('static', filename='images/logo_transparent.png') }}" alt="Dixit Logo" width="90">
+            {# Логотип убран #}
             <h2>Голосование за колоду</h2>
             <p class="lead">Выберите колоду, которой хотели бы сыграть в следующий раз!</p>
+            {# НОВОЕ: Пояснение про смену голоса #}
+            <p class="text-muted"><small>(Если передумаете, просто проголосуйте за другую)</small></p>
         </div>
 
         {# --- Flash-сообщения --- #}
@@ -72,18 +103,27 @@
         {# --- Список колод и голосование --- #}
         <div class="deck-list mt-4">
             {% if deck_votes %}
+                {# Переменная current_vote передается из app.py (через session.get) #}
                 {% for deck in deck_votes %}
-                    <div class="deck-vote-item">
+                    {# Добавляем класс 'voted-for', если эта колода выбрана текущим пользователем #}
+                    <div class="deck-vote-item {% if deck.subfolder == current_vote %}voted-for{% endif %}">
                         <div class="deck-info">
-                            <span>{{ deck.subfolder }}</span> {# Отображаем имя колоды #}
+                            <span>{{ deck.subfolder }}</span>
                         </div>
-                        <div class="d-flex align-items-center"> {# Группа для счетчика и кнопки #}
+                        <div class="d-flex align-items-center">
                             <span class="vote-count" title="Текущее количество голосов">
                                 <i class="bi bi-hand-thumbs-up-fill"></i> {{ deck.votes }}
                             </span>
                             <form class="vote-form" action="{{ url_for('vote_deck') }}" method="post" style="margin-bottom: 0;">
                                 <input type="hidden" name="subfolder" value="{{ deck.subfolder }}">
-                                <button type="submit" class="btn btn-sm btn-outline-success">Голосовать</button>
+                                {# Изменяем текст и состояние кнопки, если за эту колоду уже проголосовали #}
+                                <button type="submit" class="btn btn-sm {% if deck.subfolder == current_vote %}btn-success{% else %}btn-outline-success{% endif %}">
+                                    {% if deck.subfolder == current_vote %}
+                                        <i class="bi bi-check-lg"></i> Выбрано
+                                    {% else %}
+                                        Голосовать
+                                    {% endif %}
+                                </button>
                             </form>
                         </div>
                     </div>
@@ -100,10 +140,10 @@
              <a href="{{ url_for('login') }}">Войти как администратор</a>
         </div>
 
-    </div> {# Конец container #}
+    </div> {# Конец content-wrapper #}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    {# --- Скрипт смены темы --- #}
+    {# --- Скрипт смены темы (ваш существующий) --- #}
     <script>
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
