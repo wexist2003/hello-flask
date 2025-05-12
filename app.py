@@ -175,6 +175,27 @@ def set_game_over(state=True):
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
+def get_current_leader_id():
+    """Возвращает ID текущего ведущего из настроек или None."""
+    try:
+        db = get_db() # Используем существующую get_db для получения соединения
+        c = db.cursor()
+        c.execute("SELECT value FROM settings WHERE key = 'current_leader_id'")
+        row = c.fetchone()
+        if row and row['value'] is not None:
+            try:
+                return int(row['value'])
+            except ValueError:
+                print(f"Ошибка: значение current_leader_id в БД не является числом: {row['value']}")
+                return None
+        return None # Если ключ не найден или значение пустое
+    except sqlite3.Error as e:
+        print(f"Ошибка базы данных в get_current_leader_id: {e}")
+        return None
+    except Exception as e_gen: # Ловим другие возможные ошибки
+        print(f"Неожиданная ошибка в get_current_leader_id: {e_gen}")
+        return None
+        
 def get_setting(key):
     try:
         db = get_db()
@@ -958,48 +979,32 @@ def start_new_game():
 def user(code):
     db = get_db()
     c = db.cursor()
-    # Загружаем пользователя по коду
     c.execute("SELECT * FROM users WHERE code = ?", (code,))
-    g.user = c.fetchone() # Записываем пользователя в g
+    g.user = c.fetchone()
 
     if g.user is None:
-        # Пользователь не найден или сессия недействительна (например, по прямой ссылке с неверным кодом)
-        
-        # --- НОВОЕ: Очищаем потенциально "сломанную" сессию игрока ---
         session.pop('user_id', None)
         session.pop('user_name', None)
         session.pop('user_code', None)
-        # Флаг 'has_registered_player' можно оставить, т.к. он больше про ограничение регистрации новых,
-        # но если хотите полного сброса для возможности "перерегистрации" из этой сессии, можно и его:
-        # session.pop('has_registered_player', None) 
-        # --- КОНЕЦ НОВОГО ---
-
+        # session.pop('has_registered_player', None) # Опционально, если нужно сбрасывать для перерегистрации
         flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
-        return redirect(url_for('login_player')) # Перенаправляем на страницу входа/регистрации игрока
+        return redirect(url_for('login_player'))
 
-    # Если пользователь найден (g.user существует):
-    # Обновляем данные в сессии, если они не совпадают с данными из g.user 
-    # (на случай, если в сессии старые данные, а пользователь вошел по прямой ссылке с правильным кодом)
+    # Обновляем данные в сессии, если они не совпадают
     if session.get('user_id') != g.user['id'] or session.get('user_code') != g.user['code']:
         session['user_id'] = g.user['id']
         session['user_name'] = g.user['name']
         session['user_code'] = g.user['code']
-        session.pop('is_admin', None) # Убедимся, что нет флага админа, если это не админ
-        # Флаг 'has_registered_player' можно тоже установить, если его нет,
-        # так как пользователь успешно аутентифицирован.
-        if not session.get('has_registered_player'):
+        session.pop('is_admin', None)
+        if not session.get('has_registered_player'): # Если пользователь успешно вошел по коду, но флага нет
              session['has_registered_player'] = True
 
-
-    # Получаем текущую активную колоду
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
 
-    # Получаем информацию о том, показывать ли картинки для угадывания
     show_card_info_row = c.execute("SELECT value FROM settings WHERE key = 'show_card_info'").fetchone()
-    show_card_info = show_card_info_row['value'] == 'True' if show_card_info_row else False # По умолчанию False
+    show_card_info = show_card_info_row['value'] == 'True' if show_card_info_row else False
 
-    # Загружаем карты пользователя
     user_cards = []
     if active_subfolder:
         c.execute("""
@@ -1008,7 +1013,6 @@ def user(code):
         """, (g.user['id'], active_subfolder))
         user_cards = c.fetchall()
 
-    # Загружаем карты на столе (те, что пользователи выложили для угадывания)
     table_cards_raw = []
     if active_subfolder:
         c.execute("""
@@ -1018,35 +1022,29 @@ def user(code):
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
     
-    # Преобразуем карты на столе для удобства в шаблоне
     table_cards = []
-    for card in table_cards_raw:
-        # Проверяем, делал ли текущий пользователь предположение по этой карте
-        c.execute("SELECT guessed_user_id FROM guesses WHERE image_id = ? AND guessing_user_id = ?", (card['id'], g.user['id']))
+    for card_row in table_cards_raw: # Изменено имя переменной для ясности
+        c.execute("SELECT guessed_user_id FROM guesses WHERE image_id = ? AND guessing_user_id = ?", (card_row['id'], g.user['id']))
         guess_for_this_card = c.fetchone()
         
         table_cards.append({
-            'id': card['id'],
-            'image': card['image'],
-            'subfolder': card['subfolder'],
-            'owner_id': card['owner_id'], # ID владельца карты (кто ее выложил)
-            'owner_name': card['owner_name'], # Имя владельца карты
-            'has_guessed': True if guess_for_this_card else False, # Сделал ли текущий юзер предположение
+            'id': card_row['id'],
+            'image': card_row['image'],
+            'subfolder': card_row['subfolder'],
+            'owner_id': card_row['owner_id'],
+            'owner_name': card_row['owner_name'],
+            'has_guessed': True if guess_for_this_card else False,
             'guessed_user_id': guess_for_this_card['guessed_user_id'] if guess_for_this_card else None
         })
 
-    # Загружаем всех пользователей для формы угадывания, кроме текущего
     c.execute("SELECT id, name FROM users WHERE id != ?", (g.user['id'],))
     other_users = c.fetchall()
     
-    # Загружаем информацию о ведущем
-    current_leader_id = get_current_leader_id()
-    is_leader = (g.user['id'] == current_leader_id)
+    current_leader_id = get_current_leader_id() # Теперь функция определена
+    is_leader = (g.user['id'] == current_leader_id) if current_leader_id is not None else False
 
-    # --- ДОДАНО: Завантаження даних для Ігрового Поля Користувача ---
     all_users_for_board_query = c.execute("SELECT id, name, rating FROM users").fetchall()
     game_board_data = generate_game_board_data_for_display(all_users_for_board_query)
-    # --- Кінець додавання ---
 
     return render_template('user.html', 
                            user_name=g.user['name'], 
@@ -1057,12 +1055,12 @@ def user(code):
                            other_users=other_users,
                            show_card_info=show_card_info,
                            is_leader=is_leader,
-                           game_board=game_board_data, # <--- Додано
-                           get_user_name_func=get_user_name, # <--- Додано
-                           current_num_board_cells=_current_game_board_num_cells # <--- Додано
+                           game_board=game_board_data,
+                           get_user_name_func=get_user_name,
+                           current_num_board_cells=_current_game_board_num_cells
                            )
 
-
+        
 # Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
 # Я не буду їх дублювати тут, оскільки вони вже є у вашому файлі app.py,
 # і ви просили внести правки саме по ігровому полю.
