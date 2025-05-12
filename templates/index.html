@@ -4,41 +4,44 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ИМАДЖИНАРИУМ</title>
+    <title>Выбор колоды</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         body {
             /* Фоновое изображение */
-            background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Укажите ваш файл! */
-            /* --- ИЗМЕНЕНО: Масштабирование фона --- */
-            background-size: contain; /* Масштабировать, чтобы все изображение было видно */
+            /* --- ИЗМЕНЕНО: Имя файла фона --- */
+            background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Используем a.jpg */
+            background-size: contain; 
             background-position: center center;
-            background-repeat: no-repeat; /* Не повторять фон */
+            background-repeat: no-repeat;
             background-attachment: fixed;
-            padding-top: 2rem; 
-            padding-bottom: 2rem; 
-            min-height: 100vh;
-            /* Если фон не покрывает все из-за contain, можно задать цвет фона страницы */
-            background-color: var(--bs-body-bg); /* Цвет фона будет виден там, где нет картинки */
+            background-color: var(--bs-body-bg); 
+            min-height: 100vh; 
+            /* --- НОВОЕ: Центрирование содержимого --- */
+            display: flex;
+            align-items: center; /* Вертикальное центрирование */
+            justify-content: center; /* Горизонтальное центрирование */
+            padding-top: 2rem; /* Оставляем отступы на случай очень маленького экрана */
+            padding-bottom: 2rem;
         }
         .content-wrapper { 
             background-color: transparent; 
             border-radius: 0.5rem;
             max-width: 720px; 
-            margin: auto;
+            width: 100%; /* Чтобы занимал доступную ширину в пределах max-width */
+            margin: auto; /* Дополнительно для центрирования */
         }
         .title-block {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.85); 
+            /* --- ИЗМЕНЕНО: Прозрачность фона --- */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.4); /* Прозрачность 40% */
             padding: 1.5rem;
             border-radius: 0.375rem;
             margin-bottom: 1.5rem; 
         }
-        /* --- ИЗМЕНЕНО: Размер шрифта заголовка --- */
         .title-block h2 {
-            font-size: 1rem; /* Bootstrap h2 = 2rem, уменьшено в 2 раза */
-             /* Можно убрать нижний отступ, если нужно */
-             margin-bottom: 0; 
+            font-size: 1rem; 
+            margin-bottom: 0; 
         }
 
         .deck-vote-item {
@@ -49,26 +52,23 @@
             border: 1px solid var(--bs-border-color-translucent);
             border-radius: 0.375rem; 
             margin-bottom: 0.75rem;
-            background-color: rgba(var(--bs-secondary-bg-rgb), 0.8); 
+            /* --- ИЗМЕНЕНО: Прозрачность фона --- */
+            background-color: rgba(var(--bs-secondary-bg-rgb), 0.4); /* Прозрачность 40% */
             transition: all 0.2s ease-in-out; 
         }
-        /* --- ИЗМЕНЕНО: Размер шрифта имени колоды --- */
         .deck-info span {
-            font-size: 1.65rem; /* 1.1rem * 1.5 */
+            font-size: 1.65rem; 
             font-weight: 500; 
         }
-        /* --- ИЗМЕНЕНО: Размер шрифта счетчика голосов --- */
         .vote-count {
-            font-size: 1.5rem; /* 1rem * 1.5 */
+            font-size: 1.5rem; 
             font-weight: bold;
             color: var(--bs-primary); 
             margin-right: 1rem; 
         }
-         /* --- ИЗМЕНЕНО: Размер шрифта кнопки --- */
         .vote-form button {
-            font-size: 1.35rem; /* 0.9rem * 1.5 */
-            /* Может потребоваться увеличить padding кнопки для комфорта */
-             padding: 0.3rem 0.6rem; 
+            font-size: 1.35rem; 
+            padding: 0.3rem 0.6rem; 
         }
         .deck-vote-item.voted-for { 
             border-color: var(--bs-success); 
@@ -79,10 +79,17 @@
         }
         
         .theme-toggle-button {
-            position: fixed;
+            position: fixed; /* Оставляем кнопку фиксированной */
             top: 1rem;
             right: 1rem;
             z-index: 1050;
+        }
+        .footer-links {
+             /* --- НОВОЕ: Фон для ссылок для читаемости --- */
+             background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Чуть менее прозрачный, чем форма */
+             padding: 0.5rem;
+             border-radius: 0.25rem;
+             margin-top: 1rem; /* Отступ от разделителя */
         }
         .footer-links a {
              color: var(--bs-emphasis-color); 
@@ -92,10 +99,17 @@
          .footer-links a:hover {
              text-decoration: underline;
         }
+        /* Опционально: Тень для текста для лучшей читаемости */
+        /* h2, .deck-info span, .vote-count { text-shadow: 0px 0px 3px rgba(0, 0, 0, 0.6); } */
+        /* html[data-bs-theme="dark"] h2, */
+        /* html[data-bs-theme="dark"] .deck-info span, */
+        /* html[data-bs-theme="dark"] .vote-count { text-shadow: 0px 0px 3px rgba(255, 255, 255, 0.4); } */
+
     </style>
 </head>
 
 <body>
+    {# Кнопка темы остается фиксированной справа вверху #}
     <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
         <i class="bi bi-circle-half"></i>
     </button>
@@ -103,9 +117,7 @@
     <div class="content-wrapper"> 
 
         <div class="title-block text-center">
-             {# --- Текст заголовка не менялся, шрифт изменен в CSS --- #}
             <h2>Выберите колоду, которой хотели бы сыграть</h2>
-             {# Строка "(Если передумаете...)" удалена #}
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
