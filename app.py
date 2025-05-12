@@ -388,14 +388,16 @@ def login_player():
 
 @app.route('/register_or_login_player', methods=['POST'])
 def register_or_login_player():
-    """Обрабатывает ввод имени игрока: регистрирует нового или находит существующего."""
+    """
+    Обрабатывает ввод имени игрока: регистрирует нового (если разрешено для этой сессии) 
+    или находит существующего.
+    """
     player_name = request.form.get('name', '').strip()
 
     if not player_name:
         flash("Имя не может быть пустым.", "warning")
         return redirect(url_for('login_player'))
 
-    # Ограничение длины имени (опционально)
     if len(player_name) > 50:
         flash("Имя слишком длинное (максимум 50 символов).", "warning")
         return redirect(url_for('login_player'))
@@ -406,28 +408,39 @@ def register_or_login_player():
     user_id = None
 
     try:
-        # Ищем пользователя по имени (чувствительно к регистру)
+        # Ищем пользователя по имени
         c.execute("SELECT id, code FROM users WHERE name = ?", (player_name,))
         existing_user = c.fetchone()
 
         if existing_user:
-            # Пользователь найден
+            # Пользователь найден - просто впускаем
             user_id = existing_user['id']
             user_code = existing_user['code']
             print(f"PLAYER_LOGIN: Found existing user '{player_name}' with code '{user_code}'")
             flash(f"С возвращением, {player_name}!", "info")
         else:
-            # Пользователь не найден, регистрируем нового
+            # Пользователь НЕ найден - ПРОВЕРЯЕМ, можно ли регистрировать нового из этой сессии
+            if session.get('has_registered_player'):
+                # Если флаг в сессии уже есть, не даем регистрировать ЕЩЕ ОДНОГО НОВОГО
+                flash("С этого браузера уже был зарегистрирован игрок. Пожалуйста, войдите под существующим именем.", "warning")
+                print(f"PLAYER_REG_DENIED: Session already has 'has_registered_player' flag. Attempted name: '{player_name}'")
+                return redirect(url_for('login_player')) # Возвращаем на страницу ввода имени
+
+            # Флага нет - РЕГИСТРИРУЕМ НОВОГО пользователя
             print(f"PLAYER_LOGIN: Registering new user '{player_name}'")
             user_code = generate_unique_code()
             try:
                 c.execute("INSERT INTO users (name, code) VALUES (?, ?)", (player_name, user_code))
                 user_id = c.lastrowid
                 db.commit()
+                
+                # --- УСТАНАВЛИВАЕМ ФЛАГ В СЕССИИ ПОСЛЕ УСПЕШНОЙ РЕГИСТРАЦИИ ---
+                session['has_registered_player'] = True 
+                # --- Конец установки флага ---
+
                 print(f"PLAYER_LOGIN: User '{player_name}' registered with code '{user_code}' and ID {user_id}")
                 flash(f"Добро пожаловать, {player_name}! Ваша уникальная ссылка создана.", "success")
             except sqlite3.IntegrityError:
-                # Очень маловероятно, если generate_unique_code хороший, но обработаем
                 db.rollback()
                 flash("Произошла ошибка при регистрации (возможно, код не уникален). Попробуйте еще раз.", "danger")
                 print(f"PLAYER_LOGIN_ERROR: IntegrityError during registration for '{player_name}'")
@@ -440,16 +453,15 @@ def register_or_login_player():
 
         # Если есть код пользователя (новый или существующий)
         if user_code:
-            # Устанавливаем сессию для пользователя (опционально, но полезно)
+            # Устанавливаем основную информацию пользователя в сессию
             session['user_id'] = user_id
             session['user_name'] = player_name
             session['user_code'] = user_code
-            session.pop('is_admin', None) # Убедимся, что нет флага админа
+            session.pop('is_admin', None) 
 
             # Перенаправляем на страницу пользователя
             return redirect(url_for('user', code=user_code))
         else:
-            # Сюда не должны попасть, если логика верна
             flash("Произошла неизвестная ошибка.", "danger")
             return redirect(url_for('login_player'))
 
