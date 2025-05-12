@@ -20,31 +20,27 @@
             background-color: var(--bs-body-bg);
             min-height: 100vh;
             display: flex;
-            flex-direction: column; /* Главное направление - колонка */
-            /* align-items: center; */ /* Убираем отсюда, т.к. каждый блок будет центрироваться сам */
-            padding: 0; /* Убираем padding с body, он будет у оберток */
+            flex-direction: column; 
+            /* align-items: center убран, т.к. main-content-area 100% ширины */
+            padding: 0; 
         }
-
-        /* --- НОВАЯ ОБЕРТКА для основного контента --- */
         .main-content-area {
-            flex-grow: 1; /* Занимает все доступное пространство, отталкивая футер */
+            flex-grow: 1; 
             display: flex;
-            flex-direction: column; /* Чтобы .content-wrapper был в потоке */
-            align-items: center;    /* Центрирует .content-wrapper по горизонтали */
-            justify-content: center;/* Центрирует .content-wrapper по вертикали */
+            flex-direction: column; 
+            align-items: center;    
+            justify-content: center;
             width: 100%;
-            padding: 1rem; /* Отступы для контента */
+            padding: 1rem; 
         }
-        /* --- КОНЕЦ НОВОЙ ОБЕРТКИ --- */
-
         .content-wrapper {
             background-color: transparent;
             border-radius: 0.5rem;
-            width: 100%;
-            max-width: 600px;
-            /* margin-left и margin-right auto НЕ НУЖНЫ, т.к. родитель центрирует по горизонтали */
-            /* --- УБИРАЕМ margin-top, т.к. родитель центрирует по вертикали --- */
-            /* margin-top: 10vh; */ 
+            width: 80vw; 
+            max-width: 600px; 
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 10vh; /* Оставляем смещение для десктопа */
         }
         .title-block {
             background-color: rgba(var(--bs-body-bg-rgb), 0.4);
@@ -56,7 +52,6 @@
             font-size: 1.5rem; 
             margin-bottom: 0;
         }
-
         .deck-vote-item {
             display: flex;
             justify-content: space-between;
@@ -90,7 +85,6 @@
         .deck-vote-item.voted-for button {
             opacity: 0.7;
         }
-
         .theme-toggle-button {
             position: fixed;
             top: 1rem;
@@ -102,9 +96,8 @@
              max-width: 600px; 
              margin-left: auto;  
              margin-right: auto; 
-             /* margin-top: auto; */ /* Больше не нужен, т.к. main-content-area отталкивает */
-             padding: 0 1rem 1rem 1rem; /* Добавляем отступы, чтобы не прилипал к низу */
-             flex-shrink: 0; /* Чтобы футер не сжимался */
+             padding: 0 1rem 1rem 1rem; 
+             flex-shrink: 0; 
         }
         .footer-links {
              padding: 0.5rem 0; 
@@ -119,7 +112,14 @@
              border-radius: 0.25rem;
              text-decoration: none;
              font-weight: 500;
+             /* --- НОВОЕ: Для попытки выравнивания текста внутри ссылки/кнопки --- */
+             display: inline-block; /* Чтобы text-align сработал */
+             /* width: auto; */ /* Ширина по контенту */
         }
+        .footer-links a.admin-link {
+             /* Класс для админской ссылки, если нужно больше контроля */
+        }
+
          .footer-links a:hover {
              background-color: rgba(var(--bs-emphasis-color-rgb), 0.8);
              text-decoration: none;
@@ -129,6 +129,26 @@
         /* html[data-bs-theme="dark"] h2, */
         /* html[data-bs-theme="dark"] .deck-info span, */
         /* html[data-bs-theme="dark"] .vote-count { text-shadow: 0px 0px 3px rgba(255, 255, 255, 0.4); } */
+
+        /* --- НОВОЕ: Медиа-запрос для мобильных --- */
+        @media (max-width: 767.98px) {
+            .content-wrapper {
+                margin-top: 5vh; /* Уменьшаем верхний отступ для мобильных */
+                width: 95vw; /* Можно сделать чуть шире на мобильных */
+                max-width: none; /* Убираем ограничение по макс. ширине */
+            }
+            .footer-container {
+                 max-width: none; /* Убираем ограничение по макс. ширине */
+            }
+             /* Уменьшаем шрифты на мобильных для лучшего вида */
+            .title-block h2 { font-size: 1.2rem; }
+            .deck-info span { font-size: 1.1rem; }
+            .vote-count { font-size: 1rem; }
+            .vote-form button { font-size: 0.9rem; }
+            .footer-links a { font-size: 0.9rem; padding: 0.25rem 0.6rem;}
+
+        }
+
     </style>
 </head>
 
@@ -137,13 +157,12 @@
         <i class="bi bi-circle-half"></i>
     </button>
 
-    {# --- НОВАЯ ОБЕРТКА для основного контента --- #}
     <div class="main-content-area">
         <div class="content-wrapper"> 
-            <div class="title-block text-center">
+            {# Содержимое без изменений #}
+             <div class="title-block text-center">
                 <h2>Выберите колоду, которой хотели бы сыграть</h2>
             </div>
-
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
@@ -156,7 +175,6 @@
                     </div>
                 {% endif %}
             {% endwith %}
-
             <div class="deck-list">
                 {% if deck_votes %}
                     {% set current_vote = session.get('voted_for_deck') %} 
@@ -189,20 +207,19 @@
         </div> {# Конец content-wrapper #}
     </div> {#  Конец main-content-area #}
 
-
-    {# --- НИЖНИЕ ССЫЛКИ --- #}
     <div class="footer-container">
         <div class="footer-links">
             <a href="{{ url_for('login_player') }}">Войти как игрок</a>
-            <a href="{{ url_for('login') }}">Войти как администратор</a>
+            {# --- ИЗМЕНЕНО: Добавлен класс text-end для выравнивания текста --- #}
+            <a href="{{ url_for('login') }}" class="admin-link text-end">Войти как администратор</a>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     {# --- Скрипт смены темы (без изменений) --- #}
     <script>
-        (function() { /* ... код скрипта без изменений ... */ 
-            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        (function() { /* ... код скрипта ... */ 
+             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
             const storageKey = 'userThemePreference';
 
