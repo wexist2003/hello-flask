@@ -69,8 +69,6 @@ def index():
     db = get_db()
     c = db.cursor()
     try:
-        # Получаем все уникальные колоды из таблицы images
-        # и их голоса из таблицы deck_votes (если есть, иначе 0)
         c.execute('''
             SELECT
                 i.subfolder,
@@ -78,17 +76,21 @@ def index():
             FROM (SELECT DISTINCT subfolder FROM images ORDER BY subfolder) as i
             LEFT JOIN deck_votes as dv ON i.subfolder = dv.subfolder;
         ''')
-        deck_votes_data = c.fetchall() # Получаем список sqlite3.Row
-        # Преобразуем в список словарей для удобства в шаблоне (опционально, но рекомендуется)
+        deck_votes_data = c.fetchall() 
         deck_votes_data = [dict(row) for row in deck_votes_data]
 
     except sqlite3.Error as e:
         print(f"Ошибка чтения данных для голосования на стартовой странице: {e}")
         flash(f"Не удалось загрузить данные о колодах: {e}", "danger")
-        deck_votes_data = [] # Отправляем пустой список при ошибке
+        deck_votes_data = [] 
 
-    # Рендерим HTML-шаблон, передавая данные о голосовании
-    return render_template("index.html", deck_votes=deck_votes_data)
+    # Получаем текущий голос пользователя из сессии
+    current_vote = session.get('voted_for_deck') 
+
+    # Рендерим HTML-шаблон, передавая данные о голосовании и текущий голос пользователя
+    return render_template("index.html", 
+                           deck_votes=deck_votes_data, 
+                           current_vote=current_vote) # <--- Добавлено
     
 # --- Инициализация БД ---
 def init_db():
@@ -381,29 +383,53 @@ app.jinja_env.globals.update(
 
 @app.route('/vote_deck', methods=['POST'])
 def vote_deck():
-    """Обрабатывает голос за выбранную колоду."""
-    subfolder_to_vote = request.form.get('subfolder')
+    """Обрабатывает голос за выбранную колоду, отменяя предыдущий голос пользователя."""
+    new_deck = request.form.get('subfolder')
+    previous_deck = session.get('voted_for_deck') # Получаем предыдущий голос из сессии
 
-    if not subfolder_to_vote:
+    if not new_deck:
         flash("Ошибка: Колода для голосования не была выбрана.", "warning")
+        return redirect(url_for('index'))
+
+    # Если пользователь голосует за ту же колоду, ничего не делаем
+    if new_deck == previous_deck:
+        flash(f"Вы уже голосовали за колоду '{new_deck}'.", "info")
         return redirect(url_for('index'))
 
     db = get_db()
     c = db.cursor()
     try:
-        # Сначала убедимся, что запись для колоды существует (или создаем с 0 голосов)
-        # INSERT OR IGNORE безопасен, если запись уже есть, он ничего не сделает
-        c.execute("INSERT OR IGNORE INTO deck_votes (subfolder, votes) VALUES (?, 0)", (subfolder_to_vote,))
+        # Начинаем транзакцию (хотя для SQLite это не так критично, как для других БД)
 
-        # Теперь увеличиваем счетчик голосов
-        c.execute("UPDATE deck_votes SET votes = votes + 1 WHERE subfolder = ?", (subfolder_to_vote,))
+        # 1. Уменьшаем счетчик для предыдущей колоды, если она была
+        if previous_deck:
+             # Используем MAX(0, votes - 1), чтобы счетчик не стал отрицательным
+             c.execute("UPDATE deck_votes SET votes = MAX(0, votes - 1) WHERE subfolder = ?", (previous_deck,))
+             print(f"DEBUG_VOTE: Decremented vote for '{previous_deck}'") # Отладка
 
-        db.commit()
-        flash(f"Ваш голос за колоду '{subfolder_to_vote}' учтен!", "success")
+        # 2. Увеличиваем счетчик для новой колоды
+        # Убедимся, что запись для новой колоды существует
+        c.execute("INSERT OR IGNORE INTO deck_votes (subfolder, votes) VALUES (?, 0)", (new_deck,))
+        # Увеличиваем счетчик
+        c.execute("UPDATE deck_votes SET votes = votes + 1 WHERE subfolder = ?", (new_deck,))
+        print(f"DEBUG_VOTE: Incremented vote for '{new_deck}'") # Отладка
+
+        db.commit() # Фиксируем изменения
+
+        # 3. Сохраняем новый выбор в сессию
+        session['voted_for_deck'] = new_deck
+        print(f"DEBUG_VOTE: Session updated. voted_for_deck = '{new_deck}'") # Отладка
+
+        flash(f"Ваш голос за колоду '{new_deck}' учтен!", "success")
+
     except sqlite3.Error as e:
         db.rollback() # Откатываем изменения при ошибке
-        print(f"Ошибка записи голоса за колоду '{subfolder_to_vote}': {e}")
+        print(f"Ошибка записи голоса (с отменой) за колоду '{new_deck}': {e}")
         flash(f"Не удалось учесть голос: {e}", "danger")
+    except Exception as e_general: # Ловим другие возможные ошибки
+         print(f"Неожиданная ошибка при голосовании: {e_general}")
+         flash("Произошла непредвиденная ошибка при голосовании.", "danger")
+
 
     return redirect(url_for('index')) # Возвращаемся на стартовую страницу
     
