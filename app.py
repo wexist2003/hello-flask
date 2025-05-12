@@ -893,11 +893,12 @@ def start_new_game():
         flash("Колода для новой игры не выбрана.", "danger")
         return redirect(url_for('admin'))
     print(f"--- Начало новой игры с колодой: {selected_deck}, карт на игрока: {num_cards_per_player} ---")
-    new_leader_id_sng = None # Змінено new_leader_id
+    new_leader_id_sng = None 
     try:
         print("Сброс рейтингов...")
         c.execute("UPDATE users SET rating = 0")
         print("Сброс состояния карт...")
+        # Устанавливаем owner_id в NULL перед тем как пометить неактивные, на всякий случай
         c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ'")
         c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_deck,))
         print("Сброс настроек игры...")
@@ -914,15 +915,14 @@ def start_new_game():
             set_leading_user_id(None) 
             print("Пользователи не найдены, ведущий не назначен.")
         
-        # --- ДОДАНО: Ініціалізація ігрового поля ---
         c.execute("SELECT id, name, rating FROM users") 
-        all_users_for_board_init_sng = c.fetchall() # Змінено all_users_for_board_init
+        all_users_for_board_init_sng = c.fetchall() 
         initialize_new_game_board_visuals(all_users_for_rating_check=all_users_for_board_init_sng)
-        # --- Кінець додавання ---
+        
+        db.commit() # Коммит после сброса и инициализации
 
-        db.commit() 
         c.execute("SELECT id FROM users ORDER BY id")
-        user_ids_sng = [row['id'] for row in c.fetchall()] # Змінено user_ids
+        user_ids_sng = [row['id'] for row in c.fetchall()] 
         num_users = len(user_ids_sng)
         num_total_dealt = 0
         if not user_ids_sng:
@@ -938,17 +938,19 @@ def start_new_game():
                  flash(f"Внимание: Недостаточно свободных карт ({num_available}) в колоде '{selected_deck}' для раздачи по {num_cards_per_player} шт. всем {num_users} игрокам.", "warning")
             
             card_index = 0
-            for user_id_sng_deal in user_ids_sng: # Змінено user_id
+            for user_id_sng_deal in user_ids_sng: 
                 cards_dealt_to_user = 0
                 for _ in range(num_cards_per_player):
                     if card_index < num_available:
-                        card_id_sng_deal = available_cards_ids[card_index] # Змінено card_id
-                        c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{user_id_sng_deal}", card_id_sng_deal))
+                        card_id_sng_deal = available_cards_ids[card_index] 
+                        # --- ИСПРАВЛЕНО: Обновляем и статус, и owner_id ---
+                        c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", 
+                                  (f"Занято:{user_id_sng_deal}", user_id_sng_deal, card_id_sng_deal))
+                        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                         card_index += 1
                         cards_dealt_to_user += 1
                     else:
                         break 
-                # ВИПРАВЛЕНО ВІДСТУПИ ДЛЯ ЦИХ РЯДКІВ:
                 print(f"  Пользователю ID {user_id_sng_deal} роздано карт: {cards_dealt_to_user}")
                 num_total_dealt += cards_dealt_to_user
                 if card_index >= num_available:
@@ -957,9 +959,9 @@ def start_new_game():
             flash(f"Новая игра начата! Колода: '{selected_deck}'. Роздано карт: {num_total_dealt}.", "success")
             if new_leader_id_sng:
                 flash(f"Ведущий назначен: {get_user_name(new_leader_id_sng)}.", "info")
-        db.commit() 
+        
+        db.commit() # Коммит после раздачи карт
         print("--- Новая игра успешно начата и карты розданы ---")
-    # ВИПРАВЛЕНО ВІДСТУПИ ДЛЯ БЛОКІВ EXCEPT ТА RETURN:
     except sqlite3.Error as e:
         db.rollback()
         flash(f"Ошибка базы данных при начале новой игры: {e}", "danger")
@@ -968,7 +970,11 @@ def start_new_game():
         db.rollback()
         flash(f"Непредвиденная ошибка при начале новой игры: {e}", "danger")
         print(f"Unexpected error during start_new_game: {e}")
+        print(traceback.format_exc()) # Добавлено для отладки непредвиденных ошибок
+        
     return redirect(url_for('admin', displayed_leader_id=new_leader_id_sng))
+
+
     
 @app.route('/user/<code>')
 def user(code):
