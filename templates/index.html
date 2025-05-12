@@ -21,26 +21,24 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: 0; /* Убираем padding с body */
+            padding: 0;
         }
 
-        /* Контейнер для основного контента */
         .main-content-area {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* Центрирует .content-wrapper по вертикали */
+            justify-content: center;
             width: 100%;
-            padding: 1rem; /* Отступы для контента */
+            padding: 1rem;
         }
 
-        /* Основной блок с голосованием */
         .content-wrapper {
             background-color: transparent;
             border-radius: 0.5rem;
-             /* --- ИЗМЕНЕНО: Ширина для ПК (возвращаем max-width) --- */
-            width: 80vw;       /* 80% ширины окна */
+             /* --- ИЗМЕНЕНО: Ширина для ПК --- */
+            width: 70vw;       /* 70% ширины окна */
             max-width: 600px;  /* НО не шире 600px */
             margin-left: auto;
             margin-right: auto;
@@ -106,11 +104,9 @@
             z-index: 1050;
         }
 
-        /* Контейнер для ссылок внизу */
         .footer-container {
              width: 100%;
-             /* --- Синхронизируем max-width с content-wrapper для ПК --- */
-             max-width: 600px; /* Возвращаем 600px */
+             max-width: 600px; /* Оставляем 600px, как у content-wrapper */
              margin-left: auto;
              margin-right: auto;
              padding: 0 1rem 1rem 1rem;
@@ -132,7 +128,7 @@
              display: inline-block;
         }
          .footer-links a.admin-link {
-             /* Дополнительные стили для админской ссылки */
+             /* Дополнительные стили */
          }
          .footer-links a:hover {
              background-color: rgba(var(--bs-emphasis-color-rgb), 0.8);
@@ -257,7 +253,7 @@
                 applyTheme(defaultTheme);
             } catch (e) {
                 console.error('Error applying initial theme:', e);
-                applyTheme('light'); // Fallback to light theme on error
+                applyTheme('light');
             }
         })();
     </script>
