@@ -1151,7 +1151,6 @@ def place_card(code, image_id):
     return redirect(url_for('user', code=code))
 
 @app.route("/admin/open_cards", methods=["POST"])
-@login_required # Убедитесь, что этот декоратор или проверка сессии есть
 def open_cards():
     if not session.get('is_admin'):
         flash('Доступ запрещен.', 'danger')
