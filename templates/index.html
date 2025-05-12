@@ -11,42 +11,38 @@
         body {
             /* Фоновое изображение */
             background-image: url("{{ url_for('static', filename='images/a.jpg') }}"); /* Убедитесь, что путь верен */
-            background-size: contain; 
+            background-size: contain;
             background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            background-color: var(--bs-body-bg); 
-            min-height: 100vh; 
-            /* --- ИЗМЕНЕНО: Центрирование и отступ --- */
+            background-color: var(--bs-body-bg);
+            min-height: 100vh;
+            /* --- ИЗМЕНЕНО: Возвращаем центрирование Flexbox --- */
             display: flex;
-            /* align-items: center; */ /* Убираем вертикальное центрирование */
-            justify-content: center; /* Оставляем горизонтальное центрирование */
-            padding-top: 15vh; /* Сдвигаем контент вниз на 15% высоты окна */
-            padding-bottom: 5vh; /* Немного отступа снизу */
-            padding-left: 1rem; /* Небольшие боковые отступы */
-            padding-right: 1rem;
+            align-items: center; /* Вертикальное центрирование */
+            justify-content: center; /* Горизонтальное центрирование */
+            padding: 2rem 1rem; /* Достаточно базовых отступов */
         }
-        .content-wrapper { 
-            background-color: transparent; 
+        .content-wrapper {
+            background-color: transparent;
             border-radius: 0.5rem;
-            /* --- ИЗМЕНЕНО: Ширина блока --- */
-            width: 80vw; /* 80% от ширины окна */
-            max-width: 800px; /* Ограничение максимальной ширины */
-            margin-left: auto;  /* Центрирование блока по горизонтали */
-            margin-right: auto; 
-            /* margin-top: auto; */ /* Убираем автоматический верхний отступ */
-            /* margin-bottom: auto; */ /* Убираем автоматический нижний отступ */
+             /* --- ИЗМЕНЕНО: Ширина формы --- */
+            width: 100%; /* Занимать доступную ширину */
+            max-width: 600px; /* Но не шире 600px */
+            margin-left: auto;
+            margin-right: auto;
+            /* --- НОВОЕ: Сдвиг вниз от центра --- */
+            margin-top: 10vh; /* Смещаем вниз на 10% высоты окна */
         }
         .title-block {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.4); 
+            background-color: rgba(var(--bs-body-bg-rgb), 0.4);
             padding: 1.5rem;
             border-radius: 0.375rem;
-            margin-bottom: 1.5rem; 
+            margin-bottom: 1.5rem;
         }
-        /* --- ИЗМЕНЕНО: Размер шрифта заголовка --- */
         .title-block h2 {
-            font-size: 1.5rem; /* 1rem * 1.5 */
-            margin-bottom: 0; 
+            font-size: 1.5rem; /* Оставляем увеличенный шрифт */
+            margin-bottom: 0;
         }
 
         .deck-vote-item {
@@ -55,48 +51,48 @@
             align-items: center;
             padding: 0.75rem 1rem;
             border: 1px solid var(--bs-border-color-translucent);
-            border-radius: 0.375rem; 
+            border-radius: 0.375rem;
             margin-bottom: 0.75rem;
-            background-color: rgba(var(--bs-secondary-bg-rgb), 0.4); 
-            transition: all 0.2s ease-in-out; 
+            background-color: rgba(var(--bs-secondary-bg-rgb), 0.4);
+            transition: all 0.2s ease-in-out;
         }
-        /* --- Шрифты элементов голосования (уже увеличены в 1.5 раза) --- */
+        /* --- Шрифты элементов голосования (оставляем увеличенными) --- */
         .deck-info span {
-            font-size: 1.65rem; 
-            font-weight: 500; 
+            font-size: 1.65rem;
+            font-weight: 500;
         }
         .vote-count {
-            font-size: 1.5rem; 
+            font-size: 1.5rem;
             font-weight: bold;
-            color: var(--bs-primary); 
-            margin-right: 1rem; 
+            color: var(--bs-primary);
+            margin-right: 1rem;
         }
         .vote-form button {
-            font-size: 1.35rem; 
-            padding: 0.3rem 0.6rem; 
+            font-size: 1.35rem;
+            padding: 0.3rem 0.6rem;
         }
-        .deck-vote-item.voted-for { 
-            border-color: var(--bs-success); 
-            box-shadow: 0 0 0 0.20rem rgba(var(--bs-success-rgb), 0.25); 
+        .deck-vote-item.voted-for {
+            border-color: var(--bs-success);
+            box-shadow: 0 0 0 0.20rem rgba(var(--bs-success-rgb), 0.25);
         }
         .deck-vote-item.voted-for button {
-            opacity: 0.7; 
+            opacity: 0.7;
         }
-        
+
         .theme-toggle-button {
-            position: fixed; 
+            position: fixed;
             top: 1rem;
             right: 1rem;
             z-index: 1050;
         }
         .footer-links {
-             background-color: rgba(var(--bs-body-bg-rgb), 0.6); 
+             background-color: rgba(var(--bs-body-bg-rgb), 0.6);
              padding: 0.5rem;
              border-radius: 0.25rem;
-             margin-top: 1rem; 
+             margin-top: 1rem;
         }
         .footer-links a {
-             color: var(--bs-emphasis-color); 
+             color: var(--bs-emphasis-color);
              text-decoration: none;
              font-weight: 500;
         }
@@ -116,7 +112,7 @@
         <i class="bi bi-circle-half"></i>
     </button>
 
-    <div class="content-wrapper"> 
+    <div class="content-wrapper">
 
         <div class="title-block text-center">
             <h2>Выберите колоду, которой хотели бы сыграть</h2>
@@ -124,7 +120,7 @@
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;"> 
+                <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
                     {% for category, message in messages %}
                       <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
                         {{ message }}
@@ -135,9 +131,9 @@
             {% endif %}
         {% endwith %}
 
-        <div class="deck-list"> 
+        <div class="deck-list">
             {% if deck_votes %}
-                {% set current_vote = session.get('voted_for_deck') %} 
+                {% set current_vote = session.get('voted_for_deck') %}
                 {% for deck in deck_votes %}
                     <div class="deck-vote-item {% if deck.subfolder == current_vote %}voted-for{% endif %}">
                         <div class="deck-info">
@@ -161,12 +157,12 @@
                     </div>
                 {% endfor %}
             {% else %}
-                <p class="text-center text-muted bg-light p-3 rounded">Доступные колоды не найдены или не удалось загрузить данные.</p> 
+                <p class="text-center text-muted bg-light p-3 rounded">Доступные колоды не найдены или не удалось загрузить данные.</p>
             {% endif %}
         </div>
 
         <hr class="my-4">
-        <div class="text-center footer-links"> 
+        <div class="text-center footer-links">
             <small class="d-block mb-2">Администратор может выбрать активную колоду независимо от голосования.</small>
              <a href="{{ url_for('login') }}">Войти как администратор</a>
         </div>
@@ -179,7 +175,7 @@
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
-            const storageKey = 'userThemePreference'; 
+            const storageKey = 'userThemePreference';
 
             const applyTheme = (theme) => {
                 htmlElement.setAttribute('data-bs-theme', theme);
@@ -198,7 +194,7 @@
             if (themeToggleBtn) {
                 themeToggleBtn.addEventListener('click', toggleTheme);
             }
-            
+
             try {
                 const savedTheme = localStorage.getItem(storageKey);
                 const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -206,7 +202,7 @@
                 applyTheme(defaultTheme);
             } catch (e) {
                 console.error('Error applying initial theme:', e);
-                applyTheme('light'); 
+                applyTheme('light');
             }
         })();
     </script>
