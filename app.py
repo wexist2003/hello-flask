@@ -175,26 +175,6 @@ def set_game_over(state=True):
 def generate_unique_code(length=8):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-def get_current_leader_id():
-    """Возвращает ID текущего ведущего из настроек или None."""
-    try:
-        db = get_db() # Используем существующую get_db для получения соединения
-        c = db.cursor()
-        c.execute("SELECT value FROM settings WHERE key = 'current_leader_id'")
-        row = c.fetchone()
-        if row and row['value'] is not None:
-            try:
-                return int(row['value'])
-            except ValueError:
-                print(f"Ошибка: значение current_leader_id в БД не является числом: {row['value']}")
-                return None
-        return None # Если ключ не найден или значение пустое
-    except sqlite3.Error as e:
-        print(f"Ошибка базы данных в get_current_leader_id: {e}")
-        return None
-    except Exception as e_gen: # Ловим другие возможные ошибки
-        print(f"Неожиданная ошибка в get_current_leader_id: {e_gen}")
-        return None
         
 def get_setting(key):
     try:
@@ -980,26 +960,21 @@ def start_new_game():
 def user(code):
     db = get_db()
     c = db.cursor()
-    # Загружаем пользователя по коду из URL
     c.execute("SELECT * FROM users WHERE code = ?", (code,))
-    g.user = c.fetchone() # Записываем пользователя в g.user
+    g.user = c.fetchone() 
 
     if g.user is None:
-        # Пользователь не найден по коду из URL или сессия недействительна
         session.pop('user_id', None)
-        session.pop('user_name', None)
+        session.pop('user_name', None) 
         session.pop('user_code', None)
         flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
         return redirect(url_for('login_player'))
 
-    # Пользователь НАЙДЕН (g.user существует)
-    # Принудительно обновляем ключевые данные пользователя в сессии из g.user (базы данных)
     session['user_id'] = g.user['id']
-    session['user_name'] = g.user['name']
-    session['user_code'] = g.user['code']
+    session['user_name'] = g.user['name'] 
+    session['user_code'] = g.user['code'] 
     session.pop('is_admin', None)
 
-    # --- Остальная логика функции ---
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
 
@@ -1016,7 +991,6 @@ def user(code):
 
     table_cards_raw = []
     if active_subfolder:
-        # --- ИЗМЕНЕНО: Добавляем i.guesses в запрос ---
         c.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
             FROM images i JOIN users u ON i.owner_id = u.id
@@ -1024,22 +998,17 @@ def user(code):
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
 
-    table_cards_for_template = []
+    table_cards_for_template = [] 
     on_table_status = False
     for card_row in table_cards_raw:
         if card_row['owner_id'] == g.user['id']:
             on_table_status = True
-
-        # --- ИЗМЕНЕНО: Парсим guesses и проверяем предположение текущего пользователя ---
         guesses_json_str = card_row['guesses'] or '{}'
         try:
             current_card_guesses_dict = json.loads(guesses_json_str)
         except json.JSONDecodeError:
             current_card_guesses_dict = {}
-
-        # Ключи в словаре guesses - это строковые ID пользователей
         my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
-        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         table_cards_for_template.append({
             'id': card_row['id'],
@@ -1047,24 +1016,39 @@ def user(code):
             'subfolder': card_row['subfolder'],
             'owner_id': card_row['owner_id'],
             'owner_name': card_row['owner_name'],
-            'guesses': current_card_guesses_dict, # Передаем распарсенный словарь в шаблон
-            # Следующие два поля могут быть полезны, если вы хотите явно знать
-            # сделал ли пользователь предположение и какое именно, не копаясь в словаре 'guesses' в шаблоне.
-            # Ваш шаблон user.html уже умеет работать со словарем 'guesses'.
+            'guesses': current_card_guesses_dict, 
             'has_guessed': my_guess_for_this_card_value is not None,
-            'guessed_user_id': my_guess_for_this_card_value # Будет None, если предположения не было
+            'guessed_user_id': my_guess_for_this_card_value 
         })
 
     c.execute("SELECT id, name FROM users WHERE id != ?", (g.user['id'],))
-    other_users_for_template = c.fetchall()
+    other_users_for_template = c.fetchall() 
 
-    current_leader_id = get_current_leader_id()
-    is_leader_status = (g.user['id'] == current_leader_id) if current_leader_id is not None else False
+    # --- ИЗМЕНЕНО: Используем get_leading_user_id() ---
+    leader_id_for_page = get_leading_user_id() 
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    
+    is_leader_status = (g.user['id'] == leader_id_for_page) if leader_id_for_page is not None else False
 
     all_users_for_board_query = c.execute("SELECT id, name, rating FROM users").fetchall()
     game_board_data = generate_game_board_data_for_display(all_users_for_board_query)
     
     current_board_cells_value = _current_game_board_num_cells
+
+    # Определяем ID ведущего для отображения в шаблоне
+    # (Ваша логика из user.html для показа предыдущего ведущего, если карты открыты)
+    leader_to_show = leader_id_for_page 
+    if show_card_info and leader_id_for_page is not None:
+        try:
+            c.execute("SELECT id FROM users ORDER BY id") 
+            user_ids_ordered = [row['id'] for row in c.fetchall()]
+            if user_ids_ordered:
+                current_leader_idx = user_ids_ordered.index(leader_id_for_page)
+                previous_leader_idx = (current_leader_idx - 1 + len(user_ids_ordered)) % len(user_ids_ordered)
+                leader_to_show = user_ids_ordered[previous_leader_idx]
+        except (sqlite3.Error, ValueError) as e_leader_logic:
+             print(f"Warning: Could not determine previous leader for display: {e_leader_logic}")
+             # Оставляем leader_to_show как текущего leader_id_for_page
 
     return render_template('user.html',
                            name=g.user['name'],
@@ -1074,12 +1058,13 @@ def user(code):
                            all_users=other_users_for_template,
                            code=code,
                            on_table=on_table_status,
-                           leader_for_display=current_leader_id,
-                           # g (включая g.user_id, g.show_card_info, g.game_over) доступен в шаблоне глобально
+                           leader_for_display=leader_to_show, # Используем leader_to_show
                            is_leader=is_leader_status,
                            game_board=game_board_data,
-                           # get_user_name_func и get_leading_user_id_func доступны глобально в Jinja
-                           current_num_board_cells=current_board_cells_value
+                           # Глобальные функции Jinja get_user_name_func и get_leading_user_id_func доступны
+                           current_num_board_cells=current_board_cells_value,
+                           # Передаем явно show_card_info, если шаблон его использует напрямую
+                           show_card_info=show_card_info 
                            )
     
         
