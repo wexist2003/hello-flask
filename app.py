@@ -113,7 +113,7 @@ def init_db():
         c.execute("""
             CREATE TABLE settings ( key TEXT PRIMARY KEY, value TEXT )""")
         c.execute("""
-            CREATE TABLE settings ( subfolder TEXT PRIMARY KEY, votes INTEGER DEFAULT 0 )""")        
+            CREATE TABLE deck_votes ( subfolder TEXT PRIMARY KEY, votes INTEGER DEFAULT 0 )""")        
         conn.commit()
         print("init_db: Tables created and committed.")
         try:
