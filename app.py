@@ -974,20 +974,17 @@ def start_new_game():
 def user(code):
     db = get_db()
     c = db.cursor()
-    # Загружаем пользователя по коду
+    # Загружаем пользователя по коду из URL
     c.execute("SELECT * FROM users WHERE code = ?", (code,))
     g.user = c.fetchone() # Записываем пользователя в g.user
 
     if g.user is None:
-        # Пользователь не найден или сессия недействительна (например, по прямой ссылке с неверным кодом)
+        # Пользователь не найден по коду из URL или сессия недействительна
         
         # Очищаем потенциально "сломанную" сессию игрока
         session.pop('user_id', None)
         session.pop('user_name', None)
         session.pop('user_code', None)
-        # Флаг 'has_registered_player' был убран из основной логики регистрации,
-        # но если вы решите его использовать для других целей и хотите сбрасывать:
-        # session.pop('has_registered_player', None) 
         
         flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
         return redirect(url_for('login_player')) # Перенаправляем на страницу входа/регистрации игрока
@@ -996,25 +993,17 @@ def user(code):
     # Принудительно обновляем ключевые данные пользователя в сессии из g.user (базы данных)
     # Это гарантирует, что сессия всегда содержит актуальное имя и код для этого пользователя.
     session['user_id'] = g.user['id']
-    session['user_name'] = g.user['name']
-    session['user_code'] = g.user['code']
-    session.pop('is_admin', None)          # Сбрасываем флаг админа (если он не админ, конечно)
-    
-    # Флаг has_registered_player был убран из логики регистрации,
-    # но если бы он был важен для других целей, его можно было бы установить здесь,
-    # если пользователь успешно аутентифицирован по коду:
-    # if not session.get('has_registered_player'):
-    #     session['has_registered_player'] = True
+    session['user_name'] = g.user['name'] # Имя в сессии обновляется из БД
+    session['user_code'] = g.user['code'] # Код в сессии обновляется из БД
+    session.pop('is_admin', None)          # Сбрасываем флаг админа
 
-    # Получаем текущую активную колоду
+    # --- Остальная логика функции user(code) для загрузки данных игры ---
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
 
-    # Получаем информацию о том, показывать ли картинки для угадывания
     show_card_info_row = c.execute("SELECT value FROM settings WHERE key = 'show_card_info'").fetchone()
     show_card_info = show_card_info_row['value'] == 'True' if show_card_info_row else False
 
-    # Загружаем карты пользователя
     user_cards = []
     if active_subfolder:
         c.execute("""
@@ -1023,7 +1012,6 @@ def user(code):
         """, (g.user['id'], active_subfolder))
         user_cards = c.fetchall()
 
-    # Загружаем карты на столе (те, что пользователи выложили для угадывания)
     table_cards_raw = []
     if active_subfolder:
         c.execute("""
@@ -1033,10 +1021,8 @@ def user(code):
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
     
-    # Преобразуем карты на столе для удобства в шаблоне
     table_cards = []
-    for card_row in table_cards_raw: # Изменено имя переменной для ясности
-        # Проверяем, делал ли текущий пользователь предположение по этой карте
+    for card_row in table_cards_raw:
         c.execute("SELECT guessed_user_id FROM guesses WHERE image_id = ? AND guessing_user_id = ?", (card_row['id'], g.user['id']))
         guess_for_this_card = c.fetchone()
         
@@ -1044,30 +1030,26 @@ def user(code):
             'id': card_row['id'],
             'image': card_row['image'],
             'subfolder': card_row['subfolder'],
-            'owner_id': card_row['owner_id'], # ID владельца карты (кто ее выложил)
-            'owner_name': card_row['owner_name'], # Имя владельца карты
-            'has_guessed': True if guess_for_this_card else False, # Сделал ли текущий юзер предположение
+            'owner_id': card_row['owner_id'],
+            'owner_name': card_row['owner_name'],
+            'has_guessed': True if guess_for_this_card else False,
             'guessed_user_id': guess_for_this_card['guessed_user_id'] if guess_for_this_card else None
         })
 
-    # Загружаем всех пользователей для формы угадывания, кроме текущего
     c.execute("SELECT id, name FROM users WHERE id != ?", (g.user['id'],))
     other_users = c.fetchall()
     
-    # Загружаем информацию о ведущем
-    current_leader_id = get_current_leader_id() # Убедитесь, что эта функция определена!
+    current_leader_id = get_current_leader_id() # Убедитесь, что эта функция определена
     is_leader = (g.user['id'] == current_leader_id) if current_leader_id is not None else False
 
-    # Загрузка данных для Игрового Поля Пользователя
     all_users_for_board_query = c.execute("SELECT id, name, rating FROM users").fetchall()
-    game_board_data = generate_game_board_data_for_display(all_users_for_board_query) # Убедитесь, что эта функция определена!
+    game_board_data = generate_game_board_data_for_display(all_users_for_board_query) # Убедитесь, что эта функция определена
     
-    # Передаем текущее количество ячеек на поле
-    # _current_game_board_num_cells - это глобальная переменная, обновляемая при инициализации/сбросе поля
     current_board_cells_value = _current_game_board_num_cells 
 
+    # Передаем имя пользователя из g.user в шаблон
     return render_template('user.html', 
-                           user_name=g.user['name'], 
+                           user_name=g.user['name'], # Используем g.user['name']
                            user_id=g.user['id'],
                            user_code=g.user['code'],
                            user_cards=user_cards,
@@ -1076,10 +1058,9 @@ def user(code):
                            show_card_info=show_card_info,
                            is_leader=is_leader,
                            game_board=game_board_data,
-                           get_user_name_func=get_user_name, # Убедитесь, что эта функция определена!
+                           get_user_name_func=get_user_name, # Убедитесь, что эта функция определена
                            current_num_board_cells=current_board_cells_value 
                            )
-
         
 # Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
 # Я не буду їх дублювати тут, оскільки вони вже є у вашому файлі app.py,
