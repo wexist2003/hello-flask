@@ -383,8 +383,22 @@ app.jinja_env.globals.update(
 
 @app.route('/login_player')
 def login_player():
-    """Отображает страницу для ввода имени игрока."""
-    return render_template('login_player.html')
+    """
+    Отображает страницу для ввода имени игрока ИЛИ, если игрок уже 
+    'залогинен' в сессии, перенаправляет его на его страницу.
+    """
+    # Проверяем, есть ли код пользователя в текущей сессии
+    user_code_from_session = session.get('user_code') 
+    
+    if user_code_from_session:
+        # Если код есть, значит пользователь уже входил/регистрировался в этой сессии
+        print(f"Player session found (code: {user_code_from_session}). Redirecting to user page.")
+        # Перенаправляем сразу на его страницу
+        return redirect(url_for('user', code=user_code_from_session))
+    else:
+        # Если кода в сессии нет, показываем форму для входа/регистрации
+        print("No active player session found. Showing login/registration form.")
+        return render_template('login_player.html')
 
 @app.route('/register_or_login_player', methods=['POST'])
 def register_or_login_player():
