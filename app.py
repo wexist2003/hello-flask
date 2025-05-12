@@ -64,7 +64,31 @@ def logout():
     
 @app.route("/")
 def index():
-    return render_template("index.html")
+    """Обработчик для корневого URL (стартовой страницы)."""
+    deck_votes_data = []
+    db = get_db()
+    c = db.cursor()
+    try:
+        # Получаем все уникальные колоды из таблицы images
+        # и их голоса из таблицы deck_votes (если есть, иначе 0)
+        c.execute('''
+            SELECT
+                i.subfolder,
+                COALESCE(dv.votes, 0) as votes
+            FROM (SELECT DISTINCT subfolder FROM images ORDER BY subfolder) as i
+            LEFT JOIN deck_votes as dv ON i.subfolder = dv.subfolder;
+        ''')
+        deck_votes_data = c.fetchall() # Получаем список sqlite3.Row
+        # Преобразуем в список словарей для удобства в шаблоне (опционально, но рекомендуется)
+        deck_votes_data = [dict(row) for row in deck_votes_data]
+
+    except sqlite3.Error as e:
+        print(f"Ошибка чтения данных для голосования на стартовой странице: {e}")
+        flash(f"Не удалось загрузить данные о колодах: {e}", "danger")
+        deck_votes_data = [] # Отправляем пустой список при ошибке
+
+    # Рендерим HTML-шаблон, передавая данные о голосовании
+    return render_template("index.html", deck_votes=deck_votes_data)
     
 # --- Инициализация БД ---
 def init_db():
@@ -77,6 +101,7 @@ def init_db():
         c.execute("DROP TABLE IF EXISTS users")
         c.execute("DROP TABLE IF EXISTS images")
         c.execute("DROP TABLE IF EXISTS settings")
+        c.execute("DROP TABLE IF EXISTS deck_votes")        
         print("init_db: Creating tables...")
         c.execute("""
             CREATE TABLE users ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL,
@@ -87,6 +112,8 @@ def init_db():
                                  guesses TEXT DEFAULT '{}' )""")
         c.execute("""
             CREATE TABLE settings ( key TEXT PRIMARY KEY, value TEXT )""")
+        c.execute("""
+            CREATE TABLE settings ( subfolder TEXT PRIMARY KEY, votes INTEGER DEFAULT 0 )""")        
         conn.commit()
         print("init_db: Tables created and committed.")
         try:
@@ -352,6 +379,34 @@ app.jinja_env.globals.update(
     get_user_name=get_user_name,
     get_leading_user_id=get_leading_user_id) 
 
+@app.route('/vote_deck', methods=['POST'])
+def vote_deck():
+    """Обрабатывает голос за выбранную колоду."""
+    subfolder_to_vote = request.form.get('subfolder')
+
+    if not subfolder_to_vote:
+        flash("Ошибка: Колода для голосования не была выбрана.", "warning")
+        return redirect(url_for('index'))
+
+    db = get_db()
+    c = db.cursor()
+    try:
+        # Сначала убедимся, что запись для колоды существует (или создаем с 0 голосов)
+        # INSERT OR IGNORE безопасен, если запись уже есть, он ничего не сделает
+        c.execute("INSERT OR IGNORE INTO deck_votes (subfolder, votes) VALUES (?, 0)", (subfolder_to_vote,))
+
+        # Теперь увеличиваем счетчик голосов
+        c.execute("UPDATE deck_votes SET votes = votes + 1 WHERE subfolder = ?", (subfolder_to_vote,))
+
+        db.commit()
+        flash(f"Ваш голос за колоду '{subfolder_to_vote}' учтен!", "success")
+    except sqlite3.Error as e:
+        db.rollback() # Откатываем изменения при ошибке
+        print(f"Ошибка записи голоса за колоду '{subfolder_to_vote}': {e}")
+        flash(f"Не удалось учесть голос: {e}", "danger")
+
+    return redirect(url_for('index')) # Возвращаемся на стартовую страницу
+    
 # --- Обработчики запросов ---
 @app.before_request
 def before_request():
