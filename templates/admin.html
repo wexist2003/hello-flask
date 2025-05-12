@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light"> {# Тема по умолчанию - светлая #}
 
-{# === НОВОЕ: Макрос для игрового поля (скопировано) === #}
+{# === Макрос для игрового поля (скопировано) === #}
 {% macro render_game_board_cell(cell_data, get_user_name_func_local) %}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram"
@@ -28,18 +28,17 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1"> {# Для адаптивности #}
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Админка</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    {# Иконки Bootstrap #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         /* Пользовательские стили (ваши существующие) */
         body { padding-bottom: 5rem; }
         h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
-        h3 { margin-top: 1rem; font-size: 1.25rem; } /* Для заголовков внутри колонок */
+        h3 { margin-top: 1rem; font-size: 1.25rem; } 
         table { margin-top: 1rem; }
-        .action-forms form { display: inline-block; margin-right: 5px; } /* Кнопки действий в строку */
+        .action-forms form { display: inline-block; margin-right: 5px; } 
 
         /* Стили для темной темы (ваши существующие) */
         html[data-bs-theme="dark"] #new-game-form {
@@ -58,95 +57,104 @@
             color: var(--bs-light) !important;
         }
         .bg-danger-subtle {
-             --bs-table-bg-type: var(--bs-danger-subtle); 
+             --bs-table-bg-type: var(--bs-danger-subtle);
         }
 
-        /* === НОВОЕ: СТИЛИ ДЛЯ ИГРОВОГО ПОЛЯ === */
-        /* Общий блок для игрового поля, можно добавить класс game-board-block в HTML, если нужно обрамление */
-        .game-board-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 4px; 
+        /* Стили для игрового поля (добавленные ранее) */
+        .game-board-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
             padding: 0.5rem;
-            justify-content: center; 
-            background-color: var(--bs-tertiary-bg); 
-            border-radius: .25rem; 
+            justify-content: center;
+            background-color: var(--bs-tertiary-bg);
+            border-radius: .25rem;
             min-height: 100px;
-            border: 1px solid var(--bs-border-color); /* Добавим рамку для контейнера поля */
-            margin-bottom: 2rem; /* Отступ снизу, как у других блоков */
+            border: 1px solid var(--bs-border-color);
+        }
+        .game-board-wrapper { 
+            margin-bottom: 2rem; 
+        }
+        .game-board-settings { 
+             border: 1px solid var(--bs-border-color);
+             border-top: none; 
+             padding: 1rem;
+             border-radius: 0 0 .25rem .25rem; 
+             background-color: var(--bs-body-bg);
+             margin-top: -1px; 
         }
         .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 2px; }
-        .game-board-pictogram { 
-            width: 60px; 
-            height: 60px; 
-            position: relative; 
-            background-size: contain; 
-            background-position: center; 
-            background-repeat: no-repeat; 
-            border: 1px solid var(--bs-border-color); 
-            border-radius: .2rem; 
-            margin-bottom: 3px; 
+        .game-board-pictogram {
+            width: 60px;
+            height: 60px;
+            position: relative;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .2rem;
+            margin-bottom: 3px;
         }
-        .game-board-cell-number { 
-            position: absolute; 
-            top: 0px; 
-            left: 0px; 
-            background-color: rgba(var(--bs-body-bg-rgb),0.9); 
-            color: var(--bs-body-color); 
-            padding: 1px 3px; 
-            border-radius: 0.15rem 0 0.15rem 0; 
-            font-size: 0.65em; 
-            font-weight: bold; 
-            border-right: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1); 
-            border-bottom: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1); 
-            line-height: 1.2; 
+        .game-board-cell-number {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            background-color: rgba(var(--bs-body-bg-rgb),0.9);
+            color: var(--bs-body-color);
+            padding: 1px 3px;
+            border-radius: 0.15rem 0 0.15rem 0;
+            font-size: 0.65em;
+            font-weight: bold;
+            border-right: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1);
+            border-bottom: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1);
+            line-height: 1.2;
         }
-        .game-board-player-names-area { 
-            width: 60px; 
-            line-height: 1.1; 
-            max-height: 4.5em; 
-            min-height: 1.5em; 
-            overflow-y: auto; 
-            text-align: center; 
-            margin-top: 1px; 
-            padding: 0; 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 2px; 
+        .game-board-player-names-area {
+            width: 60px;
+            line-height: 1.1;
+            max-height: 4.5em;
+            min-height: 1.5em;
+            overflow-y: auto;
+            text-align: center;
+            margin-top: 1px;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
         }
-        .player-avatar-on-board { 
-            display: inline-flex; 
-            width: 1.5em; 
+        .player-avatar-on-board {
+            display: inline-flex;
+            width: 1.5em;
             height: 1.5em;
-            border-radius: 50%; 
+            border-radius: 50%;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 1em; 
+            font-size: 1em;
             overflow: hidden;
-            vertical-align: middle; 
-            line-height: 1; 
-            color: var(--bs-light-text-emphasis); 
-            background-color: var(--bs-secondary); 
+            vertical-align: middle;
+            line-height: 1;
+            color: var(--bs-light-text-emphasis);
+            background-color: var(--bs-secondary);
         }
         html[data-bs-theme="dark"] .player-avatar-on-board {
              color: var(--bs-dark-text-emphasis);
              background-color: var(--bs-secondary);
         }
-        .avatar-separator { 
-            font-size: 0.9em; 
-            padding: 0 1px; 
-            vertical-align: middle; 
+        .avatar-separator {
+            font-size: 0.9em;
+            padding: 0 1px;
+            vertical-align: middle;
             line-height: 1;
             color: var(--bs-secondary-color);
         }
-        .player-name-on-board-empty { 
-            height: 1.5em; 
+        .player-name-on-board-empty {
+            height: 1.5em;
             line-height: 1.5em;
-            width: 100%; 
-            font-size: 1em; 
+            width: 100%;
+            font-size: 1em;
         }
 
         @media (max-width: 992px) {
@@ -165,10 +173,9 @@
 </head>
 
 <body class="p-4">
-    <div class="container-fluid"> {# Используем контейнер #}
+    <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1>Админка</h1>
-              {# --- Кнопка смены темы --- #}
               <div>
                   <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm" title="Сменить тему">
                       <i class="bi bi-circle-half"></i>
@@ -189,17 +196,16 @@
             {% endif %}
         {% endwith %}
 
-        {# --- Сообщение о конце игры (если применимо) --- #}
+        {# --- Сообщение о конце игры --- #}
         {% if g.game_over %}
             <div class="alert alert-warning mt-3" role="alert">
               <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! Для продолжения начните новую игру.
             </div>
         {% endif%}
 
-
         {# --- ОБЪЕДИНЕННЫЙ БЛОК ФОРМ: ВЫБОР КОЛОДЫ И ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ --- #}
-        {# (Ваш существующий блок) #}
-        <div class="row mb-4 g-4"> 
+        <div class="row mb-4 g-4">
+             {# (Код этого блока без изменений) #}
             <div class="col-md-5">
                 <h3>Выбор колоды</h3>
                 <form method="post" action="{{ url_for('admin') }}">
@@ -207,14 +213,12 @@
                         <label for="active_subfolder" class="form-label">Активная колода:</label>
                         <select id="active_subfolder" name="active_subfolder" class="form-select">
                             <option value="">-- Не выбрана --</option>
-                            {% for subfolder_item in subfolders %} {# Используйте другое имя переменной, если subfolder уже занято #}
+                            {% for subfolder_item in subfolders %}
                                 <option value="{{ subfolder_item }}" {% if active_subfolder == subfolder_item %}selected{% endif %}>{{ subfolder_item }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-secondary">Сохранить колоду</button>
-                     {# НОВОЕ: Кнопка для переключения show_card_info, если она относится сюда #}
-                     {# Если эта кнопка у вас была в другом месте или не нужна здесь, удалите ее #}
+                    <button type="submit" name="set_active_subfolder" value="1" class="btn btn-secondary">Сохранить колоду</button>
                     <button type="submit" name="toggle_show_card_info" value="1" class="btn btn-info ms-2">
                         {{ "Скрыть инфо о картах" if show_card_info else "Показать инфо о картах" }}
                     </button>
@@ -243,9 +247,9 @@
             </div>
         </div>
         {# --- КОНЕЦ ОБЪЕДИНЕННОГО БЛОКА ФОРМ --- #}
-        
-        {# --- НОВОЕ: Информация и сброс игрового поля (в блоке Настроек) --- #}
-        <div class="border p-3 rounded mb-4"> {# Общий блок для этих настроек #}
+
+        {# --- Настройки Игрового Поля (остаются на месте) --- #}
+        <div class="border p-3 rounded mb-4"> 
             <h3>Настройки Игрового Поля</h3>
              <form method="post" action="{{ url_for('admin') }}" class="mb-2">
                  <div class="row g-3 align-items-end">
@@ -260,29 +264,14 @@
             </form>
             <p class="mb-0"><small>Текущее количество ячеек на поле: <strong>{% if current_num_board_cells is defined and current_num_board_cells > 0 %}{{ current_num_board_cells }}{% else %}Не инициализировано (обновите поле){% endif %}</strong></small></p>
         </div>
-        {# --- КОНЕЦ Настроек Игрового Поля --- #}
+        {# --- Конец Настроек Игрового Поля --- #}
 
-
-        {# --- Кнопки управления раундом (ваши существующие) --- #}
-        <h2>Управление раундом</h2>
-        <div class="mb-4 action-forms">
-            <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Открыть карты и подсчитать очки? Текущий раунд завершится, следующий ведущий будет назначен.');">
-                <button class="btn btn-success" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
-                    <i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки
-                </button>
-            </form>
-            <form action="{{ url_for('new_round') }}" method="post" onsubmit="return confirm('Начать новый раунд? Карты со стола и предположения будут сброшены, всем будут розданы новые карты.');">
-                <button class="btn btn-warning" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
-                    <i class="bi bi-arrow-clockwise"></i> Начать новый раунд
-                </button>
-            </form>
-        </div>
-
-        {# --- Список пользователей (ваш существующий) --- #}
+        {# --- Список пользователей --- #}
         <h2>Список пользователей</h2>
         <div class="table-responsive mb-4">
-            <table class="table table-bordered table-striped table-hover table-sm" style="table-layout: fixed; width: 100%;">
-                <thead class="table-light">
+             {# (Код таблицы пользователей без изменений) #}
+              <table class="table table-bordered table-striped table-hover table-sm" style="table-layout: fixed; width: 100%;">
+                 <thead class="table-light">
                     <tr>
                         <th style="width: 3%;" class="text-center">ID</th>
                         <th style="width: 15%;">Имя / Статус</th>
@@ -293,7 +282,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for user_item in users %} {# Используем user_item, как было предложено для app.py #}
+                    {% for user_item in users %}
                         <tr>
                             <td class="text-center align-middle">{{ user_item.id }}</td>
                             <td class="align-middle">
@@ -344,26 +333,59 @@
                         </tr>
                     {% endfor %}
                 </tbody>
-            </table>
+             </table>
         </div>
         {# --- Конец Списка пользователей --- #}
 
-        {# === НОВЫЙ БЛОК: ИГРОВОЕ ПОЛЕ (вставляем здесь, перед "Список изображений") === #}
-        <h2>Игровое поле</h2> {# Заголовок для блока #}
-        <div class="game-board-container"> {# Контейнер со стилями, добавленными выше #}
-            {% if game_board and game_board|length > 0 %}
-                {% for cell_data in game_board %}
-                    {{ render_game_board_cell(cell_data, get_user_name_func) }} {# Используем get_user_name_func из app.py #}
-                {% endfor %}
-            {% else %}
-                <p class="text-muted w-100 text-center" style="padding: 1rem 0;">Игровое поле не загружено, пусто или не удалось инициализировать. Проверьте консоль Flask и настройки изображений поля.</p>
-            {% endif %}
+        {# === БЛОК УПРАВЛЕНИЯ РАУНДОМ (Перемещен сюда) === #}
+        <h2>Управление раундом</h2>
+        <div class="mb-4 action-forms">
+            <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Открыть карты и подсчитать очки? Текущий раунд завершится, следующий ведущий будет назначен.');">
+                <button class="btn btn-success" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки
+                </button>
+            </form>
+            <form action="{{ url_for('new_round') }}" method="post" onsubmit="return confirm('Начать новый раунд? Карты со стола и предположения будут сброшены, всем будут розданы новые карты.');">
+                <button class="btn btn-warning" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-arrow-clockwise"></i> Начать новый раунд
+                </button>
+            </form>
         </div>
-        {# === КОНЕЦ БЛОКА: ИГРОВОЕ ПОЛЕ === #}
+        {# === КОНЕЦ БЛОКА УПРАВЛЕНИЯ РАУНДОМ === #}
 
-        {# === БЛОК "НАЧАТЬ НОВУЮ ИГРУ" (ваш существующий) === #}
-        <h2>Начать новую игру</h2> 
+        {# === БЛОК ИГРОВОГО ПОЛЯ + НАСТРОЙКИ === #}
+        <div class="game-board-wrapper">
+            <h2>Игровое поле</h2>
+            <div class="game-board-container">
+                {% if game_board and game_board|length > 0 %}
+                    {% for cell_data in game_board %}
+                        {{ render_game_board_cell(cell_data, get_user_name_func) }}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted w-100 text-center" style="padding: 1rem 0;">Игровое поле не загружено, пусто или не удалось инициализировать.</p>
+                {% endif %}
+            </div>
+            <div class="game-board-settings">
+                 <form method="post" action="{{ url_for('admin') }}" class="mb-2">
+                     <div class="row g-3 align-items-end">
+                        <div class="col-md-7">
+                            <label for="num_cells_for_board_reset" class="form-label">Задать кол-во ячеек для поля (пусто = авто):</label>
+                            <input type="number" class="form-control form-control-sm" name="num_cells_for_board_reset" id="num_cells_for_board_reset" placeholder="По умолчанию или по макс. рейтингу" min="1">
+                        </div>
+                        <div class="col-md-5">
+                             <button type="submit" name="reset_game_board_visuals" value="1" class="btn btn-warning w-100 btn-sm">Обновить/Сбросить визуал. поля</button>
+                        </div>
+                    </div>
+                </form>
+                <p class="mb-0"><small>Текущее количество ячеек на поле: <strong>{% if current_num_board_cells is defined and current_num_board_cells > 0 %}{{ current_num_board_cells }}{% else %}Не инициализировано (обновите поле){% endif %}</strong></small></p>
+            </div>
+        </div>
+        {# === КОНЕЦ БЛОКА ИГРОВОГО ПОЛЯ + НАСТРОЙКИ === #}
+
+        {# === БЛОК "НАЧАТЬ НОВУЮ ИГРУ" === #}
+        <h2>Начать новую игру</h2>
         <form id="new-game-form" method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
+              {# (Содержимое формы без изменений) #}
               <div class="row g-3 align-items-end">
                   <div class="col-md-5">
                     <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
@@ -388,10 +410,10 @@
         </form>
         {# === КОНЕЦ БЛОКА "НАЧАТЬ НОВУЮ ИГРУ" === #}
 
-
-        {# --- Список изображений (ваш существующий) --- #}
+        {# --- Список изображений --- #}
         <h2>Список изображений (<span id="total-images-count">{{ images|length }}</span> шт. / Свободно в активной колоде: <span id="free-images-count">{{ free_image_count }}</span>)</h2>
          <div class="table-responsive">
+             {# (Код таблицы изображений без изменений) #}
             <table id="image-list-table" class="table table-bordered table-sm">
                 <thead class="table-light">
                     <tr>
@@ -414,7 +436,7 @@
                                     <span class="badge bg-secondary" title="Карта назначена игроку {{ get_user_name_func(owner_id_from_status) or ('ID '+owner_id_from_status) }}">
                                         Занято: {{ get_user_name_func(owner_id_from_status) or ('ID '+owner_id_from_status) }}
                                     </span>
-                                {% elif image_item.status and image_item.status.startswith('На столе:') %} {# Изменено с 'На столе' на startswith #}
+                                {% elif image_item.status and image_item.status.startswith('На столе:') %}
                                     {% set owner_id_from_status_table = image_item.status.split(':')[1] %}
                                     <span class="badge bg-info" title="Карта выложена на стол игроком {{ get_user_name_func(owner_id_from_status_table) or ('ID '+owner_id_from_status_table) }}">
                                         На столе: {{ get_user_name_func(owner_id_from_status_table) or ('ID '+owner_id_from_status_table) }}
@@ -442,7 +464,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         <hr class="my-4">
         <div class="text-center">
             <a href="{{ url_for('logout') }}" class="btn btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Выйти из Админ-панели</a>
