@@ -985,14 +985,18 @@ def user(code):
         flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
         return redirect(url_for('login_player'))
 
-    # Обновляем данные в сессии, если они не совпадают
-    if session.get('user_id') != g.user['id'] or session.get('user_code') != g.user['code']:
-        session['user_id'] = g.user['id']
-        session['user_name'] = g.user['name']
-        session['user_code'] = g.user['code']
-        session.pop('is_admin', None)
-        if not session.get('has_registered_player'): # Если пользователь успешно вошел по коду, но флага нет
-             session['has_registered_player'] = True
+    # Пользователь НАЙДЕН (g.user существует)
+    # Принудительно обновляем ключевые данные пользователя в сессии из g.user (базы данных)
+    # Это гарантирует, что сессия всегда содержит актуальное имя и код для этого пользователя.
+    session['user_id'] = g.user['id']
+    session['user_name'] = g.user['name']  # <--- Всегда берем имя из БД
+    session['user_code'] = g.user['code']  # <--- Всегда берем код из БД
+    session.pop('is_admin', None)          # Сбрасываем флаг админа (если он не админ, конечно)
+    
+    # Флаг has_registered_player был убран из логики регистрации,
+    # но если бы он был важен для других целей, его можно было бы установить здесь:
+    # if not session.get('has_registered_player'):
+    # session['has_registered_player'] = True
 
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
