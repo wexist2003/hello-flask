@@ -954,92 +954,113 @@ def start_new_game():
         print(f"Unexpected error during start_new_game: {e}")
     return redirect(url_for('admin', displayed_leader_id=new_leader_id_sng))
     
-@app.route("/user/<code>")
-def user(code): # Параметр названо code, як у вашому файлі
+@app.route('/user/<code>')
+def user(code):
     db = get_db()
     c = db.cursor()
-    user_data_page = None # Змінено user_data
-    name_user_page, rating_user_page = None, None # Змінено
-    cards_user_page, table_images_user_page, all_users_for_template = [], [], [] # Змінено
-    on_table_user_page = False # Змінено
-    leader_for_display_user_page = None # Змінено
-    game_board_user_page = [] # ДОДАНО
+    # Загружаем пользователя по коду
+    c.execute("SELECT * FROM users WHERE code = ?", (code,))
+    g.user = c.fetchone() # Записываем пользователя в g
 
-    try:
-        # Використовуємо g.user_id, встановлений в before_request, для безпеки
-        if not g.user_id:
-            flash("Неверный код доступа или сессия истекла.", "danger")
-            return redirect(url_for('index'))
-
-        # Отримуємо дані поточного користувача за g.user_id
-        c.execute("SELECT id, name, rating, code FROM users WHERE id = ?", (g.user_id,))
-        user_data_page = c.fetchone()
-
-        if not user_data_page:
-            flash("Пользователь не найден. Возможно, ваш код устарел.", "danger")
-            session.pop('_flashes', None) 
-            return redirect(url_for('index'))
-
-        name_user_page = user_data_page['name']
-        rating_user_page = user_data_page['rating']
-        # code_user_page = user_data_page['code'] # Не потрібен, оскільки code є параметром функції
-
-        c.execute("SELECT id, subfolder, image, status FROM images WHERE status = ?", (f"Занято:{g.user_id}",))
-        cards_user_page = c.fetchall()
-
-        c.execute("SELECT id, subfolder, image, owner_id, guesses FROM images WHERE status LIKE 'На столе:%' ORDER BY id")
-        raw_table_images = c.fetchall()
-        for img_row in raw_table_images:
-            guesses_json_str = img_row['guesses'] or '{}'
-            try: guesses_dict = json.loads(guesses_json_str)
-            except json.JSONDecodeError: guesses_dict = {}
-            img_dict = dict(img_row)
-            # Ключі в JSON повинні бути рядками, це вже забезпечується при збереженні
-            img_dict['guesses'] = guesses_dict 
-            table_images_user_page.append(img_dict)
-
-        c.execute("SELECT id, name, rating FROM users ORDER BY name ASC") # Додано rating
-        all_users_for_template = c.fetchall()
-
-        # --- ДОДАНО: Генерація даних ігрового поля ---
-        game_board_user_page = generate_game_board_data_for_display(all_users_for_template)
-        # --- Кінець додавання ---
+    if g.user is None:
+        # Пользователь не найден или сессия недействительна (например, по прямой ссылке с неверным кодом)
         
-        on_table_user_page = False
-        for img_on_table in table_images_user_page:
-            if img_on_table['owner_id'] == g.user_id:
-                on_table_user_page = True
-                break
+        # --- НОВОЕ: Очищаем потенциально "сломанную" сессию игрока ---
+        session.pop('user_id', None)
+        session.pop('user_name', None)
+        session.pop('user_code', None)
+        # Флаг 'has_registered_player' можно оставить, т.к. он больше про ограничение регистрации новых,
+        # но если хотите полного сброса для возможности "перерегистрации" из этой сессии, можно и его:
+        # session.pop('has_registered_player', None) 
+        # --- КОНЕЦ НОВОГО ---
+
+        flash("Користувача не знайдено або сесія застаріла. Будь ласка, увійдіть або зареєструйтесь.", "warning")
+        return redirect(url_for('login_player')) # Перенаправляем на страницу входа/регистрации игрока
+
+    # Если пользователь найден (g.user существует):
+    # Обновляем данные в сессии, если они не совпадают с данными из g.user 
+    # (на случай, если в сессии старые данные, а пользователь вошел по прямой ссылке с правильным кодом)
+    if session.get('user_id') != g.user['id'] or session.get('user_code') != g.user['code']:
+        session['user_id'] = g.user['id']
+        session['user_name'] = g.user['name']
+        session['user_code'] = g.user['code']
+        session.pop('is_admin', None) # Убедимся, что нет флага админа, если это не админ
+        # Флаг 'has_registered_player' можно тоже установить, если его нет,
+        # так как пользователь успешно аутентифицирован.
+        if not session.get('has_registered_player'):
+             session['has_registered_player'] = True
+
+
+    # Получаем текущую активную колоду
+    active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
+    active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
+
+    # Получаем информацию о том, показывать ли картинки для угадывания
+    show_card_info_row = c.execute("SELECT value FROM settings WHERE key = 'show_card_info'").fetchone()
+    show_card_info = show_card_info_row['value'] == 'True' if show_card_info_row else False # По умолчанию False
+
+    # Загружаем карты пользователя
+    user_cards = []
+    if active_subfolder:
+        c.execute("""
+            SELECT id, image, subfolder FROM images 
+            WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'
+        """, (g.user['id'], active_subfolder))
+        user_cards = c.fetchall()
+
+    # Загружаем карты на столе (те, что пользователи выложили для угадывания)
+    table_cards_raw = []
+    if active_subfolder:
+        c.execute("""
+            SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name 
+            FROM images i JOIN users u ON i.owner_id = u.id
+            WHERE i.subfolder = ? AND i.status LIKE 'На столе:%'
+        """, (active_subfolder,))
+        table_cards_raw = c.fetchall()
+    
+    # Преобразуем карты на столе для удобства в шаблоне
+    table_cards = []
+    for card in table_cards_raw:
+        # Проверяем, делал ли текущий пользователь предположение по этой карте
+        c.execute("SELECT guessed_user_id FROM guesses WHERE image_id = ? AND guessing_user_id = ?", (card['id'], g.user['id']))
+        guess_for_this_card = c.fetchone()
         
-        leader_for_display_user_page = get_leading_user_id()
-        # Ваша логіка для визначення leader_for_display_user_page, якщо g.show_card_info is True
-        if g.show_card_info and leader_for_display_user_page is not None:
-            # Отримуємо всіх користувачів, відсортованих за ID, щоб знайти попереднього
-            c.execute("SELECT id FROM users ORDER BY id") 
-            user_ids_ordered = [row['id'] for row in c.fetchall()]
-            if user_ids_ordered:
-                try:
-                    current_leader_idx = user_ids_ordered.index(leader_for_display_user_page)
-                    # Попередній індекс по колу
-                    previous_leader_idx = (current_leader_idx - 1 + len(user_ids_ordered)) % len(user_ids_ordered)
-                    leader_for_display_user_page = user_ids_ordered[previous_leader_idx]
-                except ValueError: # Якщо поточний ведучий не знайдений у списку (малоймовірно)
-                    pass # Залишаємо поточного ведучого
+        table_cards.append({
+            'id': card['id'],
+            'image': card['image'],
+            'subfolder': card['subfolder'],
+            'owner_id': card['owner_id'], # ID владельца карты (кто ее выложил)
+            'owner_name': card['owner_name'], # Имя владельца карты
+            'has_guessed': True if guess_for_this_card else False, # Сделал ли текущий юзер предположение
+            'guessed_user_id': guess_for_this_card['guessed_user_id'] if guess_for_this_card else None
+        })
 
-    except sqlite3.Error as e:
-        flash(f"Ошибка базы данных при загрузке профиля: {e}", "danger")
-        return redirect(url_for('index'))
-    except Exception as e_user_route_main: # Змінено e_user_route
-        flash(f"Неочікувана помилка на сторінці користувача: {e_user_route_main}", "danger")
-        print(f"Unexpected error in /user/{code} route: {e_user_route_main}")
-        print(traceback.format_exc())
-        return redirect(url_for('index'))
+    # Загружаем всех пользователей для формы угадывания, кроме текущего
+    c.execute("SELECT id, name FROM users WHERE id != ?", (g.user['id'],))
+    other_users = c.fetchall()
+    
+    # Загружаем информацию о ведущем
+    current_leader_id = get_current_leader_id()
+    is_leader = (g.user['id'] == current_leader_id)
 
-    return render_template("user.html", name=name_user_page, rating=rating_user_page, cards=cards_user_page,
-                           table_images=table_images_user_page, all_users=all_users_for_template,
-                           code=code, on_table=on_table_user_page, # Використовуємо code, переданий у функцію
-                           leader_for_display=leader_for_display_user_page,
-                           game_board=game_board_user_page) # ДОДАНО
+    # --- ДОДАНО: Завантаження даних для Ігрового Поля Користувача ---
+    all_users_for_board_query = c.execute("SELECT id, name, rating FROM users").fetchall()
+    game_board_data = generate_game_board_data_for_display(all_users_for_board_query)
+    # --- Кінець додавання ---
+
+    return render_template('user.html', 
+                           user_name=g.user['name'], 
+                           user_id=g.user['id'],
+                           user_code=g.user['code'],
+                           user_cards=user_cards,
+                           table_cards=table_cards,
+                           other_users=other_users,
+                           show_card_info=show_card_info,
+                           is_leader=is_leader,
+                           game_board=game_board_data, # <--- Додано
+                           get_user_name_func=get_user_name, # <--- Додано
+                           current_num_board_cells=_current_game_board_num_cells # <--- Додано
+                           )
 
 
 # Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
