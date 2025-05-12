@@ -422,9 +422,10 @@ def login_player():
         return render_template('login_player.html')
 
 @app.route('/register_or_login_player', methods=['POST'])
+@app.route('/register_or_login_player', methods=['POST'])
 def register_or_login_player():
     """
-    Обрабатывает ввод имени игрока: регистрирует нового (если разрешено для этой сессии) 
+    Обрабатывает ввод имени игрока: регистрирует нового 
     или находит существующего.
     """
     player_name = request.form.get('name', '').strip()
@@ -454,14 +455,9 @@ def register_or_login_player():
             print(f"PLAYER_LOGIN: Found existing user '{player_name}' with code '{user_code}'")
             flash(f"С возвращением, {player_name}!", "info")
         else:
-            # Пользователь НЕ найден - ПРОВЕРЯЕМ, можно ли регистрировать нового из этой сессии
-            if session.get('has_registered_player'):
-                # Если флаг в сессии уже есть, не даем регистрировать ЕЩЕ ОДНОГО НОВОГО
-                flash("С этого браузера уже был зарегистрирован игрок. Пожалуйста, войдите под существующим именем.", "warning")
-                print(f"PLAYER_REG_DENIED: Session already has 'has_registered_player' flag. Attempted name: '{player_name}'")
-                return redirect(url_for('login_player')) # Возвращаем на страницу ввода имени
-
-            # Флага нет - РЕГИСТРИРУЕМ НОВОГО пользователя
+            # Пользователь НЕ найден - РЕГИСТРИРУЕМ НОВОГО пользователя
+            # УДАЛЕНА ПРОВЕРКА if session.get('has_registered_player'):
+            
             print(f"PLAYER_LOGIN: Registering new user '{player_name}'")
             user_code = generate_unique_code()
             try:
@@ -469,9 +465,7 @@ def register_or_login_player():
                 user_id = c.lastrowid
                 db.commit()
                 
-                # --- УСТАНАВЛИВАЕМ ФЛАГ В СЕССИИ ПОСЛЕ УСПЕШНОЙ РЕГИСТРАЦИИ ---
-                session['has_registered_player'] = True 
-                # --- Конец установки флага ---
+                # УДАЛЕНА СТРОКА session['has_registered_player'] = True 
 
                 print(f"PLAYER_LOGIN: User '{player_name}' registered with code '{user_code}' and ID {user_id}")
                 flash(f"Добро пожаловать, {player_name}! Ваша уникальная ссылка создана.", "success")
@@ -497,7 +491,8 @@ def register_or_login_player():
             # Перенаправляем на страницу пользователя
             return redirect(url_for('user', code=user_code))
         else:
-            flash("Произошла неизвестная ошибка.", "danger")
+            # Сюда не должны попасть, если логика верна
+            flash("Произошла неизвестная ошибка при обработке вашего запроса.", "danger")
             return redirect(url_for('login_player'))
 
     except sqlite3.Error as e:
@@ -506,7 +501,7 @@ def register_or_login_player():
         return redirect(url_for('login_player'))
     except Exception as e_general:
         print(f"PLAYER_LOGIN_ERROR: Unexpected error for name '{player_name}': {e_general}")
-        print(traceback.format_exc())
+        print(traceback.format_exc()) # Для более детального лога на сервере
         flash(f"Произошла непредвиденная ошибка: {e_general}", "danger")
         return redirect(url_for('login_player'))
         
