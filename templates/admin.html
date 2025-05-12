@@ -248,24 +248,6 @@
         </div>
         {# --- КОНЕЦ ОБЪЕДИНЕННОГО БЛОКА ФОРМ --- #}
 
-        {# --- Настройки Игрового Поля (остаются на месте) --- #}
-        <div class="border p-3 rounded mb-4"> 
-            <h3>Настройки Игрового Поля</h3>
-             <form method="post" action="{{ url_for('admin') }}" class="mb-2">
-                 <div class="row g-3 align-items-end">
-                    <div class="col-md-7">
-                        <label for="num_cells_for_board_reset" class="form-label">Задать кол-во ячеек для поля (пусто = авто):</label>
-                        <input type="number" class="form-control form-control-sm" name="num_cells_for_board_reset" id="num_cells_for_board_reset" placeholder="По умолчанию или по макс. рейтингу" min="1">
-                    </div>
-                    <div class="col-md-5">
-                         <button type="submit" name="reset_game_board_visuals" value="1" class="btn btn-warning w-100 btn-sm">Обновить/Сбросить визуал. поля</button>
-                    </div>
-                </div>
-            </form>
-            <p class="mb-0"><small>Текущее количество ячеек на поле: <strong>{% if current_num_board_cells is defined and current_num_board_cells > 0 %}{{ current_num_board_cells }}{% else %}Не инициализировано (обновите поле){% endif %}</strong></small></p>
-        </div>
-        {# --- Конец Настроек Игрового Поля --- #}
-
         {# --- Список пользователей --- #}
         <h2>Список пользователей</h2>
         <div class="table-responsive mb-4">
