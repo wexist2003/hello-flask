@@ -3,8 +3,6 @@
 
 {# === Макросы === #}
 {% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_for_guessing_macro, current_user_data_macro, get_user_name_func_macro) %}
-    {# current_user_data_macro это user_data (g.user) из контекста основного шаблона #}
-    {# all_users_for_guessing_macro это отфильтрованный список активных игроков для угадывания #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
@@ -22,8 +20,9 @@
              alt="Карта {{ table_image.id }}" loading="lazy"
              style="margin-top: 0.25rem;"> 
         <div class="card-body pt-1"> 
-            {% if g.show_card_info %} {# Карты открыты, показываем результаты #}
-                <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
+            {% if g.show_card_info %}
+                {# ... (код для отображения результатов голосования, без изменений) ... #}
+                 <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2 card-guess-list"> 
                     {% for guesser_id_str, guessed_user_id_loop in table_image.guesses.items() %}
                         <li><small>
@@ -51,17 +50,19 @@
                 </small></p>
             {% elif g.game_in_progress %} {# Карты не открыты, ИГРА ИДЕТ #}
                 {% if current_user_data_macro.status == 'active' %} {# Только активные игроки могут угадывать #}
+                    {# --- ИЗМЕНЕНИЕ ЗДЕСЬ --- #}
+                    {# Убираем условие elif current_user_data_macro.id == db_current_leader_id_macro #}
+                    {# Теперь форма голосования показывается всем активным игрокам, если это не их карта #}
                     {% if table_image.owner_id == current_user_data_macro.id %} 
                         <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> 
-                    {% elif current_user_data_macro.id == db_current_leader_id_macro %} {# Ведущий не угадывает #}
-                        <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-info card-custom-badge">Вы ведущий</span></p> 
-                    {% else %} {# Активный не-ведущий игрок #}
+                    {% else %} {# Любой активный игрок (включая ведущего) может голосовать за чужую карту #}
                         {% if not g.game_over %}
                             <form method="post" action="{{ url_for('guess_image', code=current_user_data_macro.code, image_id=table_image.id) }}">
                                 <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
                                 <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
                                     <option value="">-- Выберите игрока --</option>
                                     {% for user_loop_var in all_users_for_guessing_macro %}
+                                            {# all_users_for_guessing_macro уже не содержит текущего пользователя #}
                                             {% set current_guess_target_id = table_image.guesses.get(current_user_data_macro.id|string) %}
                                             <option value="{{ user_loop_var.id }}" {% if current_guess_target_id == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
                                     {% endfor %}
@@ -77,10 +78,11 @@
                             <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
                         {% endif %}
                     {% endif %}
+                    {# --- КОНЕЦ ИЗМЕНЕНИЯ --- #}
                 {% else %} {# Пользователь - наблюдатель #}
                      <p class="text-center text-muted mb-0 card-info-text card-text-bigger"><small>(Наблюдатель)</small></p>
                 {% endif %}
-            {% else %} {# Игра не идет (например, между играми или окончена и еще не сброшена) #}
+            {% else %} {# Игра не идет #}
                  <p class="text-center text-muted mb-0 card-info-text card-text-bigger"><small>Игра не активна</small></p>
             {% endif %}
         </div>
@@ -223,7 +225,6 @@
         <p class="fs-4">Ваш рейтинг: <strong>{{ user_data.rating }}</strong></p>
 
         <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2">
-            {# Текущий ведущий #}
             {% if db_current_leader_id and g.game_in_progress %}
                 {% set current_leader_name_in_db = get_user_name(db_current_leader_id) %}
                 <span class="text-muted mb-1 mb-sm-0 fs-4">
@@ -236,7 +237,6 @@
                 <span class="text-muted mb-1 mb-sm-0 fs-4"><i class="bi bi-flag-checkered text-danger"></i> Игра окончена.</span>
             {% endif %}
 
-            {# Следующий ведущий - ТОЛЬКО когда карты открыты #}
             {% if g.show_card_info and potential_next_leader_id and not g.game_over %}
                 {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
                 <span class="text-muted fs-4">
@@ -304,7 +304,7 @@
             </div>
         {% endif %}
 
-        <h2 class="h2-like-bigger">Игровое Поле</h2>
+        <h2 class="h2-like-bigger">Игровое Поле (активные игроки)</h2>
         <div class="border p-1 p-sm-2 mb-3 rounded">
              <div class="game-board-container">
                 {% if game_board and game_board|length > 0 %}
