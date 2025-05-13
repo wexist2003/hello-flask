@@ -604,39 +604,56 @@ def vote_deck():
 # --- Обработчики запросов ---
 @app.before_request
 def before_request_func():
-    # print("--- Entered before_request_func --- TOP ---", flush=True) # Для отладки, если нужно
+    print("--- Entered before_request_func --- TOP ---", flush=True)
     g.user = None
     g.user_id = session.get('user_id')
     g.admin_logged_in = session.get('is_admin', False)
 
     if g.user_id:
         db = get_db()
-        # Исправленный SQL-запрос для включения поля 'rating'
-        user_data = db.execute(
-            'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,)
+        # --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем 'rating' в SELECT запрос ---
+        user_data_from_db = db.execute( # Переименовал переменную для ясности
+            'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,) # <--- 'rating' добавлен
         ).fetchone()
-        
-        if user_data:
-            g.user = user_data
-            # Отладочный print, чтобы убедиться, что 'rating' теперь есть в g.user
-            # print(f"--- before_request_func: g.user contents: {dict(g.user) if g.user else 'None'} ---", flush=True)
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        if user_data_from_db:
+            g.user = user_data_from_db # Теперь g.user будет содержать 'rating'
+            print(f"--- before_request_func: g.user set. Keys: {list(g.user.keys()) if g.user else 'None'}. User: {g.user['name'] if g.user else 'N/A'}, Rating: {g.user['rating'] if g.user and 'rating' in g.user else 'N/A'}", flush=True)
         else:
-            # Если пользователь с таким ID не найден в БД, очищаем сессию
+            # Пользователь с таким ID не найден в БД, очищаем сессию
+            print(f"--- before_request_func: User with ID {g.user_id} not found in DB. Clearing session.", flush=True)
             session.pop('user_id', None)
             session.pop('user_name', None)
             session.pop('user_code', None)
             session.pop('is_admin', None)
-            g.user_id = None # Сбрасываем g.user_id, так как пользователя нет
+            g.user_id = None # Сбрасываем g.user_id
             g.admin_logged_in = False # Также сбрасываем флаг админа
-            # print(f"--- before_request_func: User with ID {session.get('user_id')} not found in DB. Session cleared. ---", flush=True)
-            
-    # Загрузка состояния игры
-    game_state = get_game_state() # Предполагается, что эта функция существует и работает
-    g.show_card_info = game_state.get('show_card_info', False)
-    g.game_over = game_state.get('game_over', False)
-    g.game_in_progress = game_state.get('game_in_progress', False)
-    # print(f"--- before_request_func: Game state: progress={g.game_in_progress}, show_info={g.show_card_info}, over={g.game_over} ---", flush=True)
-    # print("--- Exiting before_request_func ---", flush=True)
+    else:
+        print("--- before_request_func: No user_id in session. g.user remains None.", flush=True)
+
+    # --- ВОССТАНОВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ СОСТОЯНИЯ ИГРЫ ИЗ ВАШЕГО ФАЙЛА app.py ---
+    # Эта часть кода была в вашем файле app.py, и я возвращаю ее.
+    # Убедитесь, что переменные show_card_info_val, game_over_val, game_in_progress_val
+    # правильно считываются из БД (или откуда они у вас берутся).
+    db_for_state = get_db() # Получаем соединение с БД
+    show_card_info_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'show_card_info'").fetchone()
+    game_over_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'game_over'").fetchone()
+    game_in_progress_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'game_in_progress'").fetchone()
+
+    # Преобразование строковых 'true'/'false' или '0'/'1' в булевы значения
+    g.show_card_info = show_card_info_row['value'].lower() == 'true' if show_card_info_row else False
+    g.game_over = game_over_row['value'].lower() == 'true' if game_over_row else False
+    g.game_in_progress = game_in_progress_row['value'].lower() == 'true' if game_in_progress_row else False
+    
+    # Дополнительная логика, если игра окончена
+    if g.game_over:
+        g.game_in_progress = False # Игра не может быть "в процессе", если она "окончена"
+        # g.show_card_info = True # Обычно, если игра окончена, карты открыты (можно добавить, если нужно)
+
+    print(f"--- before_request_func: Game state loaded: progress={g.game_in_progress}, show_info={g.show_card_info}, over={g.game_over} ---", flush=True)
+    print("--- Exiting before_request_func ---", flush=True)
+    
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
