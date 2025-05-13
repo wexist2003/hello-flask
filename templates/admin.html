@@ -1,38 +1,505 @@
-/* Внутри <style> вашего admin.html */
+<!doctype html>
+<html lang="ru" data-bs-theme="light"> {# Тема по умолчанию - светлая #}
 
-/* Этот стиль уже должен быть у вас, он задает общие параметры аватара */
-.player-avatar-on-board {
-    display: inline-flex;
-    width: 1.5em; /* Эти размеры могут отличаться от user.html, выберите нужные */
-    height: 1.5em;
-    border-radius: 50%;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1em; /* И этот */
-    overflow: hidden;
-    vertical-align: middle;
-    line-height: 1;
-    /* УДАЛИТЕ или ЗАКОММЕНТИРУЙТЕ эти строки, если они есть, чтобы применились специфичные для темы: */
-    /* color: var(--bs-light-text-emphasis); */
-    /* background-color: var(--bs-secondary); */
-}
+{# === Макрос для игрового поля (скопировано) === #}
+{% macro render_game_board_cell(cell_data, get_user_name_func_local) %}
+<div class="game-board-spot-container m-1 text-center">
+    <div class="game-board-pictogram"
+         title="Клетка #{{ cell_data.cell_number }}"
+         style="background-image: url('{{ url_for('static', filename=cell_data.image_path) }}');">
+        <div class="game-board-cell-number">
+            {{ cell_data.cell_number }}
+        </div>
+    </div>
+    <div class="game-board-player-names-area">
+        {% if cell_data.users_in_cell %}
+            {% for player in cell_data.users_in_cell %}
+                <span class="player-avatar-on-board" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
+                    {{ player.name[0]|upper if player.name and player.name|trim else '?' }}
+                </span>{%- if not loop.last %}<span class="avatar-separator">, </span>{% endif -%}
+            {% endfor %}
+        {% else %}
+            <div class="player-name-on-board-empty">&nbsp;</div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+{# === Конец Макросов === #}
 
-/* ДОБАВЬТЕ ЭТИ ДВА ПРАВИЛА (или измените существующие, если они есть) */
-html[data-bs-theme="dark"] .player-avatar-on-board {
-    background-color: #5A67D8; /* Фиолетово-синий для темной темы (как на user.html) */
-    color: #EBF4FF;           /* Светлый текст для темной темы (как на user.html) */
-}
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Админка</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        /* Пользовательские стили (ваши существующие) */
+        body { padding-bottom: 5rem; }
+        h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+        h3 { margin-top: 1rem; font-size: 1.25rem; } 
+        table { margin-top: 1rem; }
+        .action-forms form { display: inline-block; margin-right: 5px; } 
 
-html[data-bs-theme="light"] .player-avatar-on-board {
-    background-color: #A3BFFA; /* Светло-синий для светлой темы (как на user.html) */
-    color: #2C5282;           /* Темно-синий текст для светлой темы (как на user.html) */
-}
+        /* Стили для темной темы (ваши существующие) */
+        html[data-bs-theme="dark"] #new-game-form {
+            background-color: var(--bs-gray-900) !important;
+            color: var(--bs-light) !important;
+            border-color: var(--bs-border-color-translucent) !important;
+        }
+        html[data-bs-theme="dark"] #new-game-form label {
+             color: var(--bs-light) !important;
+        }
+        html[data-bs-theme="dark"] #new-game-form .form-text.text-muted {
+             color: var(--bs-secondary-color) !important;
+        }
+        html[data-bs-theme="dark"] #image-list-table .badge.bg-secondary {
+            background-color: var(--bs-gray-800) !important;
+            color: var(--bs-light) !important;
+        }
+        .bg-danger-subtle {
+             --bs-table-bg-type: var(--bs-danger-subtle);
+        }
 
-/* Медиа-запросы для адаптации размера аватара, если нужно, как в user.html */
-@media (max-width: 992px) {
-    /* .player-avatar-on-board { font-size: 0.9em; width: 1.4em; height: 1.4em;} */ /* Пример */
-}
-@media (max-width: 768px) {
-    /* .player-avatar-on-board { font-size: 0.8em; width: 1.3em; height: 1.3em;} */ /* Пример */
-}
+        /* Стили для игрового поля (добавленные ранее) */
+        .game-board-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 0.5rem;
+            justify-content: center;
+            background-color: var(--bs-tertiary-bg);
+            border-radius: .25rem;
+            min-height: 100px;
+            border: 1px solid var(--bs-border-color);
+        }
+        .game-board-wrapper { 
+            margin-bottom: 2rem; 
+        }
+        .game-board-settings { 
+             border: 1px solid var(--bs-border-color);
+             border-top: none; 
+             padding: 1rem;
+             border-radius: 0 0 .25rem .25rem; 
+             background-color: var(--bs-body-bg);
+             margin-top: -1px; 
+        }
+        .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 2px; }
+        .game-board-pictogram {
+            width: 60px;
+            height: 60px;
+            position: relative;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .2rem;
+            margin-bottom: 3px;
+        }
+        .game-board-cell-number {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            background-color: rgba(var(--bs-body-bg-rgb),0.9);
+            color: var(--bs-body-color);
+            padding: 1px 3px;
+            border-radius: 0.15rem 0 0.15rem 0;
+            font-size: 0.65em;
+            font-weight: bold;
+            border-right: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1);
+            border-bottom: 1px solid rgba(var(--bs-emphasis-color-rgb),0.1);
+            line-height: 1.2;
+        }
+        .game-board-player-names-area {
+            width: 60px;
+            line-height: 1.1;
+            max-height: 4.5em;
+            min-height: 1.5em;
+            overflow-y: auto;
+            text-align: center;
+            margin-top: 1px;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        /* --- ИЗМЕНЕННЫЕ/ДОБАВЛЕННЫЕ СТИЛИ ДЛЯ АВАТАРА --- */
+        .player-avatar-on-board {
+            display: inline-flex;
+            width: 1.5em;       /* Базовый размер, можно подстроить */
+            height: 1.5em;      /* Базовый размер, можно подстроить */
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1em;       /* Базовый размер шрифта, влияет на размер width/height в em */
+            overflow: hidden;
+            vertical-align: middle;
+            line-height: 1;
+            /* Общие цвета по умолчанию убраны, чтобы специфичные для темы применились */
+        }
+
+        html[data-bs-theme="dark"] .player-avatar-on-board {
+            background-color: #5A67D8; /* Фиолетово-синий для темной темы */
+            color: #EBF4FF;           /* Светлый текст для темной темы */
+        }
+
+        html[data-bs-theme="light"] .player-avatar-on-board {
+            background-color: #A3BFFA; /* Светло-синий для светлой темы */
+            color: #2C5282;           /* Темно-синий текст для светлой темы */
+        }
+        /* --- КОНЕЦ ИЗМЕНЕННЫХ/ДОБАВЛЕННЫХ СТИЛЕЙ ДЛЯ АВАТАРА --- */
+        
+        .avatar-separator {
+            font-size: 0.9em;
+            padding: 0 1px;
+            vertical-align: middle;
+            line-height: 1;
+            color: var(--bs-secondary-color);
+        }
+        .player-name-on-board-empty {
+            height: 1.5em;
+            line-height: 1.5em;
+            width: 100%;
+            font-size: 1em;
+        }
+
+        @media (max-width: 992px) {
+            .game-board-pictogram { width: 50px; height: 50px; }
+            .game-board-player-names-area { width: 50px; }
+            .player-avatar-on-board { font-size: 0.9em; /* width: 1.4em; height: 1.4em; */ } /* Размеры width/height в em будут зависеть от font-size */
+        }
+        @media (max-width: 768px) {
+            .game-board-pictogram { width: 42px; height: 42px; }
+            .game-board-player-names-area { width: 42px; }
+            .player-avatar-on-board { font-size: 0.8em; /* width: 1.3em; height: 1.3em; */ } /* Размеры width/height в em будут зависеть от font-size */
+            .game-board-cell-number { font-size: 0.55em; }
+        }
+        /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ИГРОВОГО ПОЛЯ --- */
+    </style>
+</head>
+
+<body class="p-4">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>Админка</h1>
+             <div>
+                 <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm" title="Сменить тему">
+                     <i class="bi bi-circle-half"></i>
+                     <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
+                 </button>
+             </div>
+        </div>
+
+        {# --- Flash-сообщения --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {# --- Сообщение о конце игры --- #}
+        {% if g.game_over %}
+            <div class="alert alert-warning mt-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! Для продолжения начните новую игру.
+            </div>
+        {% endif%}
+
+        {# --- ОБЪЕДИНЕННЫЙ БЛОК ФОРМ: ВЫБОР КОЛОДЫ И ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ --- #}
+        <div class="row mb-4 g-4">
+            {# (Код этого блока без изменений) #}
+            <div class="col-md-5">
+                <h3>Выбор колоды</h3>
+                <form method="post" action="{{ url_for('admin') }}">
+                    <div class="mb-3">
+                        <label for="active_subfolder" class="form-label">Активная колода:</label>
+                        <select id="active_subfolder" name="active_subfolder" class="form-select">
+                            <option value="">-- Не выбрана --</option>
+                            {% for subfolder_item in subfolders %}
+                                <option value="{{ subfolder_item }}" {% if active_subfolder == subfolder_item %}selected{% endif %}>{{ subfolder_item }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" name="set_active_subfolder" value="1" class="btn btn-secondary">Сохранить колоду</button>
+                    <button type="submit" name="toggle_show_card_info" value="1" class="btn btn-info ms-2">
+                        {{ "Скрыть инфо о картах" if show_card_info else "Показать инфо о картах" }}
+                    </button>
+                </form>
+            </div>
+
+            <div class="col-md-7">
+                <h3>Добавить пользователя</h3>
+                <form method="post" action="{{ url_for('admin') }}">
+                    <div class="row g-3 mb-2">
+                        <div class="col-sm-7">
+                            <label for="name" class="form-label">Имя:</label>
+                            <input type="text" id="name" name="name" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-sm-5">
+                            <label for="num_cards" class="form-label">Кол-во карт:</label>
+                            <input type="number" id="num_cards" name="num_cards" class="form-control form-control-sm" value="4" min="1" required>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary btn-sm mt-1">
+                            <i class="bi bi-person-plus-fill"></i> Добавить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {# --- КОНЕЦ ОБЪЕДИНЕННОГО БЛОКА ФОРМ --- #}
+
+        {# --- Список пользователей --- #}
+        <h2>Список пользователей</h2>
+        <div class="table-responsive mb-4">
+             {# (Код таблицы пользователей без изменений, но убедитесь, что db_current_leader_id или admin_focus_leader_id используется для отметки ведущего) #}
+             {# Если вы передаете db_current_leader_id и admin_focus_leader_id из app.py, то в условии ниже #}
+             {# используйте ту переменную, которая отвечает за отображение "актуального" ведущего раунда #}
+             <table class="table table-bordered table-striped table-hover table-sm" style="table-layout: fixed; width: 100%;">
+               <thead class="table-light">
+                  <tr>
+                      <th style="width: 3%;" class="text-center">ID</th>
+                      <th style="width: 15%;">Имя / Статус</th>
+                      <th style="width: 15%;">Ссылка</th>
+                      <th style="width: 7%;">Рейтинг</th>
+                      <th>Предположения игрока</th>
+                      <th style="width: 10%;">Действия</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for user_item in users %}
+                      <tr>
+                          <td class="text-center align-middle">{{ user_item.id }}</td>
+                          <td class="align-middle">
+                              {{ user_item.name }}
+                              {# Используйте db_current_leader_id для отметки того, кто ведущий в БД #}
+                              {% if db_current_leader_id is not none and user_item.id == db_current_leader_id %}
+                                  <span class="badge bg-success ms-2" title="Ведущий (в БД)"><i class="bi bi-star-fill"></i> Ведущий</span>
+                              {% endif %}
+                          </td>
+                          <td class="align-middle" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                              <a href="{{ url_for('user', code=user_item.code) }}" target="_blank" title="{{ url_for('user', code=user_item.code, _external=True) }}">{{ user_item.code }} <i class="bi bi-box-arrow-up-right"></i></a>
+                          </td>
+                          <td class="align-middle">{{ user_item.rating }}</td>
+                          <td {% if user_has_duplicate_guesses.get(user_item.id) %}class="bg-danger-subtle align-top"{% else %}class="align-top"{% endif %}>
+                              {% set user_guess_count = guess_counts_by_user.get(user_item.id, 0) %}
+                              {% if user_guess_count > 0 %}
+                                  <div style="column-count: 3; column-gap: 10px; font-size: 0.8rem;">
+                                  {% for image_id_loop, guesses_for_image in all_guesses.items() %}
+                                      {% if user_item.id|string in guesses_for_image %}
+                                          {% set guessed_owner_id = guesses_for_image[user_item.id|string] %}
+                                          {% set actual_owner_id = image_owners.get(image_id_loop|int) %}
+                                          <small style="display: block; margin-bottom: 2px; white-space: nowrap;">
+                                            Карта {{ image_id_loop }}: {{ get_user_name_func(guessed_owner_id) or ('ID ' + guessed_owner_id|string) }}
+                                              {% if actual_owner_id is not none and guessed_owner_id == actual_owner_id %}
+                                                  <i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>
+                                              {% elif actual_owner_id is not none %}
+                                                  <i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>
+                                              {% endif %}
+                                          </small>
+                                      {% endif %}
+                                  {% endfor %}
+                                  </div>
+                              {% else %}
+                                  <span class="text-muted" style="font-size: 0.8rem;">Нет</span>
+                              {% endif %}
+                          </td>
+                          <td class="action-forms text-center align-middle">
+                              <form action="{{ url_for('admin') }}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user_item.name }} (ID: {{ user_item.id }})? Это действие необратимо!');">
+                                  <input type="hidden" name="delete_user_id" value="{{ user_item.id }}">
+                                  <button class="btn btn-danger btn-sm" type="submit" title="Удалить пользователя {{ user_item.name }}">
+                                      <i class="bi bi-trash"></i> <span class="visually-hidden">Удалить</span>
+                                  </button>
+                              </form>
+                          </td>
+                      </tr>
+                  {% else %}
+                      <tr>
+                          <td colspan="6" class="text-center text-muted">Пользователи еще не добавлены.</td>
+                      </tr>
+                  {% endfor %}
+              </tbody>
+           </table>
+        </div>
+        {# --- Конец Списка пользователей --- #}
+
+        {# === БЛОК УПРАВЛЕНИЯ РАУНДОМ (Перемещен сюда) === #}
+        <h2>Управление раундом</h2>
+        <div class="mb-4 action-forms">
+            <form action="{{ url_for('open_cards') }}" method="post" onsubmit="return confirm('Открыть карты и подсчитать очки? Текущий раунд завершится.');">
+                <button class="btn btn-success" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-check2-circle"></i> Открыть карты / Подсчитать очки
+                </button>
+            </form>
+            <form action="{{ url_for('new_round') }}" method="post" onsubmit="return confirm('Начать новый раунд? Карты со стола и предположения будут сброшены, всем будут розданы новые карты, сменится ведущий.');">
+                <button class="btn btn-warning" type="submit" {% if g.game_over %}disabled title="Игра окончена"{% endif %}>
+                    <i class="bi bi-arrow-clockwise"></i> Начать новый раунд
+                </button>
+            </form>
+        </div>
+        {# === КОНЕЦ БЛОКА УПРАВЛЕНИЯ РАУНДОМ === #}
+
+        {# === БЛОК ИГРОВОГО ПОЛЯ + НАСТРОЙКИ === #}
+        <div class="game-board-wrapper">
+            <h2>Игровое поле</h2>
+            <div class="game-board-container">
+                {% if game_board and game_board|length > 0 %}
+                    {% for cell_data in game_board %}
+                        {{ render_game_board_cell(cell_data, get_user_name_func) }}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted w-100 text-center" style="padding: 1rem 0;">Игровое поле не загружено, пусто или не удалось инициализировать.</p>
+                {% endif %}
+            </div>
+            <div class="game-board-settings">
+                 <form method="post" action="{{ url_for('admin') }}" class="mb-2">
+                     <div class="row g-3 align-items-end">
+                         <div class="col-md-7">
+                             <label for="num_cells_for_board_reset" class="form-label">Задать кол-во ячеек для поля (пусто = авто):</label>
+                             <input type="number" class="form-control form-control-sm" name="num_cells_for_board_reset" id="num_cells_for_board_reset" placeholder="По умолчанию или по макс. рейтингу" min="1">
+                         </div>
+                         <div class="col-md-5">
+                              <button type="submit" name="reset_game_board_visuals" value="1" class="btn btn-warning w-100 btn-sm">Обновить/Сбросить визуал. поля</button>
+                         </div>
+                     </div>
+                 </form>
+                 <p class="mb-0"><small>Текущее количество ячеек на поле: <strong>{% if current_num_board_cells is defined and current_num_board_cells > 0 %}{{ current_num_board_cells }}{% else %}Не инициализировано (обновите поле){% endif %}</strong></small></p>
+            </div>
+        </div>
+        {# === КОНЕЦ БЛОКА ИГРОВОГО ПОЛЯ + НАСТРОЙКИ === #}
+
+        {# === БЛОК "НАЧАТЬ НОВУЮ ИГРУ" === #}
+        <h2>Начать новую игру</h2>
+        <form id="new-game-form" method="post" action="{{ url_for('start_new_game') }}" class="mb-4 border p-3 rounded bg-light" onsubmit="return confirm('Вы уверены, что хотите начать НОВУЮ ИГРУ? Все рейтинги будут сброшены, карты переразданы.');">
+            {# (Содержимое формы без изменений) #}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                  <label for="new_game_subfolder" class="form-label">Выберите колоду для новой игры:</label>
+                  <select id="new_game_subfolder" name="new_game_subfolder" class="form-select" required>
+                      <option value="" disabled {% if not active_subfolder %}selected{% endif %}>-- Выберите колоду --</option>
+                      {% for subfolder_item_new_game in subfolders %}
+                          <option value="{{ subfolder_item_new_game }}" {% if active_subfolder == subfolder_item_new_game %}selected{% endif %}>{{ subfolder_item_new_game }}</option>
+                      {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="new_game_num_cards" class="form-label">Карт на игрока:</label>
+                    <input type="number" id="new_game_num_cards" name="new_game_num_cards" class="form-control" value="4" min="1" required>
+                </div>
+                 <div class="col-auto">
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-bootstrap-reboot"></i> Начать новую игру</button>
+                </div>
+            </div>
+            <small class="form-text text-muted mt-2 d-block">
+                Внимание: Это действие сбросит все текущие очки, состояние стола, угадывания и назначит нового ведущего. Пользователи останутся.
+            </small>
+        </form>
+        {# === КОНЕЦ БЛОКА "НАЧАТЬ НОВУЮ ИГРУ" === #}
+
+        {# --- Список изображений --- #}
+        <h2>Список изображений (<span id="total-images-count">{{ images|length }}</span> шт. / Свободно в активной колоде: <span id="free-images-count">{{ free_image_count }}</span>)</h2>
+         <div class="table-responsive">
+            {# (Код таблицы изображений без изменений) #}
+            <table id="image-list-table" class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                          <th>ID</th>
+                          <th>Колода</th>
+                          <th>Файл</th>
+                          <th>Статус</th>
+                          <th>Превью</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for image_item in images %}
+                        <tr class="{{ 'table-secondary' if image_item.subfolder != active_subfolder else '' }}">
+                            <td class="align-middle">{{ image_item.id }}</td>
+                            <td class="align-middle">{{ image_item.subfolder }}</td>
+                            <td class="align-middle">{{ image_item.image }}</td>
+                            <td class="align-middle">
+                                {% if image_item.status and image_item.status.startswith('Занято:') %}
+                                    {% set owner_id_from_status = image_item.status.split(':')[1] %}
+                                    <span class="badge bg-secondary" title="Карта назначена игроку {{ get_user_name_func(owner_id_from_status) or ('ID '+owner_id_from_status) }}">
+                                        Занято: {{ get_user_name_func(owner_id_from_status) or ('ID '+owner_id_from_status) }}
+                                    </span>
+                                {% elif image_item.status and image_item.status.startswith('На столе:') %}
+                                    {% set owner_id_from_status_table = image_item.status.split(':')[1] %}
+                                    <span class="badge bg-info" title="Карта выложена на стол игроком {{ get_user_name_func(owner_id_from_status_table) or ('ID '+owner_id_from_status_table) }}">
+                                        На столе: {{ get_user_name_func(owner_id_from_status_table) or ('ID '+owner_id_from_status_table) }}
+                                    </span>
+                                {% elif image_item.status == 'Свободно' %}
+                                    {% if image_item.subfolder == active_subfolder %}
+                                        <span class="badge bg-light text-dark border">Свободно</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border" title="Карта в неактивной колоде">Свободно</span>
+                                    {% endif %}
+                                {% else %}
+                                    {{ image_item.status or 'N/A' }}
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <img src="{{ url_for('static', filename='images/' + image_item.subfolder + '/' + image_item.image) }}"
+                                     alt="{{ image_item.image }}" style="max-width: 60px; height: auto;" loading="lazy">
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">Изображения не найдены или не загружены.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <hr class="my-4">
+        <div class="text-center">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Выйти из Админ-панели</a>
+        </div>
+
+    </div> {# Конец container-fluid #}
+
+    {# --- JavaScript Bootstrap (ваш существующий) --- #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {# --- Скрипт смены темы (ваш существующий) --- #}
+    <script>
+        (function() {
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const htmlElement = document.documentElement;
+            const storageKey = 'adminThemePreference'; // У вас был такой ключ
+
+            const applyTheme = (theme) => {
+                htmlElement.setAttribute('data-bs-theme', theme);
+                if (themeToggleBtn) {
+                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
+                }
+            };
+
+            const toggleTheme = () => {
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                applyTheme(newTheme);
+                localStorage.setItem(storageKey, newTheme);
+            };
+
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            }
+
+            const savedTheme = localStorage.getItem(storageKey);
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+            applyTheme(defaultTheme);
+        })();
+    </script>
+</body>
+</html>
