@@ -1300,7 +1300,6 @@ def open_cards():
     
 
 @app.route("/new_round", methods=["POST"])
-@login_required # Добавьте, если еще нет
 def new_round():
     if not session.get('is_admin'): # Проверка админа
         flash('Доступ запрещен.', 'danger')
