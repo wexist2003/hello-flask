@@ -71,11 +71,10 @@
             padding-left: 0.5rem;
         }
         
-        /* Стили для счетчика голосов */
         .vote-count {
             font-size: 1.2rem;
             font-weight: bold;
-            color: var(--bs-primary); /* Стандартный синий для светлой темы */
+            color: var(--bs-primary); 
             margin-right: 0.5rem;
             display: inline-flex;
             align-items: center;
@@ -84,7 +83,6 @@
             margin-right: 0.25rem;
         }
 
-        /* Стили для кнопок голосования */
         .vote-form button {
             font-size: 1.08rem;
             padding: 0.25rem 0.5rem;
@@ -95,7 +93,7 @@
             box-shadow: 0 0 0 0.20rem rgba(var(--bs-success-rgb), 0.25);
             background-color: rgba(var(--bs-success-rgb), 0.15);
         }
-        .deck-vote-item.voted-for button { /* Кнопка "Выбрано" */
+        .deck-vote-item.voted-for button {
             opacity: 0.8;
         }
 
@@ -129,37 +127,25 @@
              font-weight: 500;
              display: inline-block;
         }
-         .footer-links a.admin-link { /* специфичный класс, если нужно */ }
+         .footer-links a.admin-link { }
          .footer-links a:hover {
              background-color: rgba(var(--bs-emphasis-color-rgb), 0.8);
              text-decoration: none;
          }
         
-        /* --- ИЗМЕНЕНИЯ ДЛЯ ТЕМНОЙ ТЕМЫ --- */
         html[data-bs-theme="dark"] .vote-count {
-            color: var(--bs-info-text-emphasis); /* Используем более светлый синий Bootstrap для темной темы */
-            /* Альтернативы: */
-            /* color: var(--bs-teal); */ /* Бирюзовый */
-            /* color: #66b0ff; */ /* Светло-голубой, если переменные Bootstrap не подходят */
-            /* color: var(--bs-light); */ /* Белый, если нужен максимальный контраст */
+            color: var(--bs-info-text-emphasis); 
         }
 
         html[data-bs-theme="dark"] .vote-form button.btn-outline-success {
-            /* Bootstrap 5.3 уже должен делать текст и рамку btn-outline-success зелеными в темной теме. */
-            /* Но если нужно усилить или изменить: */
-            color: var(--bs-success-text-emphasis); /* Более яркий зеленый текст для темной темы */
-            border-color: var(--bs-success-border-subtle); /* Более яркая зеленая рамка */
+            color: var(--bs-success-text-emphasis); 
+            border-color: var(--bs-success-border-subtle); 
         }
         html[data-bs-theme="dark"] .vote-form button.btn-outline-success:hover {
-            color: var(--bs-dark); /* Текст при наведении (например, темный, если фон кнопки станет зеленым) */
+            color: var(--bs-dark); 
             background-color: var(--bs-success);
             border-color: var(--bs-success);
         }
-        /* Для кнопки "Выбрано" (btn-success) обычно текст и так белый, что контрастно */
-        /* html[data-bs-theme="dark"] .deck-vote-item.voted-for button.btn-success { */
-            /* Можно переопределить, если стандартный вид не устраивает */
-        /* } */
-        /* --- КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ ТЕМНОЙ ТЕМЫ --- */
 
         @media (max-width: 767.98px) {
             .content-wrapper {
@@ -243,9 +229,61 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {# --- ИСПРАВЛЕННЫЙ СКРИПТ СМЕНЫ ТЕМЫ --- #}
     <script>
-        // Скрипт смены темы (без изменений)
-        (function() { /* ... ваш скрипт ... */ })();
+        (function() {
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const htmlElement = document.documentElement;
+            // Используем общий ключ, чтобы тема была одинаковой на всех страницах (index, user, admin)
+            // Если хотите разные темы, используйте разные ключи, например 'indexThemePreference'
+            const storageKey = 'globalThemePreference'; 
+
+            const applyTheme = (theme) => {
+                htmlElement.setAttribute('data-bs-theme', theme);
+                if (themeToggleBtn) {
+                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
+                   // Опционально: можно менять иконку кнопки
+                   // const icon = themeToggleBtn.querySelector('i');
+                   // if (icon) {
+                   //    icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill'; // или bi-circle-half
+                   // }
+                }
+            };
+
+            const toggleTheme = () => {
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light'; // По умолчанию светлая
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                applyTheme(newTheme);
+                try {
+                    localStorage.setItem(storageKey, newTheme);
+                } catch (e) {
+                    console.error('Не удалось сохранить предпочтение темы:', e);
+                }
+            };
+
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            }
+
+            // Применить начальную тему
+            let defaultThemeInitial = 'light'; // По умолчанию светлая
+            try {
+                const savedTheme = localStorage.getItem(storageKey);
+                if (savedTheme) {
+                    defaultThemeInitial = savedTheme;
+                } else {
+                    // Если нет сохраненной темы, проверяем системные настройки
+                    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        defaultThemeInitial = 'dark';
+                    }
+                }
+            } catch (e) {
+                console.error('Не удалось загрузить предпочтение темы:', e);
+                // Оставляем defaultThemeInitial как 'light'
+            }
+            applyTheme(defaultThemeInitial);
+        })();
     </script>
 </body>
 </html>
