@@ -611,46 +611,41 @@ def before_request_func():
 
     if g.user_id:
         db = get_db()
-        # --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем 'rating' в SELECT запрос ---
-        user_data_from_db = db.execute( # Переименовал переменную для ясности
-            'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,) # <--- 'rating' добавлен
+        user_data_from_db = db.execute(
+            'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,)
         ).fetchone()
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         if user_data_from_db:
-            g.user = user_data_from_db # Теперь g.user будет содержать 'rating'
-            print(f"--- before_request_func: g.user set. Keys: {list(g.user.keys()) if g.user else 'None'}. User: {g.user['name'] if g.user else 'N/A'}, Rating: {g.user['rating'] if g.user and 'rating' in g.user else 'N/A'}", flush=True)
+            g.user = user_data_from_db
+            user_rating_value = "RATING_KEY_MISSING_IN_G.USER" # Значение по умолчанию, если ключ 'rating' отсутствует
+            user_rating_type = "N/A"
+            if hasattr(g, 'user') and g.user and 'rating' in g.user: # Проверяем наличие ключа
+                 user_rating_value = g.user['rating'] # Получаем фактическое значение
+                 user_rating_type = type(user_rating_value).__name__
+            
+            print(f"--- before_request_func: g.user set. User: {g.user['name'] if hasattr(g,'user') and g.user and 'name' in g.user else 'N/A'}, ID: {g.user['id'] if hasattr(g,'user') and g.user and 'id' in g.user else 'N/A'}, Status: {g.user['status'] if hasattr(g,'user') and g.user and 'status' in g.user else 'N/A'}, RATING_VALUE: {user_rating_value} (Type: {user_rating_type}) ---", flush=True)
         else:
-            # Пользователь с таким ID не найден в БД, очищаем сессию
             print(f"--- before_request_func: User with ID {g.user_id} not found in DB. Clearing session.", flush=True)
             session.pop('user_id', None)
             session.pop('user_name', None)
             session.pop('user_code', None)
             session.pop('is_admin', None)
-            g.user_id = None # Сбрасываем g.user_id
-            g.admin_logged_in = False # Также сбрасываем флаг админа
+            g.user_id = None
+            g.admin_logged_in = False
     else:
         print("--- before_request_func: No user_id in session. g.user remains None.", flush=True)
 
-    # --- ВОССТАНОВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ СОСТОЯНИЯ ИГРЫ ИЗ ВАШЕГО ФАЙЛА app.py ---
-    # Эта часть кода была в вашем файле app.py, и я возвращаю ее.
-    # Убедитесь, что переменные show_card_info_val, game_over_val, game_in_progress_val
-    # правильно считываются из БД (или откуда они у вас берутся).
-    db_for_state = get_db() # Получаем соединение с БД
+    db_for_state = get_db()
     show_card_info_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'show_card_info'").fetchone()
     game_over_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'game_over'").fetchone()
     game_in_progress_row = db_for_state.execute("SELECT value FROM settings WHERE key = 'game_in_progress'").fetchone()
 
-    # Преобразование строковых 'true'/'false' или '0'/'1' в булевы значения
-    g.show_card_info = show_card_info_row['value'].lower() == 'true' if show_card_info_row else False
-    g.game_over = game_over_row['value'].lower() == 'true' if game_over_row else False
-    g.game_in_progress = game_in_progress_row['value'].lower() == 'true' if game_in_progress_row else False
+    g.show_card_info = show_card_info_row['value'].lower() == 'true' if show_card_info_row and show_card_info_row['value'] else False
+    g.game_over = game_over_row['value'].lower() == 'true' if game_over_row and game_over_row['value'] else False
+    g.game_in_progress = game_in_progress_row['value'].lower() == 'true' if game_in_progress_row and game_in_progress_row['value'] else False
     
-    # Дополнительная логика, если игра окончена
     if g.game_over:
-        g.game_in_progress = False # Игра не может быть "в процессе", если она "окончена"
-        # g.show_card_info = True # Обычно, если игра окончена, карты открыты (можно добавить, если нужно)
-
+        g.game_in_progress = False
     print(f"--- before_request_func: Game state loaded: progress={g.game_in_progress}, show_info={g.show_card_info}, over={g.game_over} ---", flush=True)
     print("--- Exiting before_request_func ---", flush=True)
     
@@ -1060,23 +1055,36 @@ def start_new_game():
 @app.route('/user/<code>')
 def user(code):
     print(f"[DEBUG /user/{code}] Route entered.", flush=True)
-    db = get_db()
+    
+    # Более детальный вывод g.user и его рейтинга при входе в user()
+    user_name_in_user_func = "N/A_USER_FUNC"
+    user_id_in_user_func = "N/A_USER_FUNC"
+    user_status_in_user_func = "N/A_USER_FUNC"
+    user_rating_value_in_user_func = "RATING_KEY_MISSING_OR_GUSER_NONE_USER_FUNC"
+    user_rating_type_in_user_func = "N/A_USER_FUNC"
+
+    if hasattr(g, 'user') and g.user:
+        user_name_in_user_func = g.user['name'] if 'name' in g.user else "Name_Key_Missing"
+        user_id_in_user_func = g.user['id'] if 'id' in g.user else "ID_Key_Missing"
+        user_status_in_user_func = g.user['status'] if 'status' in g.user else "Status_Key_Missing"
+        if 'rating' in g.user:
+            user_rating_value_in_user_func = g.user['rating'] # Фактическое значение
+            user_rating_type_in_user_func = type(g.user['rating']).__name__
+        else:
+            user_rating_value_in_user_func = "Rating_Key_Missing_In_g.user"
+            
+    print(f"[DEBUG /user/{code}] User at entry: Name: {user_name_in_user_func}, ID: {user_id_in_user_func}, Status: {user_status_in_user_func}, RATING_VALUE: {user_rating_value_in_user_func} (Type: {user_rating_type_in_user_func})", flush=True)
+
+    db = get_db() # db и c нужны позже, оставляем
     c = db.cursor()
 
-    if g.user is None:
-        print(f"[DEBUG /user/{code}] g.user is None. Redirecting to login.", flush=True)
+    if g.user is None: # Эта проверка должна быть после отладочного print выше
+        print(f"[DEBUG /user/{code}] g.user is None (after initial prints). Redirecting to login.", flush=True)
         session.pop('user_id', None)
         session.pop('user_name', None)
         session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
-
-    # Печатаем рейтинг из g.user, если он есть, чтобы убедиться в его наличии на этом этапе
-    rating_at_start = "N/A"
-    if hasattr(g, 'user') and g.user and 'rating' in g.user:
-        rating_at_start = g.user['rating']
-    print(f"[DEBUG /user/{code}] User: {g.user['name']} (ID: {g.user['id']}, Status: {g.user['status']}, Rating: {rating_at_start})", flush=True)
-
 
     session['user_id'] = g.user['id']
     session['user_name'] = g.user['name']
@@ -1090,7 +1098,7 @@ def user(code):
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
     print(f"[DEBUG /user/{code}] Active subfolder: {active_subfolder}", flush=True)
 
-    print(f"[DEBUG /user/{code}] Game state: game_in_progress={g.game_in_progress}, show_card_info={g.show_card_info}, game_over={g.game_over}", flush=True)
+    print(f"[DEBUG /user/{code}] Game state (from g object): game_in_progress={g.game_in_progress}, show_card_info={g.show_card_info}, game_over={g.game_over}", flush=True)
 
     user_cards = []
     if not is_pending_player and active_subfolder and g.game_in_progress:
@@ -1171,13 +1179,17 @@ def user(code):
     if cond1_is_leader and cond2_not_on_table and cond3_game_in_progress and cond4_not_show_info:
         print(f"[DEBUG /user/{code}] --- ENTERED LEADER PICTOGRAM BLOCK ---", flush=True)
 
+        leader_rating_from_g = "RATING_KEY_MISSING_IN_BLOCK" # Значение по умолчанию
         if g.user and 'rating' in g.user:
-            leader_rating = g.user['rating']
-            print(f"[DEBUG /user/{code}] Fetched rating from g.user: {leader_rating}", flush=True)
+            leader_rating_from_g = g.user['rating'] # Получаем фактическое значение
+            print(f"[DEBUG /user/{code}] Fetched rating from g.user INSIDE BLOCK: {leader_rating_from_g} (Type: {type(leader_rating_from_g).__name__})", flush=True)
         else:
-            leader_rating = 0
-            print(f"[DEBUG /user/{code}] g.user or 'rating' key not found. Defaulting leader_rating to 0.", flush=True)
-
+            # Этот блок не должен выполняться, если g.user существует и содержит 'rating'
+            # На этом этапе g.user ДОЛЖЕН существовать, т.к. была проверка g.user is None
+            print(f"[DEBUG /user/{code}] 'rating' key not found in g.user INSIDE BLOCK. Defaulting leader_rating to 0.", flush=True)
+            leader_rating_from_g = 0
+        
+        leader_rating = leader_rating_from_g # Используем полученное значение
         leader_current_rating_for_display = leader_rating
         print(f"[DEBUG /user/{code}] Leader's rating for pictogram logic (assigned): {leader_rating}", flush=True)
 
@@ -1188,7 +1200,7 @@ def user(code):
         print(f"[DEBUG /user/{code}] Checking rating against board: rating={leader_rating}, config_present={bool(_current_game_board_pole_image_config)}, config_len={config_len_safe}, num_cells={_current_game_board_num_cells}", flush=True)
 
 
-        if leader_rating > 0 and \
+        if leader_rating is not None and leader_rating > 0 and \
            _current_game_board_pole_image_config is not None and \
            config_len_safe > 0 and \
            _current_game_board_num_cells > 0 and \
@@ -1224,7 +1236,7 @@ def user(code):
                 print(f"[DEBUG /user/{code}] Error determining rules pictogram (rating {leader_rating}, original pole img: {original_pole_pictogram_rel_path}): {e}", flush=True)
                 traceback.print_exc()
         else:
-            print(f"[DEBUG /user/{code}] Conditions for pictogram (rating > 0, config, cells, index bounds) NOT met. Rating: {leader_rating}, Config exists: {bool(_current_game_board_pole_image_config)}, Config len: {config_len_safe}, Num cells: {_current_game_board_num_cells}", flush=True)
+            print(f"[DEBUG /user/{code}] Conditions for pictogram (rating > 0 or None, config, cells, index bounds) NOT met. Rating: {leader_rating} (Type: {type(leader_rating).__name__}), Config exists: {bool(_current_game_board_pole_image_config)}, Config len: {config_len_safe}, Num cells: {_current_game_board_num_cells}", flush=True)
     else:
         print(f"[DEBUG /user/{code}] Main IF condition for showing leader pictogram was FALSE.", flush=True)
 
