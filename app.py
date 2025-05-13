@@ -1034,11 +1034,10 @@ def start_new_game():
 
 @app.route('/user/<code>')
 def user(code):
-    print(f"[DEBUG /user/{code}] Route entered.") # Отладка входа в маршрут
+    print(f"[DEBUG /user/{code}] Route entered.")
     db = get_db()
     c = db.cursor()
 
-    # g.user должен быть уже установлен в before_request_func (или аналогичной функции)
     if g.user is None:
         print(f"[DEBUG /user/{code}] g.user is None. Redirecting to login.")
         session.pop('user_id', None)
@@ -1134,9 +1133,13 @@ def user(code):
     if is_current_user_the_db_leader and not on_table_status and \
        g.game_in_progress and not g.show_card_info:
         
-        leader_rating = 0 
-        if 'rating' in g.user: 
+        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        if g.user and 'rating' in g.user: 
             leader_rating = g.user['rating']
+        else:
+            leader_rating = 0 
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            
         print(f"[DEBUG /user/{code}] Leader's rating for pictogram logic: {leader_rating}")
             
         leader_current_rating_for_display = leader_rating 
@@ -1147,7 +1150,7 @@ def user(code):
            len(_current_game_board_pole_image_config) > 0 and \
            _current_game_board_num_cells > 0 and \
            leader_rating <= _current_game_board_num_cells and \
-           (leader_rating - 1) < len(_current_game_board_pole_image_config): # Добавлена проверка на выход за границы списка
+           (leader_rating - 1) < len(_current_game_board_pole_image_config):
             
             original_pole_pictogram_rel_path = _current_game_board_pole_image_config[leader_rating - 1]
             print(f"[DEBUG /user/{code}] Original pole pictogram path from config: {original_pole_pictogram_rel_path}")
@@ -1163,6 +1166,7 @@ def user(code):
                     rules_pictogram_static_rel_path = os.path.join('images', 'rules', rules_pictogram_filename).replace("\\", "/")
                     print(f"[DEBUG /user/{code}] Constructed rules pictogram static relative path: {rules_pictogram_static_rel_path}")
                     
+                    # app.static_folder должен быть доступен, если app - глобальный инстанс Flask
                     full_path_to_rules_pictogram = os.path.join(app.static_folder, rules_pictogram_static_rel_path)
                     print(f"[DEBUG /user/{code}] Full path to check for rules pictogram: {full_path_to_rules_pictogram}")
                     
@@ -1207,7 +1211,6 @@ def user(code):
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
-                           # g.show_card_info, g.game_over, g.game_in_progress доступны глобально в шаблоне через g
                            )
 
 
