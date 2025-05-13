@@ -1038,7 +1038,7 @@ def user(code):
     db = get_db()
     c = db.cursor()
 
-    if g.user is None: 
+    if g.user is None:
         session.pop('user_id', None); session.pop('user_name', None); session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
@@ -1062,13 +1062,13 @@ def user(code):
         user_cards = c.fetchall()
 
     table_cards_raw = []
-    if g.game_in_progress and active_subfolder: 
+    if g.game_in_progress and active_subfolder:
         c.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
             FROM images i 
             LEFT JOIN users u ON i.owner_id = u.id 
             WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' 
-                  AND (u.status = 'active' OR u.status IS NULL) 
+                  AND (u.status = 'active' OR u.status IS NULL)
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
 
@@ -1086,13 +1086,9 @@ def user(code):
             current_card_guesses_dict = {}
         
         my_guess_for_this_card_value = None
-        # --- ИЗМЕНЕНО УСЛОВИЕ: Ведущий теперь тоже может иметь 'my_guess_for_this_card_value' ---
-        # Теперь любой активный игрок (включая ведущего, если он голосует за чужую карту)
-        # может иметь запись о своем голосе.
-        # Проверка g.user['id'] != get_leading_user_id() УБРАНА.
         if not is_pending_player and g.game_in_progress and not g.show_card_info:
-            my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            if card_row['owner_id'] != g.user['id']:
+                 my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
 
         table_cards_for_template.append({
             'id': card_row['id'],
@@ -1115,8 +1111,51 @@ def user(code):
     if not is_pending_player and leader_id_from_db is not None and g.game_in_progress:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
 
+    # --- ОБНОВЛЕННАЯ ЛОГИКА: Определение пиктограммы из ПАПКИ ПРАВИЛ для текущего поля ведущего ---
+    leader_rating_cell_pictogram_path = None # Будет хранить путь для url_for, если rX.jpg существует
+    leader_current_rating_for_display = None 
+    
+    if is_current_user_the_db_leader and not on_table_status and \
+       g.game_in_progress and not g.show_card_info:
+        leader_rating = g.user.get('rating', 0) 
+        leader_current_rating_for_display = leader_rating 
+
+        if _current_game_board_pole_image_config and \
+           _current_game_board_num_cells > 0 and \
+           1 <= leader_rating <= _current_game_board_num_cells:
+            
+            # 1. Получаем путь к оригинальной пиктограмме поля (e.g., "pole/p3.jpg")
+            original_pole_pictogram_rel_path = _current_game_board_pole_image_config[leader_rating - 1]
+            
+            try:
+                # 2. Извлекаем имя файла и затем номер X из "pX.jpg"
+                pole_filename_only = os.path.basename(original_pole_pictogram_rel_path) # e.g., "p3.jpg"
+                
+                if pole_filename_only.startswith('p') and pole_filename_only.endswith('.jpg'):
+                    number_part_str = pole_filename_only[1:-4] # e.g., "3"
+                    
+                    # 3. Формируем имя файла для пиктограммы правил "rX.jpg"
+                    rules_pictogram_filename = f"r{number_part_str}.jpg" # e.g., "r3.jpg"
+                    
+                    # 4. Формируем относительный путь внутри static для пиктограммы правил
+                    # e.g., "images/rules/r3.jpg"
+                    rules_pictogram_static_rel_path = os.path.join('images', 'rules', rules_pictogram_filename).replace("\\", "/")
+                    
+                    # 5. Проверяем существование файла static/images/rules/rX.jpg
+                    full_path_to_rules_pictogram = os.path.join(app.static_folder, rules_pictogram_static_rel_path)
+                    
+                    if os.path.exists(full_path_to_rules_pictogram):
+                        # Если файл существует, формируем путь для url_for
+                        leader_rating_cell_pictogram_path = url_for('static', filename=rules_pictogram_static_rel_path)
+                    # else: leader_rating_cell_pictogram_path остается None, и в шаблоне ничего не отобразится
+            except Exception as e:
+                # Логируем ошибку, если что-то пошло не так при обработке путей
+                print(f"Error determining rules pictogram for leader (rating {leader_rating}, original pole img: {original_pole_pictogram_rel_path}): {e}")
+                # leader_rating_cell_pictogram_path остается None
+    # --- КОНЕЦ ОБНОВЛЕННОЙ ЛОГИКИ ---
+
     potential_next_leader_id_for_user_page = None
-    if leader_id_from_db and g.game_in_progress : 
+    if leader_id_from_db and g.game_in_progress:
         potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
 
     c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
@@ -1133,6 +1172,8 @@ def user(code):
                            on_table=on_table_status,
                            db_current_leader_id=leader_id_from_db,
                            potential_next_leader_id=potential_next_leader_id_for_user_page, 
+                           leader_rating_cell_pictogram_path=leader_rating_cell_pictogram_path, 
+                           leader_current_rating_for_display=leader_current_rating_for_display,
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
