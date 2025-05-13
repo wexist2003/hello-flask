@@ -211,7 +211,7 @@
                 <span class="text-muted mb-1 mb-sm-0 fs-4">
                     {% if g.show_card_info %} {# Карты открыты, раунд завершен #}
                         <i class="bi bi-flag-fill text-secondary"></i>
-                        Ведущий (завершил раунд): <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
+                        Ведущий: <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
                         {% if g.user.id == db_current_leader_id %} (это Вы){% endif %}
                     {% else %} {# Новый раунд начался, карты скрыты #}
                         <i class="bi bi-star-fill text-success"></i>
@@ -228,7 +228,7 @@
                 {% if potential_next_leader_id %}
                     {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
                     <span class="text-muted fs-4">
-                        Следующий ведущий (после "Новый раунд"): <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
+                        Следующий: <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
                     </span>
                 {% elif db_current_leader_id %} {# Если есть текущий, но нет следующего (например, 1 игрок) #}
                      <span class="text-muted fs-4">Больше нет игроков для передачи хода.</span>
