@@ -1120,6 +1120,12 @@ def user(code):
     if not is_pending_player and leader_id_from_db is not None:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
 
+    # --- ДОБАВЛЕНО: Определение potential_next_leader_id ---
+    potential_next_leader_id_for_user_page = None
+    if leader_id_from_db and g.game_in_progress : # Только если есть текущий и игра идет
+        potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
+    # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+    
     # Игровое поле показывает только АКТИВНЫХ игроков
     c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
     all_active_users_for_board_query = c.fetchall()
@@ -1127,20 +1133,18 @@ def user(code):
     current_board_cells_value = _current_game_board_num_cells
 
     return render_template('user.html',
-                           # g.user содержит все поля, включая status
-                           user_data=g.user, # Передаем весь объект g.user
-                           is_pending_player=is_pending_player, # Явный флаг для шаблона
+                           user_data=g.user, 
+                           is_pending_player=is_pending_player, 
                            cards=user_cards,
                            table_images=table_cards_for_template,
-                           all_users_for_guessing=other_active_users_for_template, # Переименовано для ясности
-                           # code=code, # code есть в g.user.code
+                           all_users_for_guessing=other_active_users_for_template, 
                            on_table=on_table_status,
                            db_current_leader_id=leader_id_from_db,
-                           # potential_next_leader_id здесь не нужен, он для админа
+                           # --- ПЕРЕДАЕМ В ШАБЛОН ---
+                           potential_next_leader_id=potential_next_leader_id_for_user_page, 
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
-                           # g.show_card_info, g.game_over, g.game_in_progress доступны глобально
                            )
     
         
