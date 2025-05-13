@@ -3,20 +3,12 @@
 
 {# === Макросы === #}
 {% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_macro, code_macro, get_user_name_func_macro) %}
-    {# ... ваш существующий макрос render_table_card ... #}
-    {# Внутри этого макроса, если вы показываете значок ведущего для карты на столе, используйте db_current_leader_id_macro #}
-    {# Пример из вашего предыдущего кода: #}
-    {# {% if db_current_leader_id_macro == table_image.owner_id %} #}
-    {#     <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий"><i class="bi bi-star-fill"></i></span> #}
-    {# {% endif %} #}
-    {# Я оставлю здесь заглушку, так как полный код макроса у вас уже есть #}
     <div class="card">
         {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
             <h6 class="card-subtitle text-muted text-center mb-1 card-owner-text">
-                <small>Чья:</small>
+                <span class="card-text-bigger">Чья:</span> {# Увеличен текст "Чья:" #}
                 <strong>{{ get_user_name_func_macro(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
-                {# Используем db_current_leader_id_macro для отметки карты ведущего #}
                 {% if db_current_leader_id_macro == table_image.owner_id %}
                     <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий этого раунда"><i class="bi bi-star-fill"></i></span>
                 {% endif %}
@@ -43,7 +35,7 @@
                 </ul>
                 <hr class="my-1">
                 <p class="card-text mb-0 card-label-text card-text-bigger"><small> 
-                    {% set my_guess_owner_id = table_image.guesses.get(g.user.id|string) %} {# g.user.id - ID текущего пользователя страницы #}
+                    {% set my_guess_owner_id = table_image.guesses.get(g.user.id|string) %}
                     {% if my_guess_owner_id is not none %}
                         Ваше предположение: <strong>{{ get_user_name_func_macro(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
                         {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
@@ -57,15 +49,13 @@
                 {% else %}
                     {% if not g.game_over %}
                         <form method="post" action="{{ url_for('guess_image', code=code_macro, image_id=table_image.id) }}">
+                            {# Текст "Чья это карта?" уже имел класс card-text-bigger, который должен его увеличивать #}
                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
                                 <option value="">-- Выберите --</option>
-                                {% for user_loop_var in all_users_macro %} {# all_users_macro передается в макрос #}
-                                    {# Не показываем текущего пользователя в списке для угадывания #}
-                                    {# {% if user_loop_var.id != g.user.id %} #} 
+                                {% for user_loop_var in all_users_macro %}
                                         {% set current_guess_target_id = table_image.guesses.get(g.user.id|string) %}
                                         <option value="{{ user_loop_var.id }}" {% if current_guess_target_id == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
-                                    {# {% endif %} #}
                                 {% endfor %}
                             </select>
                             <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> 
@@ -85,16 +75,12 @@
 {% endmacro %}
 
 {% macro render_my_card(card_item, g, on_table_macro, code_macro, is_current_user_the_db_leader_macro) %}
-    {# ... ваш существующий макрос render_my_card ... #}
-    {# ВАЖНО: is_current_user_the_db_leader_macro теперь передается в этот макрос #}
-    {# Используйте его для определения, показывать ли кнопку "Выложить (Ведущий)" #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
         <div class="card-body text-center pt-1 pb-2"> 
             {% if not g.game_over %}
-                {% if not on_table_macro %} {# on_table_macro передается в макрос #}
-                    {# Используем is_current_user_the_db_leader_macro #}
+                {% if not on_table_macro %}
                     {% if is_current_user_the_db_leader_macro %} 
                         <form method="post" action="{{ url_for('place_card', code=code_macro, image_id=card_item.id) }}">
                             <button type="submit" class="btn btn-success btn-sm w-100 card-form-button card-button-bigger"> 
@@ -119,8 +105,6 @@
 {% endmacro %}
 
 {% macro render_game_board_cell(cell_data, get_user_name_func_macro) %}
-    {# ... ваш существующий макрос render_game_board_cell ... #}
-    {# Без изменений #}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
          title="Клетка #{{ cell_data.cell_number }}"
@@ -151,51 +135,33 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        /* ... ваши существующие стили из user.html ... */
-        /* Убедитесь, что классы fs-4 для строк с рейтингом и ведущим здесь есть, если вы их добавляли */
         body { line-height: 1.3; }
-        .card-img-top {
-            height: auto;
-            display: block;
-            margin: 0.3rem auto 0.3rem; 
-            cursor: zoom-in !important; 
-            transition: opacity 0.2s ease-in-out;
-            position: relative; 
-            z-index: 1; 
-            pointer-events: auto !important; 
-        }
-        .card { 
-            width: auto; 
-            flex-shrink: 0;
-            margin-bottom: 1rem; 
-            display: flex; 
-            flex-direction: column;
-        }
-        .card-body {
-            padding: 0.75rem; 
-            flex-grow: 1; 
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between; 
-        }
+        .card-img-top { height: auto; display: block; margin: 0.3rem auto 0.3rem; cursor: zoom-in !important; transition: opacity 0.2s ease-in-out; position: relative; z-index: 1; pointer-events: auto !important; }
+        .card { width: auto; flex-shrink: 0; margin-bottom: 1rem; display: flex; flex-direction: column; }
+        .card-body { padding: 0.75rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
         .card-owner-text { font-size: 1.1em; line-height: 1.3; }
-        .card-owner-text > small:first-child { font-size: 1.2em !important; line-height: 1.3; }
+        /* .card-owner-text > small:first-child { font-size: 1.2em !important; line-height: 1.3; } */ /* Закомментировано, т.к. "Чья:" теперь в span.card-text-bigger */
         .card-label-text { font-size: 1em; line-height: 1.3; }
         .card-guess-list li small { font-size: 1.2em !important; line-height: 1.3; }
         .card-info-text { font-size: 1em; line-height: 1.3; }
-        .card-form-label { font-size: 1em; line-height: 1.3; }
+        .card-form-label { font-size: 1em; line-height: 1.3; } /* card-text-bigger применяется к этому label */
         .card-form-select { font-size: 1.2em !important; line-height: 1.3; padding: 0.3rem 0.5rem; }
         .card-form-button { padding: 0.3rem 0.5rem; } 
         .card .badge { vertical-align: middle; }
-        .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
-        .card-text-bigger { font-size: 1.2em !important; }
+        .card-text-bigger { font-size: 1.25em !important; /* Увеличили для "Чья:" и "Чья это карта?" */ }
         .card-button-bigger { font-size: 1.15em !important; }
         .card-custom-badge { font-size: 1em !important; padding: 0.3em 0.5em; }
         .desktop-card-row { display: flex; flex-direction: row; overflow-x: auto; gap: 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
         .desktop-card-row-empty-placeholder { width: 100%; text-align: center; padding: 2rem 0; color: #6c757d; display: flex; align-items: center; justify-content: center; }
         .theme-toggle-button { position: fixed; top: 1rem; right: 1rem; z-index: 1050; }
         h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
-        h2 { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; font-size: 1.5rem; }
+        h2, .h2-like-bigger {
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 0.25rem;
+            font-size: 1.75rem; /* Увеличен размер для заголовков секций */
+        }
         p { margin-bottom: 0.5rem; }
         hr { margin-top: 1rem; margin-bottom: 1rem; } 
         .image-zoom-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.88); z-index: 1051; cursor: zoom-out; }
@@ -222,7 +188,7 @@
         .card { min-width: 220px; max-width: 275px; }
         .card-img-top { width: 216px; margin: 0.5rem auto; }
         @media (max-width: 768px) { .card { min-width: 200px; max-width: 250px; } .card-img-top { width: 192px; } }
-        @media (max-width: 576px) { body { padding: 0.5rem !important; line-height: 1.25; } h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} h2 { font-size: 1.15rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;} p { margin-bottom: 0.3rem; line-height: 1.2;} hr { margin-top: 0.75rem; margin-bottom: 0.75rem; } .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; } .card-body { padding: 0.6rem; } .card-img-top { width: 156px; margin: 0.2rem auto; } .card-owner-text { font-size: 1em; } .card-owner-text > small:first-child { font-size: 1.1em !important; } .card-label-text { font-size: 0.95em; } .card-guess-list li small { font-size: 1.1em !important; } .card-info-text { font-size: 0.95em; } .card-form-label { font-size: 0.95em; } .card-form-select { font-size: 0.95em !important; padding: .25rem .4rem; } .card-form-button { padding: 0.25rem 0.4rem; } .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span, .card-text-bigger { font-size: 1.1em !important; } .card-button-bigger { font-size: 1.05em !important; } .card-custom-badge { font-size: 0.9em !important; } .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; } .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; } .desktop-card-row { min-height: auto; } .desktop-card-row-empty-placeholder { padding: 1rem 0; } .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; } }
+        @media (max-width: 576px) { body { padding: 0.5rem !important; line-height: 1.25; } h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} h2, .h2-like-bigger { font-size: 1.35rem; /* Увеличиваем h2 для мобильных */ margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;} p { margin-bottom: 0.3rem; line-height: 1.2;} hr { margin-top: 0.75rem; margin-bottom: 0.75rem; } .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; } .card-body { padding: 0.6rem; } .card-img-top { width: 156px; margin: 0.2rem auto; } .card-owner-text { font-size: 1em; } /* .card-owner-text > small:first-child { font-size: 1.1em !important; } */ .card-label-text { font-size: 0.95em; } .card-guess-list li small { font-size: 1.1em !important; } .card-info-text { font-size: 0.95em; } .card-form-label { font-size: 0.95em; } .card-form-select { font-size: 0.95em !important; padding: .25rem .4rem; } .card-form-button { padding: 0.25rem 0.4rem; } .card-text-bigger { font-size: 1.1em !important; } .card-button-bigger { font-size: 1.05em !important; } .card-custom-badge { font-size: 0.9em !important; } .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; } .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; } .desktop-card-row { min-height: auto; } .desktop-card-row-empty-placeholder { padding: 1rem 0; } .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; } }
         @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
         @media (min-width: 992px) { .game-board-pictogram { width: 72px; height: 72px; } .game-board-player-names-area { width: 72px; } .player-avatar-on-board { font-size: 1.45em; } .game-board-cell-number { font-size: 0.65em; } }
     </style>
@@ -240,7 +206,6 @@
 
         {# --- ОБНОВЛЕННЫЙ БЛОК ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
         <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2">
-            {# Отображаем ведущего, который записан в БД #}
             {% if db_current_leader_id %}
                 {% set current_leader_name_in_db = get_user_name(db_current_leader_id) %}
                 <span class="text-muted mb-1 mb-sm-0 fs-4">
@@ -250,7 +215,7 @@
                         {% if g.user.id == db_current_leader_id %} (это Вы){% endif %}
                     {% else %} {# Новый раунд начался, карты скрыты #}
                         <i class="bi bi-star-fill text-success"></i>
-                        Ведущий (текущий раунд): <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
+                        Ведущий: <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
                         {% if g.user.id == db_current_leader_id %} (это Вы){% endif %}
                     {% endif %}
                 </span>
@@ -258,21 +223,16 @@
                 <span class="text-muted mb-1 mb-sm-0 fs-4">Ведущий еще не определен.</span>
             {% endif %}
 
-            {# Отображаем, кто будет следующим ведущим #}
-            {% if potential_next_leader_id %}
-                {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
-                <span class="text-muted fs-4">
-                    {% if g.show_card_info %}
+            {# Отображаем "Следующий ведущий" ТОЛЬКО если карты открыты (g.show_card_info == true) #}
+            {% if g.show_card_info %}
+                {% if potential_next_leader_id %}
+                    {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
+                    <span class="text-muted fs-4">
                         Следующий ведущий (после "Новый раунд"): <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
-                    {% else %}
-                         {# Показываем "Следующий", только если он отличается от текущего ведущего в БД #}
-                        {% if potential_next_leader_id != db_current_leader_id %}
-                            Следующий ведущий: <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
-                        {% endif %}
-                    {% endif %}
-                </span>
-            {% elif db_current_leader_id %} {# Если есть текущий, но нет следующего (например, 1 игрок) #}
-                 <span class="text-muted fs-4">Больше нет игроков для передачи хода.</span>
+                    </span>
+                {% elif db_current_leader_id %} {# Если есть текущий, но нет следующего (например, 1 игрок) #}
+                     <span class="text-muted fs-4">Больше нет игроков для передачи хода.</span>
+                {% endif %}
             {% endif %}
         </div>
         {# --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА --- #}
@@ -297,12 +257,11 @@
 
         <hr class="my-2">
 
-        <h2>Общий стол</h2>
+        <h2 class="h2-like-bigger">Общий стол</h2> 
         <div class="border p-1 p-sm-2 mb-3 rounded">
             <div class="desktop-card-row">
                 {% if table_images %}
                     {% for table_image in table_images %}
-                        {# Передаем db_current_leader_id в макрос для корректной отметки карты ведущего #}
                         {{ render_table_card(table_image, g, db_current_leader_id, all_users, code, get_user_name) }}
                     {% endfor %}
                 {% else %}
@@ -311,11 +270,10 @@
             </div>
         </div>
 
-        <h2>Мои карточки</h2>
+        <h2 class="h2-like-bigger">Мои карточки</h2>
         <div class="desktop-card-row mb-3">
             {% if cards %}
                 {% for card_item in cards %}
-                    {# Передаем is_current_user_the_db_leader для макроса #}
                     {{ render_my_card(card_item, g, on_table, code, is_current_user_the_db_leader) }}
                 {% endfor %}
             {% else %}
@@ -323,7 +281,7 @@
             {% endif %}
         </div>
 
-        <h2>Игровое Поле</h2>
+        <h2 class="h2-like-bigger">Игровое Поле</h2>
         <div class="border p-1 p-sm-2 mb-3 rounded">
              <div class="game-board-container">
                 {% if game_board %}
@@ -341,7 +299,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Скрипт смены темы (без изменений)
+        // Скрипт смены темы
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
@@ -352,7 +310,7 @@
             try { const savedTheme = localStorage.getItem(storageKey); const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light'); applyTheme(defaultTheme); } catch (e) { console.error('Error applying initial theme:', e); applyTheme('light'); }
         })();
 
-        // Скрипт для увеличения изображений (без изменений)
+        // Скрипт для увеличения изображений
         document.addEventListener('DOMContentLoaded', () => {
             const imagesToZoom = document.querySelectorAll('.card-img-top');
             const overlay = document.querySelector('.image-zoom-overlay');
