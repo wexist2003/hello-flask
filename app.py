@@ -717,7 +717,7 @@ def admin():
                         set_leading_user_id(new_leader_after_delete)
                         leader_for_redirect = new_leader_after_delete # Обновляем для фокуса
                         if new_leader_after_delete is not None:
-                            flash(f"Новым ведущим назначен '{get_user_name(new_leader_after_delete) or f'ID {new_leader_after_delete'}'}.", "info")
+                            flash(f"Новым ведущим назначен '{get_user_name(new_leader_after_delete) or f'ID {new_leader_after_delete}'}'}.", "info")
                         else:
                             flash("Не осталось игроков для назначения ведущего.", "warning")
                     
