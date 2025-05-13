@@ -1225,38 +1225,58 @@ def place_card(code, image_id):
         flash("Только активные игроки могут выкладывать карты.", "warning")
         return redirect(url_for('user', code=code))
 
-    if g.user['id'] != get_leading_user_id():
-        flash("Только текущий ведущий может выложить карту.", "warning")
-        return redirect(url_for('user', code=code))
+    # Проверка, что игрок не является ведущим, здесь НЕ НУЖНА,
+    # так как и ведущий, и другие активные игроки могут выкладывать карту.
+    # Разница будет только в тексте кнопки в шаблоне.
 
     db = get_db()
     c = db.cursor()
     try:
-        if g.game_over:
+        if g.game_over: # Проверка 1
             flash("Игра окончена, выкладывать карты нельзя.", "warning")
             return redirect(url_for('user', code=code))
         
-        # Проверяем, есть ли уже карта от ЭТОГО игрока на столе
+        # Проверка 2: Есть ли уже карта от ЭТОГО игрока на столе?
         c.execute("SELECT 1 FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (g.user['id'],))
         if c.fetchone() is not None:
             flash("У вас уже есть карта на столе в этом раунде.", "warning")
             return redirect(url_for('user', code=code))
         
-        # Проверяем, что карта принадлежит игроку и Занята им
-        c.execute("SELECT status FROM images WHERE id = ? AND owner_id = ?", (image_id, g.user['id']))
+        # Проверка 3: Принадлежит ли карта игроку и находится ли она в статусе "Занято" им?
+        c.execute("SELECT status, owner_id FROM images WHERE id = ?", (image_id,)) # Получаем и owner_id для отладки
         card_info = c.fetchone()
-        # Статус должен быть именно "Занято:ID_Игрока"
-        if not card_info or card_info['status'] != f"Занято:{g.user['id']}":
-            flash("Вы не можете выложить эту карту (она не ваша, уже на столе или не в статусе 'Занято').", "danger")
+
+        expected_status = f"Занято:{g.user['id']}"
+
+        if not card_info:
+            flash(f"Карта с ID {image_id} не найдена в базе данных.", "danger")
             return redirect(url_for('user', code=code))
         
-        c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", # owner_id уже установлен при раздаче
+        if card_info['owner_id'] != g.user['id']:
+            flash(f"Вы не являетесь владельцем карты {image_id}. Владелец по БД: ID {card_info['owner_id']}.", "danger")
+            return redirect(url_for('user', code=code))
+
+        if card_info['status'] != expected_status:
+            flash(f"Карту {image_id} нельзя выложить. Ожидаемый статус: '{expected_status}', текущий статус: '{card_info['status']}'.", "danger")
+            return redirect(url_for('user', code=code))
+        
+        # Если все проверки пройдены, обновляем статус карты
+        c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", 
                   (f"На столе:{g.user['id']}", image_id))
         db.commit()
         flash("Ваша карта выложена на стол.", "success")
+
     except sqlite3.Error as e:
         db.rollback()
-        flash(f"Ошибка выкладывания карты: {e}", "danger")
+        flash(f"Ошибка базы данных при выкладывании карты: {e}", "danger")
+        print(f"DB Error in place_card for image {image_id}, user {g.user['id']}: {e}")
+        print(traceback.format_exc())
+    except Exception as e_gen:
+        # db.rollback() # Не всегда нужен для не-БД ошибок
+        flash(f"Непредвиденная ошибка при выкладывании карты: {e_gen}", "danger")
+        print(f"Unexpected Error in place_card for image {image_id}, user {g.user['id']}: {e_gen}")
+        print(traceback.format_exc())
+        
     return redirect(url_for('user', code=code))
     
 
