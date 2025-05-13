@@ -1033,27 +1033,61 @@ def start_new_game():
     return redirect(url_for('admin', displayed_leader_id=new_leader_id_sng if new_leader_id_sng is not None else ''))
 
     
+import json
+from flask import Flask, render_template, request, redirect, url_for, g, flash, session
+import sqlite3
+import os
+import string
+import random
+import traceback # Добавлено для детального логирования ошибок
+
+# ... (ваш остальной код app.py: Flask app, SECRET_KEY, DB_PATH, константы для поля и т.д.)
+# Убедитесь, что у вас определены:
+# DB_PATH
+# GAME_BOARD_POLE_IMG_SUBFOLDER
+# GAME_BOARD_POLE_IMAGES
+# DEFAULT_NUM_BOARD_CELLS
+# _current_game_board_pole_image_config (глобальная переменная)
+# _current_game_board_num_cells (глобальная переменная)
+# функции get_db, close_db, get_user_name, get_leading_user_id, determine_new_leader, 
+# generate_game_board_data_for_display, before_request_func
+
+# Предполагается, что before_request_func устанавливает:
+# g.user (sqlite3.Row или None)
+# g.user_id (или None)
+# g.game_in_progress (bool)
+# g.show_card_info (bool)
+# g.game_over (bool)
+
 @app.route('/user/<code>')
 def user(code):
     db = get_db()
     c = db.cursor()
 
+    # g.user должен быть уже установлен в before_request_func
     if g.user is None:
-        session.pop('user_id', None); session.pop('user_name', None); session.pop('user_code', None)
+        session.pop('user_id', None)
+        session.pop('user_name', None)
+        session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
 
+    # Обновляем сессию на случай, если данные пользователя могли измениться
+    # (хотя в текущей логике имя не меняется)
     session['user_id'] = g.user['id']
     session['user_name'] = g.user['name']
     session['user_code'] = g.user['code']
-    session.pop('is_admin', None)
+    session.pop('is_admin', None) # Убедимся, что пользователь не считается админом здесь
 
     is_pending_player = g.user['status'] == 'pending'
 
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
+    
+    # g.show_card_info, g.game_over, g.game_in_progress уже установлены в before_request_func
 
     user_cards = []
+    # Карты на руках есть только у активных игроков, если игра идет и выбрана колода
     if not is_pending_player and active_subfolder and g.game_in_progress:
         c.execute("""
             SELECT id, image, subfolder FROM images
@@ -1062,18 +1096,19 @@ def user(code):
         user_cards = c.fetchall()
 
     table_cards_raw = []
+    # Карты на столе видны всем, если игра идет и выбрана колода
     if g.game_in_progress and active_subfolder:
         c.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
             FROM images i 
             LEFT JOIN users u ON i.owner_id = u.id 
             WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' 
-                  AND (u.status = 'active' OR u.status IS NULL)
+                  AND (u.status = 'active' OR u.status IS NULL) -- Показываем карты только от активных
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
 
     table_cards_for_template = []
-    on_table_status = False 
+    on_table_status = False # True, если ТЕКУЩИЙ активный игрок уже выложил карту
     
     for card_row in table_cards_raw:
         if not is_pending_player and card_row['owner_id'] == g.user['id']:
@@ -1086,8 +1121,10 @@ def user(code):
             current_card_guesses_dict = {}
         
         my_guess_for_this_card_value = None
+        # Любой активный игрок (включая ведущего) может голосовать за ЧУЖУЮ карту,
+        # если игра идет и карты не открыты.
         if not is_pending_player and g.game_in_progress and not g.show_card_info:
-            if card_row['owner_id'] != g.user['id']:
+            if card_row['owner_id'] != g.user['id']: # Нельзя голосовать за свою карту
                  my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
 
         table_cards_for_template.append({
@@ -1102,6 +1139,7 @@ def user(code):
         })
 
     other_active_users_for_template = []
+    # Для списка угадывания показываем других АКТИВНЫХ игроков, если текущий игрок активен и игра идет
     if not is_pending_player and g.game_in_progress: 
         c.execute("SELECT id, name FROM users WHERE status = 'active' AND id != ?", (g.user['id'],))
         other_active_users_for_template = c.fetchall()
@@ -1111,57 +1149,55 @@ def user(code):
     if not is_pending_player and leader_id_from_db is not None and g.game_in_progress:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
 
-    # --- ОБНОВЛЕННАЯ ЛОГИКА: Определение пиктограммы из ПАПКИ ПРАВИЛ для текущего поля ведущего ---
-    leader_rating_cell_pictogram_path = None # Будет хранить путь для url_for, если rX.jpg существует
+    # Определение пиктограммы из папки правил для текущего поля ведущего
+    leader_rating_cell_pictogram_path = None 
     leader_current_rating_for_display = None 
     
     if is_current_user_the_db_leader and not on_table_status and \
        g.game_in_progress and not g.show_card_info:
-        leader_rating = g.user.get('rating', 0) 
+        
+        leader_rating = 0 
+        if 'rating' in g.user: 
+            leader_rating = g.user['rating']
+            
         leader_current_rating_for_display = leader_rating 
 
-        if _current_game_board_pole_image_config and \
+        # Пиктограмму показываем только если рейтинг > 0 и попадает в диапазон поля
+        if leader_rating > 0 and \
+           _current_game_board_pole_image_config and \
            _current_game_board_num_cells > 0 and \
-           1 <= leader_rating <= _current_game_board_num_cells:
+           leader_rating <= _current_game_board_num_cells:
             
-            # 1. Получаем путь к оригинальной пиктограмме поля (e.g., "pole/p3.jpg")
+            # _current_game_board_pole_image_config хранит пути вида "pole/pX.jpg"
             original_pole_pictogram_rel_path = _current_game_board_pole_image_config[leader_rating - 1]
             
             try:
-                # 2. Извлекаем имя файла и затем номер X из "pX.jpg"
                 pole_filename_only = os.path.basename(original_pole_pictogram_rel_path) # e.g., "p3.jpg"
                 
                 if pole_filename_only.startswith('p') and pole_filename_only.endswith('.jpg'):
                     number_part_str = pole_filename_only[1:-4] # e.g., "3"
-                    
-                    # 3. Формируем имя файла для пиктограммы правил "rX.jpg"
                     rules_pictogram_filename = f"r{number_part_str}.jpg" # e.g., "r3.jpg"
-                    
-                    # 4. Формируем относительный путь внутри static для пиктограммы правил
-                    # e.g., "images/rules/r3.jpg"
+                    # Относительный путь внутри static: "images/rules/r3.jpg"
                     rules_pictogram_static_rel_path = os.path.join('images', 'rules', rules_pictogram_filename).replace("\\", "/")
                     
-                    # 5. Проверяем существование файла static/images/rules/rX.jpg
+                    # Полный путь для проверки существования файла
                     full_path_to_rules_pictogram = os.path.join(app.static_folder, rules_pictogram_static_rel_path)
                     
                     if os.path.exists(full_path_to_rules_pictogram):
-                        # Если файл существует, формируем путь для url_for
                         leader_rating_cell_pictogram_path = url_for('static', filename=rules_pictogram_static_rel_path)
-                    # else: leader_rating_cell_pictogram_path остается None, и в шаблоне ничего не отобразится
             except Exception as e:
-                # Логируем ошибку, если что-то пошло не так при обработке путей
                 print(f"Error determining rules pictogram for leader (rating {leader_rating}, original pole img: {original_pole_pictogram_rel_path}): {e}")
-                # leader_rating_cell_pictogram_path остается None
-    # --- КОНЕЦ ОБНОВЛЕННОЙ ЛОГИКИ ---
-
+                # leader_rating_cell_pictogram_path останется None
+    
     potential_next_leader_id_for_user_page = None
-    if leader_id_from_db and g.game_in_progress:
+    if leader_id_from_db and g.game_in_progress: # Определяем следующего, только если есть текущий и игра идет
         potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
 
+    # Данные для игрового поля (всегда на основе активных игроков)
     c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
     all_active_users_for_board_query = c.fetchall()
     game_board_data = generate_game_board_data_for_display(all_active_users_for_board_query)
-    current_board_cells_value = _current_game_board_num_cells
+    current_board_cells_value = _current_game_board_num_cells # Глобальная переменная с текущим числом ячеек
 
     return render_template('user.html',
                            user_data=g.user, 
@@ -1177,14 +1213,9 @@ def user(code):
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
+                           # g.show_card_info, g.game_over, g.game_in_progress доступны глобально в шаблоне через g
                            )
-    
-        
-# Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
-# Я не буду їх дублювати тут, оскільки вони вже є у вашому файлі app.py,
-# і ви просили внести правки саме по ігровому полю.
-# Переконайтеся, що їхні визначення є УНІКАЛЬНИМИ у вашому кінцевому файлі.
-# Їхня логіка не змінювалася в цій ітерації.
+
 
 # Приклад того, як вони виглядають у вашому файлі (не копіюйте це, якщо вони вже є):
 @app.route("/user/<code>/guess/<int:image_id>", methods=["POST"])
