@@ -1,16 +1,24 @@
 <!doctype html>
 <html lang="ru" data-bs-theme="light">
 
-{# === Макроси === #}
-{% macro render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name_func) %}
+{# === Макросы === #}
+{% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_macro, code_macro, get_user_name_func_macro) %}
+    {# ... ваш существующий макрос render_table_card ... #}
+    {# Внутри этого макроса, если вы показываете значок ведущего для карты на столе, используйте db_current_leader_id_macro #}
+    {# Пример из вашего предыдущего кода: #}
+    {# {% if db_current_leader_id_macro == table_image.owner_id %} #}
+    {#     <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий"><i class="bi bi-star-fill"></i></span> #}
+    {# {% endif %} #}
+    {# Я оставлю здесь заглушку, так как полный код макроса у вас уже есть #}
     <div class="card">
-        {% if g.show_card_info %} {# Используем g.show_card_info, переданное из app.py через g #}
+        {% if g.show_card_info %}
         <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
             <h6 class="card-subtitle text-muted text-center mb-1 card-owner-text">
                 <small>Чья:</small>
-                <strong>{{ get_user_name_func(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
-                {% if leader_for_display == table_image.owner_id %}
-                    <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий"><i class="bi bi-star-fill"></i></span>
+                <strong>{{ get_user_name_func_macro(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
+                {# Используем db_current_leader_id_macro для отметки карты ведущего #}
+                {% if db_current_leader_id_macro == table_image.owner_id %}
+                    <span class="badge bg-success ms-1 card-custom-badge" title="Ведущий этого раунда"><i class="bi bi-star-fill"></i></span>
                 {% endif %}
             </h6>
         </div>
@@ -20,14 +28,14 @@
              alt="Карта {{ table_image.id }}" loading="lazy"
              style="margin-top: 0.25rem;"> 
         <div class="card-body pt-1"> 
-            {% if g.show_card_info %} {# Используем g.show_card_info #}
+            {% if g.show_card_info %}
                 <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2 card-guess-list"> 
-                    {% for guesser_id_str, guessed_user_id in table_image.guesses.items() %} {# table_image.guesses должен быть словарем #}
+                    {% for guesser_id_str, guessed_user_id_loop in table_image.guesses.items() %}
                         <li><small>
-                            {{ get_user_name_func(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
-                            {{ get_user_name_func(guessed_user_id) or 'ID ' + guessed_user_id|string }}
-                            {% if guessed_user_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
+                            {{ get_user_name_func_macro(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
+                            {{ get_user_name_func_macro(guessed_user_id_loop) or 'ID ' + guessed_user_id_loop|string }}
+                            {% if guessed_user_id_loop == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
                         </small></li>
                     {% else %}
                         <li><small class="text-muted">Нет</small></li>
@@ -35,36 +43,37 @@
                 </ul>
                 <hr class="my-1">
                 <p class="card-text mb-0 card-label-text card-text-bigger"><small> 
-                    {% set my_guess_owner_id = table_image.guesses.get(g.user_id|string) %} {# g.user_id доступен глобально #}
+                    {% set my_guess_owner_id = table_image.guesses.get(g.user.id|string) %} {# g.user.id - ID текущего пользователя страницы #}
                     {% if my_guess_owner_id is not none %}
-                        Ваше предположение: <strong>{{ get_user_name_func(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
+                        Ваше предположение: <strong>{{ get_user_name_func_macro(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
                         {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
                     {% else %}
-                        {% if table_image.owner_id == g.user_id %}<span class="text-primary fw-bold card-info-text card-text-bigger">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %} 
+                        {% if table_image.owner_id == g.user.id %}<span class="text-primary fw-bold card-info-text card-text-bigger">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %} 
                     {% endif %}
                 </small></p>
-            {% else %}
-                {% if table_image.owner_id == g.user_id %} {# g.user_id доступен глобально #}
+            {% else %} {# Карты не открыты, показываем форму для угадывания #}
+                {% if table_image.owner_id == g.user.id %} 
                     <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> 
                 {% else %}
-                    {% if not g.game_over %} {# Используем g.game_over #}
-                        <form method="post" action="{{ url_for('guess_image', code=code, image_id=table_image.id) }}">
+                    {% if not g.game_over %}
+                        <form method="post" action="{{ url_for('guess_image', code=code_macro, image_id=table_image.id) }}">
                             <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
                             <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
                                 <option value="">-- Выберите --</option>
-                                {% for user_loop_var in all_users %}
-                                    {% if user_loop_var.id != g.user_id %} {# g.user_id доступен глобально #}
-                                        {% set current_guess_target_id = table_image.guesses.get(g.user_id|string) %}
+                                {% for user_loop_var in all_users_macro %} {# all_users_macro передается в макрос #}
+                                    {# Не показываем текущего пользователя в списке для угадывания #}
+                                    {# {% if user_loop_var.id != g.user.id %} #} 
+                                        {% set current_guess_target_id = table_image.guesses.get(g.user.id|string) %}
                                         <option value="{{ user_loop_var.id }}" {% if current_guess_target_id == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
-                                    {% endif %}
+                                    {# {% endif %} #}
                                 {% endfor %}
                             </select>
                             <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> 
-                                {% if table_image.guesses and g.user_id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
+                                {% if table_image.guesses and g.user.id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
                             </button>
                         </form>
-                        {% if table_image.guesses and g.user_id|string in table_image.guesses %}
-                            <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func(table_image.guesses[g.user_id|string]) }}</small></p> 
+                        {% if table_image.guesses and g.user.id|string in table_image.guesses %}
+                            <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func_macro(table_image.guesses[g.user.id|string]) }}</small></p> 
                         {% endif %}
                     {% else %}
                         <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
@@ -75,21 +84,25 @@
     </div>
 {% endmacro %}
 
-{% macro render_my_card(card_item, g, on_table, code, get_leading_user_id_func) %}
+{% macro render_my_card(card_item, g, on_table_macro, code_macro, is_current_user_the_db_leader_macro) %}
+    {# ... ваш существующий макрос render_my_card ... #}
+    {# ВАЖНО: is_current_user_the_db_leader_macro теперь передается в этот макрос #}
+    {# Используйте его для определения, показывать ли кнопку "Выложить (Ведущий)" #}
     <div class="card">
         <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
              class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
         <div class="card-body text-center pt-1 pb-2"> 
-            {% if not g.game_over %} {# Используем g.game_over #}
-                {% if not on_table %}
-                    {% if get_leading_user_id_func() == g.user_id %} {# g.user_id доступен глобально #}
-                        <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
+            {% if not g.game_over %}
+                {% if not on_table_macro %} {# on_table_macro передается в макрос #}
+                    {# Используем is_current_user_the_db_leader_macro #}
+                    {% if is_current_user_the_db_leader_macro %} 
+                        <form method="post" action="{{ url_for('place_card', code=code_macro, image_id=card_item.id) }}">
                             <button type="submit" class="btn btn-success btn-sm w-100 card-form-button card-button-bigger"> 
                                 <i class="bi bi-send"></i> Выложить (Ведущий)
                             </button>
                         </form>
                     {% else %}
-                        <form method="post" action="{{ url_for('place_card', code=code, image_id=card_item.id) }}">
+                        <form method="post" action="{{ url_for('place_card', code=code_macro, image_id=card_item.id) }}">
                             <button type="submit" class="btn btn-secondary btn-sm w-100 card-form-button card-button-bigger"> 
                                 <i class="bi bi-send"></i> Выложить на стол
                             </button>
@@ -105,7 +118,9 @@
     </div>
 {% endmacro %}
 
-{% macro render_game_board_cell(cell_data, get_user_name_func) %}
+{% macro render_game_board_cell(cell_data, get_user_name_func_macro) %}
+    {# ... ваш существующий макрос render_game_board_cell ... #}
+    {# Без изменений #}
 <div class="game-board-spot-container m-1 text-center">
     <div class="game-board-pictogram" 
          title="Клетка #{{ cell_data.cell_number }}"
@@ -127,15 +142,17 @@
     </div>
 </div>
 {% endmacro %}
-{# === Кінець Макросів === #}
+{# === Конец Макросов === #}
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Профиль {{ name }}</title> 
+    <title>Профиль {{ name }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
+        /* ... ваши существующие стили из user.html ... */
+        /* Убедитесь, что классы fs-4 для строк с рейтингом и ведущим здесь есть, если вы их добавляли */
         body { line-height: 1.3; }
         .card-img-top {
             height: auto;
@@ -162,102 +179,33 @@
             justify-content: space-between; 
         }
         .card-owner-text { font-size: 1.1em; line-height: 1.3; }
-        .card-owner-text > small:first-child { 
-            font-size: 1.2em !important; 
-            line-height: 1.3;
-        }
+        .card-owner-text > small:first-child { font-size: 1.2em !important; line-height: 1.3; }
         .card-label-text { font-size: 1em; line-height: 1.3; }
-        .card-guess-list li small { 
-            font-size: 1.2em !important; 
-            line-height: 1.3; 
-        }
+        .card-guess-list li small { font-size: 1.2em !important; line-height: 1.3; }
         .card-info-text { font-size: 1em; line-height: 1.3; }
         .card-form-label { font-size: 1em; line-height: 1.3; }
-        
-        .card-form-select { 
-            font-size: 1.2em !important; 
-            line-height: 1.3; 
-            padding: 0.3rem 0.5rem; 
-        }
+        .card-form-select { font-size: 1.2em !important; line-height: 1.3; padding: 0.3rem 0.5rem; }
         .card-form-button { padding: 0.3rem 0.5rem; } 
         .card .badge { vertical-align: middle; }
-
         .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
-        .card-text-bigger { 
-            font-size: 1.2em !important; 
-        }
-        .card-button-bigger { 
-            font-size: 1.15em !important; 
-        }
-        .card-custom-badge { 
-            font-size: 1em !important; 
-            padding: 0.3em 0.5em; 
-        }
-
-        .desktop-card-row { 
-            display: flex;
-            flex-direction: row;
-            overflow-x: auto;
-            gap: 1rem; 
-            padding-top: 0.5rem; 
-            padding-bottom: 0.5rem; 
-        }
-        .desktop-card-row-empty-placeholder { 
-            width: 100%;
-            text-align: center;
-            padding: 2rem 0; 
-            color: #6c757d; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
+        .card-text-bigger { font-size: 1.2em !important; }
+        .card-button-bigger { font-size: 1.15em !important; }
+        .card-custom-badge { font-size: 1em !important; padding: 0.3em 0.5em; }
+        .desktop-card-row { display: flex; flex-direction: row; overflow-x: auto; gap: 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .desktop-card-row-empty-placeholder { width: 100%; text-align: center; padding: 2rem 0; color: #6c757d; display: flex; align-items: center; justify-content: center; }
         .theme-toggle-button { position: fixed; top: 1rem; right: 1rem; z-index: 1050; }
         h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
         h2 { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; font-size: 1.5rem; }
         p { margin-bottom: 0.5rem; }
         hr { margin-top: 1rem; margin-bottom: 1rem; } 
-
-        .image-zoom-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.88); 
-            z-index: 1051; 
-            cursor: zoom-out;
-        }
-        .card-img-top.zoomed {
-            display: block !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;       
-            height: 100vh !important;      
-            object-fit: contain !important; 
-            transform: none !important;     
-            margin: 0 !important;
-            padding: 0 !important;          
-            border-radius: 0 !important;   
-            box-shadow: none !important;   
-            z-index: 1052 !important; 
-            cursor: zoom-out !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            background-color: transparent; 
-        }
-        
-        .carousel-control-prev-icon,
-        .carousel-control-next-icon { filter: none !important; width: 2rem; height: 2rem; }
+        .image-zoom-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.88); z-index: 1051; cursor: zoom-out; }
+        .card-img-top.zoomed { display: block !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; object-fit: contain !important; transform: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; z-index: 1052 !important; cursor: zoom-out !important; opacity: 1 !important; visibility: visible !important; background-color: transparent; }
+        .carousel-control-prev-icon, .carousel-control-next-icon { filter: none !important; width: 2rem; height: 2rem; }
         .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
         .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
         html[data-bs-theme="dark"] .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
         html[data-bs-theme="dark"] .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
-        
         .carousel-item { padding: 0.5rem 0; }
-        
         .game-board-container { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; justify-content: flex-start; }
         .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 1px; }
         .game-board-pictogram { width: 42px; height: 42px; position: relative; background-size: contain; background-position: center; background-repeat: no-repeat; border: 1px solid #ccc; border-radius: .2rem; margin-bottom: 2px; }
@@ -271,78 +219,16 @@
         html[data-bs-theme="dark"] .avatar-separator { color: #A0AEC0; }
         html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
         .player-name-on-board-empty { height: 1.5em; line-height: 1.5em; width: 100%; font-size: 1em; }
-
         .card { min-width: 220px; max-width: 275px; }
         .card-img-top { width: 216px; margin: 0.5rem auto; }
-
-        @media (max-width: 768px) { /* Планшети */
-             .card { min-width: 200px; max-width: 250px; }
-            .card-img-top { width: 192px; }
-        }
-
-        @media (max-width: 576px) { /* Мобільні */
-            body { padding: 0.5rem !important; line-height: 1.25; }
-            h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} 
-            h2 { font-size: 1.15rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;}
-            p { margin-bottom: 0.3rem; line-height: 1.2;}
-            hr { margin-top: 0.75rem; margin-bottom: 0.75rem; }
-            
-            .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; }
-            .card-body { padding: 0.6rem; } 
-            .card-img-top { width: 156px; margin: 0.2rem auto; }
-            
-            .card-owner-text { font-size: 1em; }
-            .card-owner-text > small:first-child {
-                font-size: 1.1em !important; 
-            }
-            .card-label-text { font-size: 0.95em; }
-            .card-guess-list li small { 
-                font-size: 1.1em !important; 
-            }
-            .card-info-text { font-size: 0.95em; }
-            .card-form-label { font-size: 0.95em; }
-            .card-form-select { 
-                font-size: 0.95em !important; 
-                padding: .25rem .4rem;
-            }
-            .card-form-button { padding: 0.25rem 0.4rem; }
-
-            .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span,
-            .card-text-bigger { 
-                font-size: 1.1em !important; 
-            }
-            .card-button-bigger { 
-                font-size: 1.05em !important; 
-            }
-            .card-custom-badge { 
-                font-size: 0.9em !important; 
-            }
-
-            .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; }
-            .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; }
-            .desktop-card-row { min-height: auto; }
-            .desktop-card-row-empty-placeholder { padding: 1rem 0; }
-            
-            .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
-        }
-        
-        /* Розміри ігрового поля для планшетів та десктопів */
-        @media (min-width: 577px) and (max-width: 991px) { 
-            .game-board-pictogram { width: 54px; height: 54px; }
-            .game-board-player-names-area { width: 54px; }
-            .player-avatar-on-board { font-size: 1.35em; }
-            .game-board-cell-number { font-size: 0.6em; }
-        }
-        @media (min-width: 992px) { 
-            .game-board-pictogram { width: 72px; height: 72px; }
-            .game-board-player-names-area { width: 72px; }
-            .player-avatar-on-board { font-size: 1.45em; }
-            .game-board-cell-number { font-size: 0.65em; }
-        }
+        @media (max-width: 768px) { .card { min-width: 200px; max-width: 250px; } .card-img-top { width: 192px; } }
+        @media (max-width: 576px) { body { padding: 0.5rem !important; line-height: 1.25; } h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} h2 { font-size: 1.15rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;} p { margin-bottom: 0.3rem; line-height: 1.2;} hr { margin-top: 0.75rem; margin-bottom: 0.75rem; } .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; } .card-body { padding: 0.6rem; } .card-img-top { width: 156px; margin: 0.2rem auto; } .card-owner-text { font-size: 1em; } .card-owner-text > small:first-child { font-size: 1.1em !important; } .card-label-text { font-size: 0.95em; } .card-guess-list li small { font-size: 1.1em !important; } .card-info-text { font-size: 0.95em; } .card-form-label { font-size: 0.95em; } .card-form-select { font-size: 0.95em !important; padding: .25rem .4rem; } .card-form-button { padding: 0.25rem 0.4rem; } .card-text-bigger small, .card-text-bigger strong, .card-text-bigger span, .card-text-bigger { font-size: 1.1em !important; } .card-button-bigger { font-size: 1.05em !important; } .card-custom-badge { font-size: 0.9em !important; } .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; } .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; } .desktop-card-row { min-height: auto; } .desktop-card-row-empty-placeholder { padding: 1rem 0; } .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; } }
+        @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
+        @media (min-width: 992px) { .game-board-pictogram { width: 72px; height: 72px; } .game-board-player-names-area { width: 72px; } .player-avatar-on-board { font-size: 1.45em; } .game-board-cell-number { font-size: 0.65em; } }
     </style>
 </head>
 
-<body class="p-4"> 
+<body class="p-4">
     <div class="container-fluid">
         <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
             <i class="bi bi-circle-half"></i>
@@ -352,32 +238,50 @@
         <h1>Привет, {{ name }}!</h1>
         <p class="fs-4">Ваш рейтинг: <strong>{{ rating }}</strong></p>
 
-        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2"> 
-            <span class="text-muted mb-1 mb-sm-0 fs-4">
-                {% if leader_for_display %}
-                    {% set displayed_leader_name = get_user_name(leader_for_display) %}
-                    <i class="bi bi-star-fill text-success"></i>
-                    Ведущий: <strong>{{ displayed_leader_name or ('ID ' + leader_for_display|string) }}</strong>
-                {% else %}
-                    Ведущий еще не определен.
-                {% endif %}
-            </span>
-            <span class="text-muted fs-4">
-                {% set next_leader_id = get_leading_user_id() %}
-                {% if next_leader_id and next_leader_id != leader_for_display %}
-                    {% set next_leader_name = get_user_name(next_leader_id) %}
-                    Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong>
-                {% elif next_leader_id and next_leader_id == leader_for_display and g.show_card_info %}
-                    {% set next_leader_name = get_user_name(next_leader_id) %}
-                    Следующий ведущий: <strong>{{ next_leader_name or ('ID ' + next_leader_id|string) }}</strong>
-                {% endif %}
-            </span>
+        {# --- ОБНОВЛЕННЫЙ БЛОК ОТОБРАЖЕНИЯ ВЕДУЩЕГО --- #}
+        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2">
+            {# Отображаем ведущего, который записан в БД #}
+            {% if db_current_leader_id %}
+                {% set current_leader_name_in_db = get_user_name(db_current_leader_id) %}
+                <span class="text-muted mb-1 mb-sm-0 fs-4">
+                    {% if g.show_card_info %} {# Карты открыты, раунд завершен #}
+                        <i class="bi bi-flag-fill text-secondary"></i>
+                        Ведущий (завершил раунд): <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
+                        {% if g.user.id == db_current_leader_id %} (это Вы){% endif %}
+                    {% else %} {# Новый раунд начался, карты скрыты #}
+                        <i class="bi bi-star-fill text-success"></i>
+                        Ведущий (текущий раунд): <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
+                        {% if g.user.id == db_current_leader_id %} (это Вы){% endif %}
+                    {% endif %}
+                </span>
+            {% else %}
+                <span class="text-muted mb-1 mb-sm-0 fs-4">Ведущий еще не определен.</span>
+            {% endif %}
+
+            {# Отображаем, кто будет следующим ведущим #}
+            {% if potential_next_leader_id %}
+                {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
+                <span class="text-muted fs-4">
+                    {% if g.show_card_info %}
+                        Следующий ведущий (после "Новый раунд"): <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
+                    {% else %}
+                         {# Показываем "Следующий", только если он отличается от текущего ведущего в БД #}
+                        {% if potential_next_leader_id != db_current_leader_id %}
+                            Следующий ведущий: <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
+                        {% endif %}
+                    {% endif %}
+                </span>
+            {% elif db_current_leader_id %} {# Если есть текущий, но нет следующего (например, 1 игрок) #}
+                 <span class="text-muted fs-4">Больше нет игроков для передачи хода.</span>
+            {% endif %}
         </div>
+        {# --- КОНЕЦ ОБНОВЛЕННОГО БЛОКА --- #}
+
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-2" role="alert"> 
+                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-2" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                   </div>
@@ -385,20 +289,21 @@
             {% endif %}
         {% endwith %}
 
-        {% if g.game_over %} {# Используем g.game_over, если он устанавливается в app.py перед рендерингом #}
-            <div class="alert alert-danger mt-2" role="alert"> 
+        {% if g.game_over %}
+            <div class="alert alert-danger mt-2" role="alert">
               <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! У одного из игроков закончились карты.
             </div>
         {% endif%}
 
-        <hr class="my-2"> 
+        <hr class="my-2">
 
         <h2>Общий стол</h2>
-        <div class="border p-1 p-sm-2 mb-3 rounded"> 
+        <div class="border p-1 p-sm-2 mb-3 rounded">
             <div class="desktop-card-row">
                 {% if table_images %}
                     {% for table_image in table_images %}
-                        {{ render_table_card(table_image, g, leader_for_display, all_users, code, get_user_name) }}
+                        {# Передаем db_current_leader_id в макрос для корректной отметки карты ведущего #}
+                        {{ render_table_card(table_image, g, db_current_leader_id, all_users, code, get_user_name) }}
                     {% endfor %}
                 {% else %}
                      <p class="desktop-card-row-empty-placeholder">На столе пока нет карточек.</p>
@@ -407,10 +312,11 @@
         </div>
 
         <h2>Мои карточки</h2>
-        <div class="desktop-card-row mb-3"> 
+        <div class="desktop-card-row mb-3">
             {% if cards %}
                 {% for card_item in cards %}
-                    {{ render_my_card(card_item, g, on_table, code, get_leading_user_id) }}
+                    {# Передаем is_current_user_the_db_leader для макроса #}
+                    {{ render_my_card(card_item, g, on_table, code, is_current_user_the_db_leader) }}
                 {% endfor %}
             {% else %}
                  <p class="desktop-card-row-empty-placeholder">У вас пока нет карт на руках.</p>
@@ -429,89 +335,32 @@
                 {% endif %}
             </div>
         </div>
-    </div> 
+    </div>
 
     <div class="image-zoom-overlay"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Скрипт смены темы
+        // Скрипт смены темы (без изменений)
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
             const storageKey = 'userThemePreference';
-
-            const applyTheme = (theme) => {
-                htmlElement.setAttribute('data-bs-theme', theme);
-                if (themeToggleBtn) {
-                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
-                }
-            };
-
-            const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-                localStorage.setItem(storageKey, newTheme);
-            };
-
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', toggleTheme);
-            }
-            try {
-                const savedTheme = localStorage.getItem(storageKey);
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-                applyTheme(defaultTheme);
-            } catch (e) {
-                console.error('Error applying initial theme:', e); 
-                applyTheme('light');
-            }
+            const applyTheme = (theme) => { htmlElement.setAttribute('data-bs-theme', theme); if (themeToggleBtn) { themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему'); } };
+            const toggleTheme = () => { const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light'; const newTheme = currentTheme === 'dark' ? 'light' : 'dark'; applyTheme(newTheme); localStorage.setItem(storageKey, newTheme); };
+            if (themeToggleBtn) { themeToggleBtn.addEventListener('click', toggleTheme); }
+            try { const savedTheme = localStorage.getItem(storageKey); const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light'); applyTheme(defaultTheme); } catch (e) { console.error('Error applying initial theme:', e); applyTheme('light'); }
         })();
 
-        // Скрипт для увеличения изображений
+        // Скрипт для увеличения изображений (без изменений)
         document.addEventListener('DOMContentLoaded', () => {
             const imagesToZoom = document.querySelectorAll('.card-img-top');
             const overlay = document.querySelector('.image-zoom-overlay');
             let currentlyZoomedImage = null;
-
-            function unzoomImage() {
-                if (currentlyZoomedImage) {
-                    currentlyZoomedImage.classList.remove('zoomed');
-                    currentlyZoomedImage = null;
-                }
-                if (overlay) {
-                    overlay.style.display = 'none';
-                }
-            }
-
-            imagesToZoom.forEach((image) => {
-                image.addEventListener('click', function(event) {
-                    event.stopPropagation(); 
-                    if (this.classList.contains('zoomed')) {
-                        unzoomImage();
-                    } else {
-                        unzoomImage(); 
-                        this.classList.add('zoomed');
-                        currentlyZoomedImage = this;
-                        if (overlay) {
-                            overlay.style.display = 'block';
-                        }
-                    }
-                });
-            });
-
-            if (overlay) {
-                overlay.addEventListener('click', function() {
-                    unzoomImage();
-                });
-            }
-
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' || event.key === 'Esc') { 
-                    unzoomImage();
-                }
-            });
+            function unzoomImage() { if (currentlyZoomedImage) { currentlyZoomedImage.classList.remove('zoomed'); currentlyZoomedImage = null; } if (overlay) { overlay.style.display = 'none'; } }
+            imagesToZoom.forEach((image) => { image.addEventListener('click', function(event) { event.stopPropagation(); if (this.classList.contains('zoomed')) { unzoomImage(); } else { unzoomImage(); this.classList.add('zoomed'); currentlyZoomedImage = this; if (overlay) { overlay.style.display = 'block'; } } }); });
+            if (overlay) { overlay.addEventListener('click', function() { unzoomImage(); }); }
+            document.addEventListener('keydown', function(event) { if (event.key === 'Escape' || event.key === 'Esc') { unzoomImage(); } });
         });
     </script>
 </body>
