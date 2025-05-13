@@ -1037,16 +1037,12 @@ def start_new_game():
 def user(code):
     db = get_db()
     c = db.cursor()
-    # g.user и g.user_id уже должны быть установлены в before_request
-    # c.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (code,))
-    # g.user = c.fetchone() # Это уже сделано в before_request
 
-    if g.user is None: # Если after_request не нашел пользователя
+    if g.user is None: 
         session.pop('user_id', None); session.pop('user_name', None); session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
 
-    # Обновляем сессию, если g.user был найден (на случай если имя изменилось, хотя у вас это не предусмотрено)
     session['user_id'] = g.user['id']
     session['user_name'] = g.user['name']
     session['user_code'] = g.user['code']
@@ -1056,11 +1052,9 @@ def user(code):
 
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
-    # g.show_card_info, g.game_over, g.game_in_progress уже установлены
 
     user_cards = []
-    # Карты есть только у активных игроков, которые участвуют в игре
-    if not is_pending_player and active_subfolder:
+    if not is_pending_player and active_subfolder and g.game_in_progress:
         c.execute("""
             SELECT id, image, subfolder FROM images
             WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'
@@ -1068,22 +1062,20 @@ def user(code):
         user_cards = c.fetchall()
 
     table_cards_raw = []
-    # Карты на столе видны всем (и активным, и pending), если игра идет
-    if g.game_in_progress and active_subfolder: # Показываем стол, если игра идет
+    if g.game_in_progress and active_subfolder: 
         c.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
             FROM images i 
             LEFT JOIN users u ON i.owner_id = u.id 
             WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' 
-                  AND (u.status = 'active' OR u.status IS NULL) -- Карты только от активных игроков
+                  AND (u.status = 'active' OR u.status IS NULL) 
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
 
     table_cards_for_template = []
-    on_table_status = False # Только для активного игрока
+    on_table_status = False 
     
     for card_row in table_cards_raw:
-        # Проверка, выложил ли ТЕКУЩИЙ АКТИВНЫЙ игрок карту на стол
         if not is_pending_player and card_row['owner_id'] == g.user['id']:
             on_table_status = True
         
@@ -1094,9 +1086,13 @@ def user(code):
             current_card_guesses_dict = {}
         
         my_guess_for_this_card_value = None
-        # Голосовать могут только активные не-ведущие игроки за чужие карты
-        if not is_pending_player and g.user['id'] != get_leading_user_id():
+        # --- ИЗМЕНЕНО УСЛОВИЕ: Ведущий теперь тоже может иметь 'my_guess_for_this_card_value' ---
+        # Теперь любой активный игрок (включая ведущего, если он голосует за чужую карту)
+        # может иметь запись о своем голосе.
+        # Проверка g.user['id'] != get_leading_user_id() УБРАНА.
+        if not is_pending_player and g.game_in_progress and not g.show_card_info:
             my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         table_cards_for_template.append({
             'id': card_row['id'],
@@ -1104,29 +1100,25 @@ def user(code):
             'subfolder': card_row['subfolder'],
             'owner_id': card_row['owner_id'],
             'owner_name': card_row['owner_name'] if card_row['owner_name'] else "Неизвестный владелец",
-            'guesses': current_card_guesses_dict, # Все угадывания для этой карты
+            'guesses': current_card_guesses_dict, 
             'has_guessed': my_guess_for_this_card_value is not None,
             'guessed_user_id': my_guess_for_this_card_value
         })
 
     other_active_users_for_template = []
-    # Для списка угадывания показываем только других АКТИВНЫХ игроков
-    if not is_pending_player: # Только если текущий игрок не pending
+    if not is_pending_player and g.game_in_progress: 
         c.execute("SELECT id, name FROM users WHERE status = 'active' AND id != ?", (g.user['id'],))
         other_active_users_for_template = c.fetchall()
 
-    leader_id_from_db = get_leading_user_id() # Это будет ID активного ведущего
+    leader_id_from_db = get_leading_user_id() 
     is_current_user_the_db_leader = False
-    if not is_pending_player and leader_id_from_db is not None:
+    if not is_pending_player and leader_id_from_db is not None and g.game_in_progress:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
 
-    # --- ДОБАВЛЕНО: Определение potential_next_leader_id ---
     potential_next_leader_id_for_user_page = None
-    if leader_id_from_db and g.game_in_progress : # Только если есть текущий и игра идет
+    if leader_id_from_db and g.game_in_progress : 
         potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
-    # --- КОНЕЦ ДОБАВЛЕНИЯ ---
-    
-    # Игровое поле показывает только АКТИВНЫХ игроков
+
     c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
     all_active_users_for_board_query = c.fetchall()
     game_board_data = generate_game_board_data_for_display(all_active_users_for_board_query)
@@ -1140,7 +1132,6 @@ def user(code):
                            all_users_for_guessing=other_active_users_for_template, 
                            on_table=on_table_status,
                            db_current_leader_id=leader_id_from_db,
-                           # --- ПЕРЕДАЕМ В ШАБЛОН ---
                            potential_next_leader_id=potential_next_leader_id_for_user_page, 
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
@@ -1161,12 +1152,13 @@ def guess_image(code, image_id):
     if not g.user or g.user['status'] != 'active':
         flash("Только активные игроки могут делать предположения.", "warning")
         return redirect(url_for('user', code=code))
-    
-    if g.user['id'] == get_leading_user_id():
-        flash("Ведущий не может угадывать карты.", "warning")
-        return redirect(url_for('user', code=code))
 
-    # Остальная логика остается, но добавим проверки на активность угадываемого
+    # --- УДАЛЕНО УСЛОВИЕ ЗАПРЕТА ГОЛОСОВАНИЯ ДЛЯ ВЕДУЩЕГО ---
+    # if g.user['id'] == get_leading_user_id():
+    #     flash("Ведущий не может угадывать карты.", "warning") # Это сообщение больше не актуально
+    #     return redirect(url_for('user', code=code))
+    # --- КОНЕЦ УДАЛЕНИЯ ---
+
     guessed_user_id_str = request.form.get("guessed_user_id")
     if not guessed_user_id_str:
         flash("Игрок для предположения не выбран.", "warning")
@@ -1176,13 +1168,11 @@ def guess_image(code, image_id):
     c = db.cursor()
     try:
         guessed_user_id = int(guessed_user_id_str)
-        # Проверяем, что угадываемый пользователь существует И АКТИВЕН
         c.execute("SELECT 1 FROM users WHERE id = ? AND status = 'active'", (guessed_user_id,))
         if not c.fetchone():
             flash("Выбранный для предположения игрок не существует или неактивен.", "danger")
             return redirect(url_for('user', code=code))
 
-        # Проверяем, что карта на столе и ее владелец АКТИВЕН
         c.execute("""
             SELECT i.guesses, i.owner_id 
             FROM images i
@@ -1195,7 +1185,8 @@ def guess_image(code, image_id):
             flash("Карточка не найдена на столе или принадлежит неактивному игроку.", "danger")
             return redirect(url_for('user', code=code))
             
-        if image_data['owner_id'] == g.user['id']: # g.user['id'] это ID текущего активного игрока
+        # Игрок (включая ведущего) не может угадывать свою собственную карточку
+        if image_data['owner_id'] == g.user['id']:
              flash("Нельзя угадывать свою карточку.", "warning")
              return redirect(url_for('user', code=code))
              
@@ -1214,11 +1205,19 @@ def guess_image(code, image_id):
         db.commit()
         guessed_user_name_display = get_user_name(guessed_user_id) or f"ID {guessed_user_id}"
         flash(f"Ваше предположение (что карта принадлежит '{guessed_user_name_display}') сохранено.", "success")
+
     except (ValueError, TypeError):
         flash("Неверный ID игрока для предположения.", "danger")
     except sqlite3.Error as e:
         db.rollback()
         flash(f"Ошибка сохранения предположения: {e}", "danger")
+        print(f"DB Error in guess_image for image {image_id}, user {g.user['id']}: {e}")
+        print(traceback.format_exc())
+    except Exception as e_gen:
+        flash(f"Непредвиденная ошибка при сохранении предположения: {e_gen}", "danger")
+        print(f"Unexpected Error in guess_image for image {image_id}, user {g.user['id']}: {e_gen}")
+        print(traceback.format_exc())
+        
     return redirect(url_for('user', code=code))
     
 
