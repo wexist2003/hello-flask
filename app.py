@@ -603,32 +603,40 @@ def vote_deck():
     
 # --- Обработчики запросов ---
 @app.before_request
-def before_request():
-    db = get_db()
-    c = db.cursor()
-    code_param_before_req = None # Змінено code на code_param_before_req
-    if request.view_args and 'code' in request.view_args:
-        code_param_before_req = request.view_args.get('code')
-    elif request.args and 'code' in request.args: 
-        code_param_before_req = request.args.get('code')
-    g.user = None # Инициализируем g.user как None
-    g.user_id = None 
-    if code_param_before_req:
-        try:
-            c.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (code_param_before_req,))
-            user_row = c.fetchone()
-            if user_row:
-                g.user = user_row # Сохраняем всю строку пользователя в g.user
-                g.user_id = user_row['id']
-        except sqlite3.Error as e:
-            print(f"Database error in before_request checking code '{code_param_before_req}': {e}")
-            g.user_id = None
-            g.user = None
-    show_card_info_setting = get_setting("show_card_info")
-    g.show_card_info = show_card_info_setting == "true" 
-    g.game_over = is_game_over()
-    g.game_in_progress = is_game_in_progress() # Новая глобальная переменная g
+def before_request_func():
+    # print("--- Entered before_request_func --- TOP ---", flush=True) # Для отладки, если нужно
+    g.user = None
+    g.user_id = session.get('user_id')
+    g.admin_logged_in = session.get('is_admin', False)
 
+    if g.user_id:
+        db = get_db()
+        # Исправленный SQL-запрос для включения поля 'rating'
+        user_data = db.execute(
+            'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,)
+        ).fetchone()
+        
+        if user_data:
+            g.user = user_data
+            # Отладочный print, чтобы убедиться, что 'rating' теперь есть в g.user
+            # print(f"--- before_request_func: g.user contents: {dict(g.user) if g.user else 'None'} ---", flush=True)
+        else:
+            # Если пользователь с таким ID не найден в БД, очищаем сессию
+            session.pop('user_id', None)
+            session.pop('user_name', None)
+            session.pop('user_code', None)
+            session.pop('is_admin', None)
+            g.user_id = None # Сбрасываем g.user_id, так как пользователя нет
+            g.admin_logged_in = False # Также сбрасываем флаг админа
+            # print(f"--- before_request_func: User with ID {session.get('user_id')} not found in DB. Session cleared. ---", flush=True)
+            
+    # Загрузка состояния игры
+    game_state = get_game_state() # Предполагается, что эта функция существует и работает
+    g.show_card_info = game_state.get('show_card_info', False)
+    g.game_over = game_state.get('game_over', False)
+    g.game_in_progress = game_state.get('game_in_progress', False)
+    # print(f"--- before_request_func: Game state: progress={g.game_in_progress}, show_info={g.show_card_info}, over={g.game_over} ---", flush=True)
+    # print("--- Exiting before_request_func ---", flush=True)
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
