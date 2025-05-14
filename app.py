@@ -20,6 +20,58 @@ socketio = SocketIO(app) # <--- ДОБАВЛЕНО: Инициализация S
 
 DB_PATH = 'database.db'
 
+# --- Инициализация БД ---
+def init_db():
+    print(f"DB Init: Attempting to initialize database at {os.path.abspath(DB_PATH)}", file=sys.stderr)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    print("init_db: Connection opened.", file=sys.stderr)
+    try:
+        print("init_db: Dropping tables...", file=sys.stderr)
+        c.execute("DROP TABLE IF EXISTS users")
+        c.execute("DROP TABLE IF EXISTS images")
+        c.execute("DROP TABLE IF EXISTS settings")
+        c.execute("DROP TABLE IF EXISTS deck_votes")
+        print("init_db: Creating tables...", file=sys.stderr)
+        c.execute("""CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, code TEXT UNIQUE NOT NULL, rating INTEGER DEFAULT 0, status TEXT DEFAULT 'pending' NOT NULL)""")
+        c.execute("""CREATE TABLE images (id INTEGER PRIMARY KEY AUTOINCREMENT, subfolder TEXT NOT NULL, image TEXT NOT NULL, status TEXT, owner_id INTEGER, guesses TEXT DEFAULT '{}')""")
+        c.execute("""CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)""")
+        c.execute("""CREATE TABLE deck_votes (subfolder TEXT PRIMARY KEY, votes INTEGER DEFAULT 0)""")
+        conn.commit()
+        print("init_db: Tables created and committed.", file=sys.stderr)
+        settings_to_init = {'game_over': 'false', 'game_in_progress': 'false', 'show_card_info': 'false'}
+        for key, value in settings_to_init.items():
+            try:
+                c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (key, value))
+            except sqlite3.IntegrityError:
+                c.execute("UPDATE settings SET value = ? WHERE key = ?", (value, key))
+        conn.commit()
+        print("init_db: Basic settings initialized/updated.", file=sys.stderr)
+        image_folders = ['koloda1', 'ariadna', 'detstvo', 'odissey', 'pandora'] # Используем ваш список
+        images_added_count = 0
+        for folder in image_folders:
+            folder_path = os.path.join(app.static_folder, 'images', folder) # Используем app.static_folder
+            if os.path.exists(folder_path) and os.path.isdir(folder_path):
+                for filename in os.listdir(folder_path):
+                    if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                        try:
+                            c.execute("SELECT 1 FROM images WHERE subfolder = ? AND image = ?", (folder, filename))
+                            if c.fetchone() is None:
+                                 c.execute("INSERT INTO images (subfolder, image, status, guesses) VALUES (?, ?, 'Свободно', '{}')", (folder, filename))
+                                 images_added_count += 1
+                        except sqlite3.Error as e:
+                            print(f"Warning: Could not process image {folder}/{filename}: {e}", file=sys.stderr)
+            else: print(f"Warning: Folder not found or is not a directory: {folder_path}", file=sys.stderr)
+        if images_added_count > 0: print(f"init_db: Added {images_added_count} new images to the database.", file=sys.stderr)
+        else: print("init_db: No new images were added.", file=sys.stderr)
+        conn.commit()
+    except sqlite3.Error as e: print(f"CRITICAL ERROR during init_db: {e}", file=sys.stderr); conn.rollback(); raise
+    finally:
+        if conn: conn.close(); print("init_db: Connection closed.", file=sys.stderr)
+    print("DB Init: Database tables created/recreated.", file=sys.stderr)
+
+
 # --- Конфигурация для Игрового Поля ---
 GAME_BOARD_POLE_IMG_SUBFOLDER = "pole"
 GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)]
@@ -28,6 +80,13 @@ DEFAULT_NUM_BOARD_CELLS = 40
 _current_game_board_pole_image_config = []
 _current_game_board_num_cells = 0
 # --- Кінець Конфігурації ---
+
+# Вызываем init_db() прямо здесь, при загрузке модуля.
+# Это гарантирует, что БД будет создана/пересоздана перед тем, как приложение начнет обрабатывать запросы.
+# Поскольку вам не нужна персистентность, это перезапишет БД при каждом старте процесса приложения.
+print("DB Init: Calling init_db() on module load.", file=sys.stderr)
+init_db()
+print("DB Init: init_db() call completed on module load.", file=sys.stderr)
 
 # --- Управление соединением с БД ---
 def get_db():
@@ -455,55 +514,6 @@ def index():
                            current_vote=current_vote,
                            active_subfolder=active_subfolder)
 
-# --- Инициализация БД ---
-def init_db():
-    # (Ваш код init_db без изменений)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    print("init_db: Connection opened.", file=sys.stderr)
-    try:
-        print("init_db: Dropping tables...", file=sys.stderr)
-        c.execute("DROP TABLE IF EXISTS users")
-        c.execute("DROP TABLE IF EXISTS images")
-        c.execute("DROP TABLE IF EXISTS settings")
-        c.execute("DROP TABLE IF EXISTS deck_votes")
-        print("init_db: Creating tables...", file=sys.stderr)
-        c.execute("""CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, code TEXT UNIQUE NOT NULL, rating INTEGER DEFAULT 0, status TEXT DEFAULT 'pending' NOT NULL)""")
-        c.execute("""CREATE TABLE images (id INTEGER PRIMARY KEY AUTOINCREMENT, subfolder TEXT NOT NULL, image TEXT NOT NULL, status TEXT, owner_id INTEGER, guesses TEXT DEFAULT '{}')""")
-        c.execute("""CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)""")
-        c.execute("""CREATE TABLE deck_votes (subfolder TEXT PRIMARY KEY, votes INTEGER DEFAULT 0)""")
-        conn.commit()
-        print("init_db: Tables created and committed.", file=sys.stderr)
-        settings_to_init = {'game_over': 'false', 'game_in_progress': 'false', 'show_card_info': 'false'}
-        for key, value in settings_to_init.items():
-            try:
-                c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (key, value))
-            except sqlite3.IntegrityError:
-                c.execute("UPDATE settings SET value = ? WHERE key = ?", (value, key))
-        conn.commit()
-        print("init_db: Basic settings initialized/updated.", file=sys.stderr)
-        image_folders = ['koloda1', 'ariadna', 'detstvo', 'odissey', 'pandora'] # Используем ваш список
-        images_added_count = 0
-        for folder in image_folders:
-            folder_path = os.path.join(app.static_folder, 'images', folder) # Используем app.static_folder
-            if os.path.exists(folder_path) and os.path.isdir(folder_path):
-                for filename in os.listdir(folder_path):
-                    if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                        try:
-                            c.execute("SELECT 1 FROM images WHERE subfolder = ? AND image = ?", (folder, filename))
-                            if c.fetchone() is None:
-                                 c.execute("INSERT INTO images (subfolder, image, status, guesses) VALUES (?, ?, 'Свободно', '{}')", (folder, filename))
-                                 images_added_count += 1
-                        except sqlite3.Error as e:
-                            print(f"Warning: Could not process image {folder}/{filename}: {e}", file=sys.stderr)
-            else: print(f"Warning: Folder not found or is not a directory: {folder_path}", file=sys.stderr)
-        if images_added_count > 0: print(f"init_db: Added {images_added_count} new images to the database.", file=sys.stderr)
-        else: print("init_db: No new images were added.", file=sys.stderr)
-        conn.commit()
-    except sqlite3.Error as e: print(f"CRITICAL ERROR during init_db: {e}", file=sys.stderr); conn.rollback(); raise
-    finally:
-        if conn: conn.close(); print("init_db: Connection closed.", file=sys.stderr)
 
 @app.route('/init_db_route_for_dev_only_make_sure_to_secure_or_remove')
 def init_db_route():
@@ -963,36 +973,6 @@ def handle_disconnect():
 
 # --- Запуск приложения ---
 if __name__ == "__main__":
-    if not os.path.exists(DB_PATH):
-        print("База данных не найдена. Инициализация...", file=sys.stderr)
-        init_db()
-        print("База данных инициализирована.", file=sys.stderr)
-    else:
-        print("База данных найдена.", file=sys.stderr)
-        # Проверки и установки по умолчанию, если настройки отсутствуют
-        if get_setting('active_subfolder') is None:
-            db_conn_check = sqlite3.connect(DB_PATH); cursor_check = db_conn_check.cursor()
-            cursor_check.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder LIMIT 1")
-            first_folder = cursor_check.fetchone(); db_conn_check.close()
-            default_folder = first_folder[0] if first_folder else 'koloda1'
-            set_setting('active_subfolder', default_folder)
-            print(f"Установлена активная колода по умолчанию: {default_folder}", file=sys.stderr)
-        if get_setting('show_card_info') is None: set_setting('show_card_info', 'false'); print("Установлена show_card_info: false", file=sys.stderr)
-        if get_setting('game_over') is None: set_setting('game_over', 'false'); print("Установлена game_over: false", file=sys.stderr)
-        if get_setting('game_in_progress') is None: set_setting('game_in_progress', 'false'); print("Установлена game_in_progress: false", file=sys.stderr)
-
-    if not _current_game_board_pole_image_config:
-         print("Первичная инициализация визуализации игрового поля...", file=sys.stderr)
-         all_users_at_startup = []
-         if os.path.exists(DB_PATH):
-             try:
-                 conn_startup = sqlite3.connect(DB_PATH); conn_startup.row_factory = sqlite3.Row
-                 cursor_startup = conn_startup.cursor()
-                 cursor_startup.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
-                 all_users_at_startup = cursor_startup.fetchall(); conn_startup.close()
-             except sqlite3.Error as e_startup_sql: print(f"Ошибка чтения пользователей для поля: {e_startup_sql}", file=sys.stderr)
-         initialize_new_game_board_visuals(all_users_for_rating_check=all_users_at_startup)
-
     port = int(os.environ.get("PORT", 5000))
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() in ['true', '1', 't']
     print(f"Запуск Flask-SocketIO приложения на http://0.0.0.0:{port}/ с debug={debug_mode}", file=sys.stderr)
