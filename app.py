@@ -1035,13 +1035,40 @@ def start_new_game():
     
 @app.route('/user/<code>')
 def user(code):
-    db = get_db()
-    c = db.cursor()
+    print(f"[DEBUG /user/{code}] Route entered.", flush=True)
+    
+    # Отладочный вывод g.user (из вашего app.py)
+    user_name_in_user_func = "N/A_USER_FUNC"
+    user_id_in_user_func = "N/A_USER_FUNC"
+    user_status_in_user_func = "N/A_USER_FUNC"
+    user_rating_value_in_user_func = "RATING_KEY_MISSING_OR_GUSER_NONE_USER_FUNC"
+    user_rating_type_in_user_func = "N/A_USER_FUNC"
+
+    if hasattr(g, 'user') and g.user:
+        user_name_in_user_func = g.user['name'] if 'name' in g.user else "Name_Key_Missing"
+        user_id_in_user_func = g.user['id'] if 'id' in g.user else "ID_Key_Missing"
+        user_status_in_user_func = g.user['status'] if 'status' in g.user else "Status_Key_Missing"
+        if 'rating' in g.user:
+            user_rating_value_in_user_func = g.user['rating'] 
+            user_rating_type_in_user_func = type(g.user['rating']).__name__
+        else:
+            user_rating_value_in_user_func = "Rating_Key_Missing_In_g.user"
+            
+    print(f"[DEBUG /user/{code}] User at entry: Name: {user_name_in_user_func}, ID: {user_id_in_user_func}, Status: {user_status_in_user_func}, RATING_VALUE: {user_rating_value_in_user_func} (Type: {user_rating_type_in_user_func})", flush=True)
 
     if g.user is None: 
-        session.pop('user_id', None); session.pop('user_name', None); session.pop('user_code', None)
+        print(f"[DEBUG /user/{code}] g.user is None (after initial prints). Redirecting to login.", flush=True)
+        session.pop('user_id', None)
+        session.pop('user_name', None)
+        session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
+
+    # Этот отладочный print уже есть в вашем файле и он более прямой, если g.user не None
+    # print(f"[DEBUG /user/{code}] User at entry: Name: {g.user['name']}, ID: {g.user['id']}, Status: {g.user['status']}, RATING_VALUE: {g.user['rating']} (Type: {type(g.user['rating']).__name__})", flush=True)
+
+    db = get_db()
+    c = db.cursor()
 
     session['user_id'] = g.user['id']
     session['user_name'] = g.user['name']
@@ -1049,9 +1076,13 @@ def user(code):
     session.pop('is_admin', None)
 
     is_pending_player = g.user['status'] == 'pending'
+    print(f"[DEBUG /user/{code}] Is pending player: {is_pending_player}", flush=True)
 
     active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
+    print(f"[DEBUG /user/{code}] Active subfolder: {active_subfolder}", flush=True)
+
+    print(f"[DEBUG /user/{code}] Game state (from g object): game_in_progress={g.game_in_progress}, show_card_info={g.show_card_info}, game_over={g.game_over}", flush=True)
 
     user_cards = []
     if not is_pending_player and active_subfolder and g.game_in_progress:
@@ -1060,39 +1091,37 @@ def user(code):
             WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'
         """, (g.user['id'], active_subfolder))
         user_cards = c.fetchall()
+    print(f"[DEBUG /user/{code}] User cards count: {len(user_cards)}", flush=True)
 
     table_cards_raw = []
-    if g.game_in_progress and active_subfolder: 
+    if g.game_in_progress and active_subfolder:
         c.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
-            FROM images i 
-            LEFT JOIN users u ON i.owner_id = u.id 
-            WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' 
-                  AND (u.status = 'active' OR u.status IS NULL) 
+            FROM images i
+            LEFT JOIN users u ON i.owner_id = u.id
+            WHERE i.subfolder = ? AND i.status LIKE 'На столе:%'
+                  AND (u.status = 'active' OR u.status IS NULL)
         """, (active_subfolder,))
         table_cards_raw = c.fetchall()
+    print(f"[DEBUG /user/{code}] Raw table cards count: {len(table_cards_raw)}", flush=True)
 
     table_cards_for_template = []
-    on_table_status = False 
-    
+    on_table_status = False # Определяется здесь, до использования в условии пиктограммы
+
     for card_row in table_cards_raw:
         if not is_pending_player and card_row['owner_id'] == g.user['id']:
-            on_table_status = True
-        
+            on_table_status = True 
+
         guesses_json_str = card_row['guesses'] or '{}'
         try:
             current_card_guesses_dict = json.loads(guesses_json_str)
         except json.JSONDecodeError:
             current_card_guesses_dict = {}
-        
+
         my_guess_for_this_card_value = None
-        # --- ИЗМЕНЕНО УСЛОВИЕ: Ведущий теперь тоже может иметь 'my_guess_for_this_card_value' ---
-        # Теперь любой активный игрок (включая ведущего, если он голосует за чужую карту)
-        # может иметь запись о своем голосе.
-        # Проверка g.user['id'] != get_leading_user_id() УБРАНА.
         if not is_pending_player and g.game_in_progress and not g.show_card_info:
-            my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            if card_row['owner_id'] != g.user['id']:
+                 my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
 
         table_cards_for_template.append({
             'id': card_row['id'],
@@ -1100,39 +1129,95 @@ def user(code):
             'subfolder': card_row['subfolder'],
             'owner_id': card_row['owner_id'],
             'owner_name': card_row['owner_name'] if card_row['owner_name'] else "Неизвестный владелец",
-            'guesses': current_card_guesses_dict, 
+            'guesses': current_card_guesses_dict,
             'has_guessed': my_guess_for_this_card_value is not None,
             'guessed_user_id': my_guess_for_this_card_value
         })
+    print(f"[DEBUG /user/{code}] Processed table cards for template count: {len(table_cards_for_template)}", flush=True)
+    print(f"[DEBUG /user/{code}] On table status for current user (determined from table_cards_raw): {on_table_status}", flush=True)
 
     other_active_users_for_template = []
-    if not is_pending_player and g.game_in_progress: 
+    if not is_pending_player and g.game_in_progress:
         c.execute("SELECT id, name FROM users WHERE status = 'active' AND id != ?", (g.user['id'],))
         other_active_users_for_template = c.fetchall()
+    print(f"[DEBUG /user/{code}] Other active users for guessing count: {len(other_active_users_for_template)}", flush=True)
 
-    leader_id_from_db = get_leading_user_id() 
+    leader_id_from_db = get_leading_user_id()
     is_current_user_the_db_leader = False
     if not is_pending_player and leader_id_from_db is not None and g.game_in_progress:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
+    print(f"[DEBUG /user/{code}] Leader ID from DB: {leader_id_from_db}, Is current user the leader: {is_current_user_the_db_leader}", flush=True)
+
+    # --- НАЧАЛО БЛОКА ДЛЯ ПИКТОГРАММЫ ВЕДУЩЕГО ---
+    leader_pole_pictogram_path_for_table = None      # Путь к пиктограмме поля для ведущего
+    leader_rating_for_pictogram_display = None   # Рейтинг ведущего для отображения (номер поля)
+
+    print(f"[DEBUG /user/{code}] Checking conditions for leader pole pictogram: is_leader={is_current_user_the_db_leader}, on_table={on_table_status}, game_progress={g.game_in_progress}, show_info={g.show_card_info}", flush=True)
+
+    if is_current_user_the_db_leader and \
+       not on_table_status and \
+       g.game_in_progress and \
+       not g.show_card_info:
+        
+        print(f"[DEBUG /user/{code}] --- ENTERED LEADER POLE PICTOGRAM LOGIC ---", flush=True)
+        
+        current_leader_actual_rating = 0 # Инициализация
+        if g.user and 'rating' in g.user and g.user['rating'] is not None:
+            try:
+                current_leader_actual_rating = int(g.user['rating'])
+                print(f"[DEBUG /user/{code}] Leader's actual rating from g.user: {current_leader_actual_rating} (Type: {type(current_leader_actual_rating).__name__})", flush=True)
+            except (ValueError, TypeError):
+                print(f"[DEBUG /user/{code}] Could not convert leader rating '{g.user['rating']}' to int. Using 0.", flush=True)
+                current_leader_actual_rating = 0
+        else:
+            print(f"[DEBUG /user/{code}] Leader's rating not found in g.user or is None. Using 0.", flush=True)
+            current_leader_actual_rating = 0
+
+        leader_rating_for_pictogram_display = current_leader_actual_rating # Сохраняем для отображения
+
+        # Проверяем условия для отображения пиктограммы поля
+        if current_leader_actual_rating > 0 and \
+           _current_game_board_pole_image_config and \
+           len(_current_game_board_pole_image_config) > 0 and \
+           _current_game_board_num_cells > 0 and \
+           current_leader_actual_rating <= _current_game_board_num_cells and \
+           (current_leader_actual_rating - 1) < len(_current_game_board_pole_image_config):
+            
+            # Путь к пиктограмме поля уже должен быть в _current_game_board_pole_image_config
+            # в формате 'images/pole/pX.jpg'
+            relative_pole_image_path = _current_game_board_pole_image_config[current_leader_actual_rating - 1]
+            leader_pole_pictogram_path_for_table = url_for('static', filename=relative_pole_image_path)
+            print(f"[DEBUG /user/{code}] Leader POLE pictogram path for table SET to: {leader_pole_pictogram_path_for_table} for rating {current_leader_actual_rating}", flush=True)
+        else:
+            print(f"[DEBUG /user/{code}] Conditions for displaying leader POLE pictogram NOT MET. Rating: {current_leader_actual_rating}, Config len: {len(_current_game_board_pole_image_config) if _current_game_board_pole_image_config else 'N/A'}", flush=True)
+    else:
+        print(f"[DEBUG /user/{code}] Main conditions for leader POLE pictogram NOT MET.", flush=True)
+    # --- КОНЕЦ БЛОКА ДЛЯ ПИКТОГРАММЫ ВЕДУЩЕГО ---
 
     potential_next_leader_id_for_user_page = None
-    if leader_id_from_db and g.game_in_progress : 
+    if leader_id_from_db and g.game_in_progress:
         potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
+    print(f"[DEBUG /user/{code}] Potential next leader ID: {potential_next_leader_id_for_user_page}", flush=True)
 
     c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
     all_active_users_for_board_query = c.fetchall()
     game_board_data = generate_game_board_data_for_display(all_active_users_for_board_query)
     current_board_cells_value = _current_game_board_num_cells
+    print(f"[DEBUG /user/{code}] Game board data count: {len(game_board_data) if game_board_data else 0}, Current num board cells: {current_board_cells_value}", flush=True)
 
+    print(f"[DEBUG /user/{code}] Rendering user.html with leader_pole_pictogram_path_for_table: {leader_pole_pictogram_path_for_table}", flush=True)
     return render_template('user.html',
-                           user_data=g.user, 
-                           is_pending_player=is_pending_player, 
+                           user_data=g.user,
+                           is_pending_player=is_pending_player,
                            cards=user_cards,
                            table_images=table_cards_for_template,
-                           all_users_for_guessing=other_active_users_for_template, 
-                           on_table=on_table_status,
+                           all_users_for_guessing=other_active_users_for_template,
+                           on_table=on_table_status, 
                            db_current_leader_id=leader_id_from_db,
-                           potential_next_leader_id=potential_next_leader_id_for_user_page, 
+                           potential_next_leader_id=potential_next_leader_id_for_user_page,
+                           # Передаем переменные для пиктограммы ведущего
+                           leader_pole_pictogram_path=leader_pole_pictogram_path_for_table,
+                           leader_pictogram_rating_display=leader_rating_for_pictogram_display,
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
