@@ -9,9 +9,10 @@ from flask import Flask, render_template, request, redirect, url_for, g, flash, 
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_very_secret_fallback_key_for_dev_only_12345') # Используйте надежный ключ или переменную окружения
+# ВАЖНО: Убедитесь, что этот ключ ИДЕНТИЧЕН тому, что был в работающей версии
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_very_secret_fallback_key_for_dev_only_12345') 
 if app.config['SECRET_KEY'] == 'your_very_secret_fallback_key_for_dev_only_12345':
-    print("ПРЕДУПРЕЖДЕНИЕ: Используется SECRET_KEY по умолчанию для разработки. Установите переменную окружения SECRET_KEY для продакшена!", file=sys.stderr)
+    print("ПРЕДУПРЕЖДЕНИЕ: Используется SECRET_KEY по умолчанию. Установите переменную окружения SECRET_KEY!", file=sys.stderr)
 
 socketio = SocketIO(app)
 DB_PATH = 'database.db'
@@ -36,7 +37,7 @@ def close_db(error=None):
     if db is not None:
         db.close()
 
-def init_db():
+def init_db(): # Эта функция остается без изменений с последнего раза
     print(f"DB Init: Attempting to initialize database at {os.path.abspath(DB_PATH)}", file=sys.stderr)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -72,6 +73,8 @@ print("DB Init: Calling init_db() on module load.", file=sys.stderr)
 init_db()
 print("DB Init: init_db() call completed.", file=sys.stderr)
 
+# --- Вспомогательные функции (get_setting, set_setting, etc.) ---
+# Эти функции остаются без изменений с последнего раза
 def get_setting(key):
     try: db = get_db(); c = db.cursor(); c.execute("SELECT value FROM settings WHERE key = ?", (key,)); row = c.fetchone(); return row['value'] if row else None
     except sqlite3.Error as e: print(f"DB error in get_setting for '{key}': {e}", file=sys.stderr); return None
@@ -103,31 +106,25 @@ def determine_new_leader(current_leader_id):
 def get_active_players_count(db_conn):
     try: cur = db_conn.execute("SELECT COUNT(id) FROM users WHERE status = 'active'"); return cur.fetchone()[0] or 0
     except Exception as e: print(f"DB error in get_active_players_count: {e}", file=sys.stderr); return 0
-
 def check_and_end_game_if_player_out_of_cards(db_conn):
-    if not is_game_in_progress(): return False # Не проверять, если игра не идет или уже закончена
+    if not is_game_in_progress(): return False
     c = db_conn.cursor()
     c.execute("SELECT id, name FROM users WHERE status = 'active'")
     active_players = c.fetchall()
     if not active_players: return False
-
     player_who_ran_out = None
     for player in active_players:
         c.execute("SELECT COUNT(id) FROM images WHERE owner_id = ? AND status LIKE 'Занято:%'", (player['id'],))
         card_count_row = c.fetchone()
         if card_count_row and card_count_row[0] == 0:
-            player_who_ran_out = player
-            break
-    
+            player_who_ran_out = player; break
     if player_who_ran_out:
-        set_game_over(True)
-        set_game_in_progress(False)
+        set_game_over(True); set_game_in_progress(False)
         flash(f"Игра окончена! У игрока '{player_who_ran_out['name']}' закончились карты.", "danger")
         print(f"GAME OVER: Player {player_who_ran_out['name']} (ID: {player_who_ran_out['id']}) ran out of cards.", file=sys.stderr)
-        return True # Игра завершена
-    return False # Игра продолжается
-
-def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_rating_check=None):
+        return True
+    return False
+def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_rating_check=None): # Без изменений
     global _current_game_board_pole_image_config, _current_game_board_num_cells
     actual_num_cells = DEFAULT_NUM_BOARD_CELLS
     if num_cells_for_board is not None: actual_num_cells = num_cells_for_board
@@ -144,8 +141,7 @@ def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_ra
         if not available_pole_images: available_pole_images = ["p1.jpg"]
         for _ in range(_current_game_board_num_cells): _current_game_board_pole_image_config.append(os.path.join('images', GAME_BOARD_POLE_IMG_SUBFOLDER, random.choice(available_pole_images)).replace("\\", "/"))
     else: _current_game_board_pole_image_config = [os.path.join('images', GAME_BOARD_POLE_IMG_SUBFOLDER, "p1.jpg").replace("\\", "/")] * _current_game_board_num_cells
-
-def generate_game_board_data_for_display(all_users_data_for_board):
+def generate_game_board_data_for_display(all_users_data_for_board): # Без изменений
     global _current_game_board_pole_image_config, _current_game_board_num_cells
     if not _current_game_board_pole_image_config or _current_game_board_num_cells == 0:
         initialize_new_game_board_visuals(all_users_for_rating_check=all_users_data_for_board)
@@ -162,8 +158,7 @@ def generate_game_board_data_for_display(all_users_data_for_board):
             if user_rating == cell_number: users_in_this_cell.append({'id': user_data_item_board['id'], 'name': user_data_item_board['name'], 'rating': user_rating})
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
-
-def get_full_game_state_data(user_code_for_state=None): # Логика этой функции остается прежней
+def get_full_game_state_data(user_code_for_state=None): # Без изменений
     db = get_db(); current_g_user_dict = None
     if user_code_for_state:
         user_row = db.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (user_code_for_state,)).fetchone()
@@ -183,7 +178,6 @@ def get_full_game_state_data(user_code_for_state=None): # Логика этой 
     }
     raw_table_cards = db.execute("SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses FROM images i LEFT JOIN users u ON i.owner_id = u.id WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' AND (u.status = 'active' OR u.status IS NULL)", (active_subfolder_val,)).fetchall() if active_subfolder_val else []
     game_state['num_cards_on_table'] = len(raw_table_cards)
-    # Только если игра идет (не закончена), имеет смысл вычислять all_cards_placed_for_guessing_phase_to_template
     if game_state['game_in_progress'] and not game_state['game_over']:
         game_state['all_cards_placed_for_guessing_phase_to_template'] = (game_state['num_active_players'] > 0 and game_state['num_cards_on_table'] >= game_state['num_active_players'])
         for card_row in raw_table_cards:
@@ -206,22 +200,18 @@ def get_full_game_state_data(user_code_for_state=None): # Логика этой 
                 game_state['leader_pictogram_rating_display'] = leader_rating
                 if leader_rating > 0 and _current_game_board_pole_image_config and leader_rating <= _current_game_board_num_cells and (leader_rating - 1) < len(_current_game_board_pole_image_config):
                     game_state['leader_pole_pictogram_path'] = _current_game_board_pole_image_config[leader_rating - 1]
-    elif game_state['show_card_info']: # Если игра закончена, но карты открыты (результаты)
-        for card_row in raw_table_cards: # Все равно показываем карты на столе и их угадывания
+    elif game_state['show_card_info']: 
+        for card_row in raw_table_cards: 
              guesses_data = json.loads(card_row['guesses'] or '{}')
              game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': None})
-        if current_g_user_dict: # И список игроков для угадывания (хотя угадывать уже нельзя)
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall() # Или всех пользователей, если игра закончена
+        if current_g_user_dict:
+            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall() 
             game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-
-
     all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
     game_state['game_board'] = generate_game_board_data_for_display(all_active_users_for_board)
     game_state['current_num_board_cells'] = _current_game_board_num_cells
     return game_state
-
-
-def broadcast_game_state_update(user_code_trigger=None): # Логика этой функции остается прежней
+def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
     active_sids = list(connected_users_socketio.keys())
     if not active_sids: print("SocketIO: No identified clients to broadcast to.", file=sys.stderr); return
@@ -231,10 +221,8 @@ def broadcast_game_state_update(user_code_trigger=None): # Логика этой
             try:
                 with app.app_context(): state_data = get_full_game_state_data(user_code_for_state=user_code_for_sid); socketio.emit('game_update', state_data, room=sid_to_update)
             except Exception as e: print(f"SocketIO: Error sending update to SID {sid_to_update} (user {user_code_for_sid}): {e}\n{traceback.format_exc()}", file=sys.stderr)
-    # print(f"SocketIO: Broadcast completed for {len(active_sids)} SIDs.", file=sys.stderr) # Уменьшаем логирование
-
 def broadcast_user_list_update(): print("SocketIO: broadcast_user_list_update() called -> general game state update.", file=sys.stderr); broadcast_game_state_update()
-def broadcast_deck_votes_update():
+def broadcast_deck_votes_update(): # Без изменений
     print("SocketIO: broadcast_deck_votes_update() called.", file=sys.stderr)
     try:
         with app.app_context():
@@ -246,7 +234,7 @@ def broadcast_deck_votes_update():
 
 app.jinja_env.globals.update(get_user_name=get_user_name, get_leading_user_id=get_leading_user_id)
 
-@app.before_request # Логика этой функции остается прежней
+@app.before_request # Без изменений
 def before_request_func():
     db = get_db()
     code_param = request.args.get('code') or (request.view_args.get('code') if request.view_args else None) or session.get('user_code')
@@ -265,20 +253,20 @@ def before_request_func():
     g.game_over = is_game_over()
     g.game_in_progress = is_game_in_progress()
 
-@app.route('/')
-def index(): # Логика этой функции остается прежней
+@app.route('/') # Без изменений
+def index():
     deck_votes_data = []; db = get_db(); c = db.cursor()
     try: c.execute("SELECT i.subfolder, COALESCE(dv.votes, 0) as votes FROM (SELECT DISTINCT subfolder FROM images ORDER BY subfolder) as i LEFT JOIN deck_votes as dv ON i.subfolder = dv.subfolder;"); deck_votes_data = [dict(row) for row in c.fetchall()]
     except sqlite3.Error as e: print(f"Ошибка чтения голосов на index: {e}", file=sys.stderr)
     return render_template("index.html", deck_votes=deck_votes_data, current_vote=session.get('voted_for_deck'), active_subfolder=get_setting('active_subfolder') or "N/A")
 
-@app.route('/init_db_route_for_dev_only_make_sure_to_secure_or_remove')
+@app.route('/init_db_route_for_dev_only_make_sure_to_secure_or_remove') # Без изменений
 def init_db_route(): flash("БД инициализируется при старте приложения.", "info"); return redirect(url_for('index'))
 
-@app.route("/login_player")
+@app.route("/login_player") # Без изменений
 def login_player(): return redirect(url_for('user', code=session['user_code'])) if session.get('user_code') else render_template('login_player.html')
 
-@app.route("/register_or_login_player", methods=["POST"]) # Логика этой функции остается прежней
+@app.route("/register_or_login_player", methods=["POST"]) # Без изменений
 def register_or_login_player():
     name = request.form.get('name', '').strip()
     if not name: flash("Имя не может быть пустым.", "warning"); return redirect(url_for('login_player'))
@@ -299,7 +287,7 @@ def register_or_login_player():
         return redirect(url_for('user', code=session['user_code']))
     except sqlite3.Error as e: db.rollback(); flash(f"Ошибка БД: {e}", "danger"); return redirect(url_for('login_player'))
 
-@app.route('/vote_deck', methods=['POST']) # Логика этой функции остается прежней
+@app.route('/vote_deck', methods=['POST']) # Без изменений
 def vote_deck():
     new_deck = request.form.get('subfolder'); prev_deck = session.get('voted_for_deck')
     if not new_deck: flash("Колода не выбрана.", "warning"); return redirect(url_for('index'))
@@ -313,7 +301,7 @@ def vote_deck():
     except sqlite3.Error as e: db.rollback(); flash(f"Ошибка БД: {e}", "danger")
     return redirect(url_for('index'))
 
-@app.route('/login', methods=['GET', 'POST']) # Логика этой функции остается прежней
+@app.route('/login', methods=['GET', 'POST']) # Без изменений
 def login():
     if request.method == 'POST':
         pwd = request.form.get('password'); admin_pwd = os.environ.get('ADMIN_PASSWORD')
@@ -322,129 +310,190 @@ def login():
         else: flash('Неверный пароль.', 'danger')
     return render_template('login.html')
 
-@app.route('/logout') # Логика этой функции остается прежней
+@app.route('/logout') # Без изменений
 def logout(): session.pop('is_admin', None); flash('Вы вышли из системы администратора.', 'info'); return redirect(url_for('index'))
 
-@app.route("/admin", methods=["GET", "POST"]) # Логика этой функции остается прежней (упрощенная версия)
-def admin():
-    if not session.get('is_admin'): flash('Требуется авторизация.', 'warning'); return redirect(url_for('login', next=request.url))
-    db = get_db()
-    if request.method == "POST": # Добавьте вашу детальную логику POST для админки
-        action = request.form.get("action_admin") # Пример, если вы используете такое поле
-        if action == "add_user": # ...
-            db.commit(); broadcast_user_list_update(); broadcast_game_state_update()
-        # и другие actions
-        return redirect(url_for('admin'))
-    users = db.execute("SELECT * FROM users").fetchall()
-    images = db.execute("SELECT * FROM images LIMIT 100").fetchall()
-    subfolders = [r['subfolder'] for r in db.execute("SELECT DISTINCT subfolder FROM images").fetchall()]
-    return render_template("admin.html", users=users, images=images, subfolders=subfolders, active_subfolder=get_setting('active_subfolder'), db_current_leader_id=get_leading_user_id(), game_board=generate_game_board_data_for_display(db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()))
 
-@app.route("/start_new_game", methods=["POST"])
+# ===== ИЗМЕНЕНИЯ В МАРШРУТЕ ADMIN =====
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    if not session.get('is_admin'):
+        flash('Требуется авторизация.', 'warning')
+        return redirect(url_for('login', next=request.url))
+    
+    db = get_db()
+    c = db.cursor() # Получаем курсор
+
+    # POST-обработка остается такой же, как была в вашем полном файле или как вы ее доработали
+    # Убедитесь, что после каждого действия, меняющего состояние, вызывается broadcast_game_state_update()
+    # Пример:
+    if request.method == "POST":
+        action_admin = request.form.get("action_admin") # Пример вашего поля для определения действия
+        # Например:
+        if action_admin == "set_active_deck_admin":
+            new_active_subfolder = request.form.get("active_subfolder")
+            set_setting("active_subfolder", new_active_subfolder if new_active_subfolder else "")
+            flash(f"Активная колода изменена на '{new_active_subfolder or 'Не выбрана'}'.", "success" if new_active_subfolder else "info")
+            db.commit()
+            broadcast_game_state_update()
+        elif action_admin == "toggle_show_card_info_admin":
+            new_show_info = not (get_setting('show_card_info') == 'true')
+            set_setting('show_card_info', 'true' if new_show_info else 'false')
+            db.commit()
+            flash(f"Отображение инфо о картах {'вкл' if new_show_info else 'выкл'}.", "info")
+            broadcast_game_state_update()
+        # ... другие ваши POST обработчики ...
+        return redirect(url_for('admin'))
+
+
+    # Сбор данных для шаблона admin.html
+    users_raw = c.execute("SELECT id, name, code, rating, status FROM users ORDER BY name ASC").fetchall()
+    users_for_template = [dict(row) for row in users_raw]
+
+    images_db = c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id LIMIT 500").fetchall() # Ограничение для производительности
+    images_for_template = []
+    for img_row in images_db:
+        img_dict = dict(img_row)
+        try:
+            img_dict['guesses'] = json.loads(img_row['guesses'] or '{}')
+        except json.JSONDecodeError:
+            img_dict['guesses'] = {} # В случае ошибки парсинга JSON
+        images_for_template.append(img_dict)
+
+    subfolders_for_template = [row['subfolder'] for row in c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder").fetchall()]
+    
+    active_users_for_template = [u for u in users_for_template if u['status'] == 'active']
+
+    # Восстанавливаем логику для user_has_duplicate_guesses и связанных переменных
+    all_guesses_for_template = {}
+    for img in images_for_template:
+        if img['guesses'] and isinstance(img['guesses'], dict) and img['id'] is not None:
+             all_guesses_for_template[img['id']] = img['guesses']
+    
+    guess_counts_by_user_for_template = {u['id']: 0 for u in active_users_for_template}
+    user_has_duplicate_guesses_for_template = {u['id']: False for u in active_users_for_template}
+
+    if all_guesses_for_template and active_users_for_template:
+        for user_item_dict in active_users_for_template: # user_item_dict это уже словарь
+            user_id_str = str(user_item_dict['id'])
+            guesses_made_by_this_user = []
+            for image_id_key_str in all_guesses_for_template: # image_id_key_str это id картинки (ключ словаря)
+                guesses_on_one_image = all_guesses_for_template[image_id_key_str] # это словарь голосов за эту картинку
+                if user_id_str in guesses_on_one_image: # если текущий юзер голосовал за эту картинку
+                    guesses_made_by_this_user.append(guesses_on_one_image[user_id_str]) # добавляем ID того, за кого он проголосовал
+                    guess_counts_by_user_for_template[user_item_dict['id']] += 1
+            
+            # Проверка на дубликаты (если пользователь проголосовал за одного и того же игрока для РАЗНЫХ карт)
+            # Это не то, что обычно проверяется как "дубликат". Обычно дубликат - это если он за ОДНУ карту пытается проголосовать несколько раз
+            # или если он выложил две одинаковые карты (что невозможно по другой логике).
+            # Логика ниже проверяет, не указывал ли он одного и того же ДРУГОГО игрока в качестве предполагаемого владельца для РАЗНЫХ карт.
+            # Если это то, что нужно, оставляем. Если нет, эту проверку нужно скорректировать.
+            if len(guesses_made_by_this_user) > len(set(guesses_made_by_this_user)):
+                user_has_duplicate_guesses_for_template[user_item_dict['id']] = True
+    
+    current_active_subfolder = get_setting('active_subfolder') or ''
+    current_leader_from_db = get_leading_user_id()
+    potential_next_leader_id = determine_new_leader(current_leader_from_db)
+    free_image_count_for_template = sum(1 for img in images_for_template if img.get('status') == 'Свободно' and img.get('subfolder') == current_active_subfolder)
+    image_owners_for_template = {img['id']: img['owner_id'] for img in images_for_template if img.get('owner_id') is not None}
+
+    db_users_for_board_fetch = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
+    game_board_data_for_template = generate_game_board_data_for_display(db_users_for_board_fetch)
+
+
+    return render_template("admin.html", 
+                           users=users_for_template, 
+                           images=images_for_template, 
+                           subfolders=subfolders_for_template,
+                           active_subfolder=current_active_subfolder, 
+                           db_current_leader_id=current_leader_from_db,
+                           potential_next_leader_id=potential_next_leader_id,
+                           free_image_count=free_image_count_for_template,
+                           image_owners=image_owners_for_template,
+                           game_board=game_board_data_for_template,
+                           all_guesses=all_guesses_for_template, # Передаем в шаблон
+                           guess_counts_by_user=guess_counts_by_user_for_template, # Передаем в шаблон
+                           user_has_duplicate_guesses=user_has_duplicate_guesses_for_template, # Передаем в шаблон
+                           get_user_name_func=get_user_name, # Jinja global, но можно и так
+                           current_num_board_cells=_current_game_board_num_cells
+                           )
+# ===== КОНЕЦ ИЗМЕНЕНИЙ В МАРШРУТЕ ADMIN =====
+
+@app.route("/start_new_game", methods=["POST"]) # Логика без изменений (с последнего раза)
 def start_new_game():
     if not session.get('is_admin'): flash('Доступ запрещен.', 'danger'); return redirect(url_for('login'))
     db = get_db(); c = db.cursor(); selected_deck = request.form.get("new_game_subfolder")
     num_cards_per_player = int(request.form.get("new_game_num_cards", 3))
-    if num_cards_per_player < 0: num_cards_per_player = 0; flash("Кол-во карт не может быть <0. Уст. 0.", "warning") # Разрешаем 0 карт
+    if num_cards_per_player < 0: num_cards_per_player = 0; flash("Кол-во карт <0. Уст. 0.", "warning")
     if not selected_deck: flash("Колода не выбрана.", "danger"); return redirect(url_for('admin'))
-    
     new_leader_id_sng = None
     try:
         c.execute("UPDATE users SET status = 'active', rating = 0 WHERE status = 'pending' OR status = 'active'")
         c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ'")
         c.execute("UPDATE images SET status = 'Свободно' WHERE subfolder = ?", (selected_deck,))
         set_game_over(False); set_setting("show_card_info", "false"); set_setting("active_subfolder", selected_deck)
-        
         first_active_user = c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id LIMIT 1").fetchone()
         if first_active_user: new_leader_id_sng = first_active_user['id']; set_leading_user_id(new_leader_id_sng)
         else: set_leading_user_id(None)
-        
         initialize_new_game_board_visuals(all_users_for_rating_check=c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall())
         db.commit()
-
         active_user_ids = [row['id'] for row in c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id").fetchall()]
         if not active_user_ids: flash("Нет активных игроков.", "warning")
-        elif num_cards_per_player > 0: # Раздаем карты только если num_cards_per_player > 0
+        elif num_cards_per_player > 0:
             available_cards = [row['id'] for row in c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (selected_deck,)).fetchall()]
-            random.shuffle(available_cards)
-            total_cards_needed = len(active_user_ids) * num_cards_per_player
-            
-            if len(available_cards) < total_cards_needed:
-                flash(f"Внимание: Недостаточно карт в колоде ({len(available_cards)}) для раздачи по {num_cards_per_player} карт {len(active_user_ids)} игрокам. Будет роздано сколько есть.", "warning")
-
+            random.shuffle(available_cards); total_cards_needed = len(active_user_ids) * num_cards_per_player
+            if len(available_cards) < total_cards_needed: flash(f"Внимание: Недостаточно карт ({len(available_cards)}) для раздачи по {num_cards_per_player} карт {len(active_user_ids)} игрокам. Будет роздано сколько есть.", "warning")
             card_idx = 0
             for user_id in active_user_ids:
                 for _ in range(num_cards_per_player):
-                    if card_idx < len(available_cards):
-                        c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[card_idx]))
-                        card_idx += 1
-                    else: break # Карты в колоде кончились
-                if card_idx >= len(available_cards): break # Карты в колоде кончились для всех
+                    if card_idx < len(available_cards): c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[card_idx])); card_idx += 1
+                    else: break
+                if card_idx >= len(available_cards): break
             flash(f"Новая игра! Колода: '{selected_deck}'. Роздано {card_idx} карт.", "success")
-        else: # num_cards_per_player == 0
-            flash(f"Новая игра! Колода: '{selected_deck}'. Карты не раздавались (установлено 0 карт на игрока).", "info")
-
+        else: flash(f"Новая игра! Колода: '{selected_deck}'. Карты не раздавались (0 на игрока).", "info")
         if new_leader_id_sng: flash(f"Ведущий: {get_user_name(new_leader_id_sng)}.", "info")
-        
-        set_game_in_progress(True)
-        db.commit()
-        # НЕ ВЫЗЫВАЕМ check_and_end_game_if_player_out_of_cards здесь по новой логике
-        broadcast_game_state_update()
+        set_game_in_progress(True); db.commit(); broadcast_game_state_update()
     except Exception as e: db.rollback(); flash(f"Ошибка старта игры: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('admin', displayed_leader_id=new_leader_id_sng))
 
-@app.route('/user/<code>') # Логика этой функции остается прежней
+@app.route('/user/<code>') # Логика без изменений
 def user(code):
     if g.user is None: flash("Пользователь не найден.", "warning"); return redirect(url_for('login_player'))
     session.update({k: g.user[k] for k in ['id', 'name', 'code', 'rating', 'status'] if k in g.user})
-    session['user_id'] = g.user['id'] # Убедимся, что user_id тоже есть в сессии
+    session['user_id'] = g.user['id']
     session.pop('is_admin', None)
     return render_template('user.html', user_data_for_init=dict(g.user))
 
-@app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
+@app.route("/user/<code>/place/<int:image_id>", methods=["POST"]) # Логика без изменений
 def place_card(code, image_id):
     if not g.user or g.user['status'] != 'active': flash("Только активные игроки могут выкладывать карты.", "warning"); return redirect(url_for('user', code=code))
     db = get_db(); c = db.cursor()
     try:
         if is_game_over(): flash("Игра окончена.", "warning"); return redirect(url_for('user', code=code))
         if not is_game_in_progress(): flash("Игра еще не началась.", "warning"); return redirect(url_for('user', code=code))
-
         active_subfolder = get_setting('active_subfolder')
         num_on_table = c.execute("SELECT COUNT(id) FROM images WHERE subfolder = ? AND status LIKE 'На столе:%'", (active_subfolder,)).fetchone()[0]
         num_active = get_active_players_count(db)
         all_cards_placed = (num_active > 0 and num_on_table >= num_active)
-
         if get_setting("show_card_info") == "true": flash("Карты уже открыты, менять нельзя.", "warning"); return redirect(url_for('user', code=code))
-        
         card_of_this_user_on_table = c.execute("SELECT id FROM images WHERE owner_id = ? AND subfolder = ? AND status LIKE 'На столе:%'", (g.user['id'], active_subfolder)).fetchone()
-        if all_cards_placed and card_of_this_user_on_table:
-             flash("Все игроки уже выложили карты, менять нельзя.", "warning"); return redirect(url_for('user', code=code))
-
+        if all_cards_placed and card_of_this_user_on_table : flash("Все игроки уже выложили карты, менять нельзя.", "warning"); return redirect(url_for('user', code=code))
         card_to_place = c.execute("SELECT status, owner_id, subfolder, image FROM images WHERE id = ?", (image_id,)).fetchone()
         if not card_to_place: flash(f"Карта ID {image_id} не найдена.", "danger"); return redirect(url_for('user', code=code))
         if card_to_place['owner_id'] != g.user['id']: flash(f"Вы не владелец карты {image_id}.", "danger"); return redirect(url_for('user', code=code))
         if not card_to_place['status'].startswith(f"Занято:{g.user['id']}"):
-            if card_to_place['status'].startswith("На столе:") and card_to_place['id'] == (card_of_this_user_on_table['id'] if card_of_this_user_on_table else None):
-                 flash(f"Карта '{card_to_place['image']}' уже на столе.", "info"); return redirect(url_for('user', code=code))
+            if card_to_place['status'].startswith("На столе:") and card_to_place['id'] == (card_of_this_user_on_table['id'] if card_of_this_user_on_table else None): flash(f"Карта '{card_to_place['image']}' уже на столе.", "info"); return redirect(url_for('user', code=code))
             flash(f"Карту '{card_to_place['image']}' ({image_id}) нельзя выложить. Статус: '{card_to_place['status']}'.", "danger"); return redirect(url_for('user', code=code))
-
         if card_to_place['subfolder'] != active_subfolder: flash(f"Карта не из активной колоды.", "danger"); return redirect(url_for('user', code=code))
         if card_of_this_user_on_table and card_of_this_user_on_table['id'] == image_id: flash(f"Карта уже на столе.", "info"); return redirect(url_for('user', code=code))
-
-        if card_of_this_user_on_table and card_of_this_user_on_table['id'] != image_id:
-            c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", (f"Занято:{g.user['id']}", card_of_this_user_on_table['id']))
-            flash(f"Предыдущая карта возвращена в руку.", "info")
-        
+        if card_of_this_user_on_table and card_of_this_user_on_table['id'] != image_id: c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", (f"Занято:{g.user['id']}", card_of_this_user_on_table['id'])); flash(f"Предыдущая карта возвращена в руку.", "info")
         c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", (f"На столе:{g.user['id']}", image_id))
-        db.commit()
-        flash(f"Ваша карта '{card_to_place['image']}' выложена.", "success")
-        
-        # УДАЛЯЕМ ВЫЗОВ check_and_end_game_if_player_out_of_cards ОТСЮДА
+        db.commit(); flash(f"Ваша карта '{card_to_place['image']}' выложена.", "success")
         broadcast_game_state_update(user_code_trigger=code)
     except Exception as e: db.rollback(); flash(f"Ошибка выкладывания карты: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('user', code=code))
 
-@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"]) # Логика этой функции остается прежней
+@app.route("/user/<code>/guess/<int:image_id>", methods=["POST"]) # Логика без изменений
 def guess_image(code, image_id):
     if not g.user or g.user['status'] != 'active': flash("Только активные игроки могут делать предположения.", "warning"); return redirect(url_for('user', code=code))
     guessed_user_id_str = request.form.get("guessed_user_id")
@@ -464,12 +513,12 @@ def guess_image(code, image_id):
     except Exception as e: db.rollback(); flash(f"Ошибка угадывания: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('user', code=code))
 
-@app.route("/admin/open_cards", methods=["POST"]) # Логика этой функции остается прежней
+@app.route("/admin/open_cards", methods=["POST"]) # Логика без изменений
 def open_cards():
     if not session.get('is_admin'): flash('Доступ запрещен.', 'danger'); return redirect(url_for('login'))
     if is_game_over(): flash("Игра уже завершена.", "warning"); return redirect(url_for('admin'))
     if not is_game_in_progress(): flash("Игра не активна.", "warning"); return redirect(url_for('admin'))
-    db = get_db(); c = db.cursor() # Получаем db из g
+    db = get_db(); # c = db.cursor() # Курсор будет получен внутри блока try, если нужен
     try:
         set_setting("show_card_info", "true")
         # ВАША ПОЛНАЯ ЛОГИКА ПОДСЧЕТА ОЧКОВ ДОЛЖНА БЫТЬ ЗДЕСЬ
@@ -479,58 +528,39 @@ def open_cards():
     except Exception as e: db.rollback(); flash(f"Ошибка открытия карт: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('admin'))
 
-@app.route("/new_round", methods=["POST"])
+@app.route("/new_round", methods=["POST"]) # Логика без изменений
 def new_round():
     if not session.get('is_admin'): flash('Доступ запрещен.', 'danger'); return redirect(url_for('login'))
     if is_game_over(): flash("Игра окончена. Начните новую игру.", "warning"); return redirect(url_for('admin'))
     if not is_game_in_progress(): flash("Игра не начата.", "warning"); return redirect(url_for('admin'))
-    
     db = get_db(); c = db.cursor(); active_subfolder = get_setting('active_subfolder')
     current_leader = get_leading_user_id(); next_leader = None
-    game_ended_this_round = False
     try:
         next_leader = determine_new_leader(current_leader)
         if next_leader: set_leading_user_id(next_leader); flash(f"Новый раунд! Ведущий: {get_user_name(next_leader) or f'ID {next_leader}'}.", "success")
-        else: set_leading_user_id(None); flash("Новый раунд, но ведущий не определен (нет активных игроков?).", "warning")
-        
+        else: set_leading_user_id(None); flash("Новый раунд, но ведущий не определен.", "warning")
         c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'")
         c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'")
-        set_setting("show_card_info", "false") # Карты снова скрыты для нового раунда
-        
+        set_setting("show_card_info", "false")
         active_users = [row['id'] for row in c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id").fetchall()]
-        if not active_users:
-            flash("Нет активных игроков. Некому раздавать карты.", "warning")
-        elif not active_subfolder:
-            flash("Активная колода не установлена. Карты не розданы.", "warning")
+        if not active_users: flash("Нет активных игроков.", "warning")
+        elif not active_subfolder: flash("Активная колода не установлена.", "warning")
         else:
             available_cards = [r['id'] for r in c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,)).fetchall()]
-            random.shuffle(available_cards)
-            num_dealt_total = 0
-            
-            # Раздаем по одной карте каждому активному игроку, пока есть карты в колоде
+            random.shuffle(available_cards); num_dealt_total = 0
             for i, user_id in enumerate(active_users):
-                if i < len(available_cards): # Если есть карта для этого игрока
-                    c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[i]))
-                    num_dealt_total +=1
-                else: # Карты в колоде кончились
-                    flash(f"Карты в колоде '{active_subfolder}' закончились. Не все игроки получили карту в этом раунде.", "warning")
-                    break 
+                if i < len(available_cards): c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[i])); num_dealt_total +=1
+                else: flash(f"Карты в колоде '{active_subfolder}' закончились. Не все игроки получили карту.", "warning"); break 
             if num_dealt_total > 0 : flash(f"Роздано {num_dealt_total} новых карт.", "info")
-            elif not available_cards and active_users : flash(f"В колоде '{active_subfolder}' нет доступных карт для раздачи.", "info")
-
+            elif not available_cards and active_users : flash(f"В колоде '{active_subfolder}' нет карт для раздачи.", "info")
         db.commit() 
-        
-        # **ЕДИНСТВЕННОЕ МЕСТО ПРОВЕРКИ КОНЦА ИГРЫ ПО ВАШЕЙ НОВОЙ ЛОГИКЕ**
-        game_ended_this_round = check_and_end_game_if_player_out_of_cards(db)
-        # db.commit() не нужен здесь снова, так как set_game_over/set_game_in_progress делают коммит через set_setting
-        
-        broadcast_game_state_update() # Обновляем состояние для всех клиентов
-        
+        if check_and_end_game_if_player_out_of_cards(db): # Проверка после коммита и перед broadcast
+             pass # Сообщение об окончании уже во flash из функции
+        broadcast_game_state_update()
     except Exception as e: db.rollback(); flash(f"Ошибка нового раунда: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('admin', displayed_leader_id=next_leader if next_leader else current_leader))
 
-
-@socketio.on('connect') # Логика этой функции остается прежней
+@socketio.on('connect') # Логика без изменений
 def handle_connect():
     sid = request.sid; user_code = session.get('user_code')
     print(f"SocketIO: Client connected: SID={sid}, User code: {user_code or 'N/A'}", file=sys.stderr)
@@ -539,12 +569,12 @@ def handle_connect():
         with app.app_context(): initial_state = get_full_game_state_data(user_code_for_state=user_code); emit('game_update', initial_state, room=sid)
     except Exception as e: print(f"SocketIO: Error sending initial state to {sid}: {e}\n{traceback.format_exc()}", file=sys.stderr)
 
-@socketio.on('disconnect') # Логика этой функции остается прежней
+@socketio.on('disconnect') # Логика без изменений
 def handle_disconnect():
     sid = request.sid; user_code = connected_users_socketio.pop(sid, None)
     print(f"SocketIO: Client disconnected: SID={sid}, User code: {user_code or 'N/A'}", file=sys.stderr)
 
-if __name__ == "__main__": # Логика этой функции остается прежней
+if __name__ == "__main__": # Логика без изменений
     if not _current_game_board_pole_image_config:
         print("Инициализация визуализации игрового поля...", file=sys.stderr)
         users_at_start = []
@@ -555,7 +585,6 @@ if __name__ == "__main__": # Логика этой функции остаетс
                 users_at_start = cur.fetchall(); conn.close()
             except Exception as e: print(f"Ошибка чтения пользователей для поля при старте: {e}", file=sys.stderr)
         initialize_new_game_board_visuals(all_users_for_rating_check=users_at_start)
-
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "False").lower() in ['true', '1', 't']
     print(f"Запуск Flask-SocketIO (socketio.run) на http://0.0.0.0:{port}/ debug={debug}", file=sys.stderr)
