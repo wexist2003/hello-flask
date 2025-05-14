@@ -331,13 +331,13 @@
             const leaderPictogramImg = document.getElementById('leader-empty-table-pictogram');
             const leaderPictogramRatingP = document.getElementById('leader-empty-table-rating');
 
-            tableCardsDiv.innerHTML = '';
+            tableCardsDiv.innerHTML = ''; // Очищаем предыдущие карты
 
-            if (!game_in_progress && !show_card_info) { // Если игра не началась и карты не открыты (например, конец игры, но не новый раунд)
+            if (!game_in_progress && !show_card_info) {
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
-                leaderPictogramImg.style.display = 'none';
-                leaderPictogramRatingP.style.display = 'none';
+                if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
+                if(leaderPictogramRatingP) leaderPictogramRatingP.style.display = 'none';
                 tablePlaceholderDiv.querySelector('p').textContent = 'Игра еще не началась или уже завершена.';
                 return;
             }
@@ -346,29 +346,45 @@
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
                 if (game_in_progress && leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status) {
-                    leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`;
-                    leaderPictogramImg.style.display = 'block';
-                    leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карту.`;
-                    leaderPictogramRatingP.style.display = 'block';
-                    tablePlaceholderDiv.querySelector('p').textContent = ''; // Очистить общее сообщение, так как есть специфичное для ведущего
+                    if(leaderPictogramImg) {
+                        leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`;
+                        leaderPictogramImg.style.display = 'block';
+                    }
+                    if(leaderPictogramRatingP) {
+                        leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карту.`;
+                        leaderPictogramRatingP.style.display = 'block';
+                    }
+                    tablePlaceholderDiv.querySelector('p').textContent = '';
                 } else {
-                    leaderPictogramImg.style.display = 'none';
-                    leaderPictogramRatingP.style.display = 'none';
+                    if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
+                    if(leaderPictogramRatingP) leaderPictogramRatingP.style.display = 'none';
                     tablePlaceholderDiv.querySelector('p').textContent = 'На столе пока нет карт. Ожидание игроков...';
                 }
                 return;
             }
 
             tablePlaceholderDiv.style.display = 'none';
-            tableCardsDiv.style.display = 'flex';
+            tableCardsDiv.style.display = 'flex'; 
 
             table_images.forEach(card => {
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'col-md-3 col-sm-4 col-6 mb-3';
+                let cardImageSrc = "";
+                let cardAltText = "Карта на столе";
                 let cardBodyContent = '';
 
-                if (show_card_info) { // ЭТАП 3: Карты открыты админом
-                    cardBodyContent += `<h6 class="card-subtitle mb-2 text-muted">Владелец: ${card.owner_name || 'Неизвестен'}</h6>`;
+                if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
+                    // ЭТАП 1: Игроки еще выкладывают карты. Показываем "рубашку" (вашу заглушку).
+                    cardImageSrc = "/static/images/a.jpg"; // <--- ИЗМЕНЕНО НА ВАШ ПУТЬ
+                    cardAltText = "Карта на столе (заглушка)";
+                    cardBodyContent = '<p class="card-text text-muted small text-center">(Карта выложена)</p>';
+                } else {
+                    cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
+                    cardAltText = `Карта ${card.image}`;
+                }
+
+                if (show_card_info) { 
+                    cardBodyContent = `<h6 class="card-subtitle mb-2 text-muted">Владелец: ${card.owner_name || 'Неизвестен'}</h6>`;
                     if (card.guesses && Object.keys(card.guesses).length > 0) {
                         cardBodyContent += '<p class="card-text small"><u>Предположения:</u></p><ul class="list-unstyled small">';
                         for (const guesserIdStr in card.guesses) {
@@ -386,7 +402,6 @@
                             else if (targetUserIsCurrentUser) targetName = current_user_data.name;
                             else if (targetUserIsOwner) targetName = card.owner_name;
 
-
                             const isCorrect = guessedTargetId === card.owner_id;
                             cardBodyContent += `<li>${guesserName} -> ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
                         }
@@ -394,23 +409,19 @@
                     } else {
                         cardBodyContent += '<p class="card-text small">Предположений не было.</p>';
                     }
-                } else if (all_cards_placed_for_guessing_phase_to_template && current_user_data && current_user_data.status === 'active') { // ЭТАП 2: Угадывание
-                    if (card.owner_id !== current_user_data.id) {
+                } else if (all_cards_placed_for_guessing_phase_to_template && current_user_data && current_user_data.status === 'active') { 
+                    if (card.owner_id !== current_user_data.id) { 
                         let selectOptions = '<option value="">-- Выберите игрока --</option>';
-                        // Добавляем всех активных игроков КРОМЕ ТЕКУЩЕГО (угадывающего)
                         all_users_for_guessing.forEach(user => {
-                            if (user.id !== current_user_data.id) { // Не предлагаем себя в списке для угадывания
+                            if (user.id !== current_user_data.id) {
                                 selectOptions += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
                             }
                         });
-                        // Также нужно добавить владельца карты в список, если его нет в all_users_for_guessing (например, если all_users_for_guessing это "ДРУГИЕ активные")
-                        // И убедиться, что владелец не является текущим пользователем (это уже проверено условием card.owner_id !== current_user_data.id)
-                        if (!all_users_for_guessing.find(u => u.id === card.owner_id) && card.owner_id !== current_user_data.id) {
+                        if (card.owner_id && card.owner_id !== current_user_data.id && !all_users_for_guessing.find(u=>u.id === card.owner_id)) {
                              selectOptions += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || `Игрок ID ${card.owner_id}`}</option>`;
                         }
 
-
-                        cardBodyContent += `
+                        cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form">
                                 <div class="form-group">
                                     <label for="guess-for-${card.id}" class="small">Чья это карта?</label>
@@ -428,19 +439,21 @@
                             if(guessedUserObj) guessedName = guessedUserObj.name;
                             cardBodyContent += `<p class="mt-1 mb-0 small text-success">Ваш выбор: ${guessedName}</p>`;
                         }
-                    } else {
-                        cardBodyContent += '<p class="card-text text-muted small">(Это ваша карта)</p>';
+                    } else { 
+                        cardBodyContent += '<p class="card-text text-muted small text-center">(Это ваша карта)</p>';
                     }
-                } else if (current_user_data && current_user_data.status === 'active') { // ЭТАП 1: Выкладывание карт
-                    cardBodyContent += '<p class="card-text text-muted small">(Ожидание карт от всех игроков)</p>';
-                } else { // Наблюдатель
-                     cardBodyContent += '<p class="card-text text-muted small">(Вы наблюдатель)</p>';
+                } else if (current_user_data && current_user_data.status === 'active' && !all_cards_placed_for_guessing_phase_to_template) {
+                    // Этап выкладывания - cardImageSrc уже '/static/images/a.jpg', cardBodyContent уже '(Карта выложена)'
+                    // Ничего дополнительно не делаем для cardBodyContent здесь, он уже установлен выше
+                } else if (!current_user_data || current_user_data.status !== 'active') { 
+                     cardBodyContent = '<p class="card-text text-muted small text-center">(Вы наблюдатель)</p>';
                 }
+
 
                 cardDiv.innerHTML = `
                     <div class="card h-100">
-                        <img src="/static/images/${card.subfolder}/${card.image}" class="card-img-top" alt="Карта ${card.image}">
-                        <div class="card-body d-flex flex-column">
+                        <img src="${cardImageSrc}" class="card-img-top" alt="${cardAltText}">
+                        <div class="card-body d-flex flex-column justify-content-center">
                             ${cardBodyContent}
                         </div>
                     </div>
