@@ -1,0 +1,281 @@
+/* static/css/style.css */
+
+body {
+    font-size: 1rem; /* Базовый размер шрифта */
+    line-height: 1.5;
+    color: #212529;
+    background-color: #f8f9fa; /* Светлый фон для всей страницы */
+}
+
+.container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+/* Общие стили для карточек (Bootstrap card) */
+.card {
+    border-radius: 0.3rem; /* Немного скругленные углы */
+}
+
+/* Отступы для ячеек игрового поля */
+.game-board {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px; /* Пространство между ячейками */
+    padding: 0.5rem 0; /* Небольшой отступ сверху/снизу для самого поля */
+}
+
+.game-board-cell {
+    min-height: 90px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Номер сверху, фишки снизу */
+    align-items: center;
+    box-sizing: border-box;
+    border: 1px solid #dee2e6; /* Более заметная граница ячейки */
+    margin: 2px; /* Внешний отступ для разделения ячеек */
+    border-radius: 0.25rem; /* Скругление углов ячеек */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Легкая тень */
+}
+
+.cell-number-badge {
+    position: absolute;
+    top: 3px; /* Чуть больше отступ */
+    left: 3px;
+    font-size: 0.65em;
+    opacity: 0.9; /* Чуть заметнее */
+    padding: 0.2em 0.45em; /* Немного другие отступы */
+    border-radius: 0.2rem;
+    font-weight: bold;
+}
+
+.player-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center; /* Выравнивание фишек, если они разной высоты */
+    width: 100%;
+    padding: 2px 0;
+    min-height: 20px; /* Минимальная высота для контейнера фишек */
+}
+
+.player-chip {
+    padding: 2px 5px; /* Немного увеличил горизонтальный padding */
+    border-radius: .25rem;
+    margin: 1px 2px; /* Добавил горизонтальный margin */
+    font-size: 0.7em;
+    line-height: 1.2; /* Немного увеличил для лучшей читаемости */
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+}
+
+/* Стили для информации об игроке и игре */
+#user-greeting {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+#user-status-display-container .badge {
+    font-size: 0.9rem;
+    padding: 0.4em 0.6em;
+    vertical-align: middle;
+}
+
+#game-status-info p {
+    margin-bottom: 0.3rem; /* Чуть больше, чем было */
+    font-size: 0.95rem;
+}
+
+#user-rating-display {
+    font-size: 0.9rem; /* Как в media query для подписей карт */
+    font-weight: bold;
+}
+
+/* Стили для карт в руке и на столе */
+.user-hand .card, .table-cards .card {
+    margin-bottom: 10px;
+    height: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.user-hand .card:hover, .table-cards .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.card-img-top {
+    max-height: 180px;
+    width: 100%;
+    object-fit: contain;
+    margin-top: 5px;
+    border-bottom: 1px solid #eee; /* Разделитель под картинкой */
+    border-radius: 0.25rem 0.25rem 0 0; /* Скругление только верхних углов */
+}
+.card-img-top[onclick] { /* Если есть onclick, значит можно увеличить */
+    cursor: zoom-in;
+}
+
+
+.card-body {
+    padding: 0.5rem; /* Чуть больше, чем 0.4rem */
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-grow: 1;
+    min-height: 60px; /* Минимальная высота для тела карты, чтобы кнопки не прыгали */
+}
+
+.card-body .form-group {
+    margin-bottom: 0.4rem; /* Чуть больше */
+}
+
+.card-body .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem; /* Компактные кнопки */
+}
+
+.card-body .small, .card-body p.small {
+    font-size: 0.8rem;
+    line-height: 1.3;
+}
+.card-body .text-muted.small { /* Текст типа "(Карта выложена)" */
+    margin-top: auto; /* Прижимаем к низу, если flex-grow есть */
+    margin-bottom: 0;
+}
+
+
+/* Модальное окно для увеличения карт */
+.modal-lg {
+    max-width: 80%;
+}
+.modal-body img {
+    max-width: 100%;
+    max-height: 80vh;
+    display: block;
+    margin: auto;
+    border-radius: 0.3rem;
+}
+
+/* Сообщение для ожидающих игроков */
+.pending-message {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404; /* Темный текст для лучшей читаемости на желтом фоне */
+    padding: .75rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+}
+
+/* Блок с правилами */
+#rules-block {
+    background-color: #ffffff; /* Белый фон для блока правил */
+    padding: 1rem;
+    border-radius: 0.3rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+#rules-block h4, 
+#rules-block h5 {
+    margin-top: 0.75rem;
+    margin-bottom: 0.35rem; /* Немного увеличил отступ */
+    color: #343a40;
+}
+#rules-block h4:first-child {
+    margin-top: 0;
+}
+#rules-block p, 
+#rules-block ul {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+#rules-block ul {
+    padding-left: 20px;
+}
+#rules-block li {
+    margin-bottom: 0.2rem; /* Увеличил отступ */
+}
+#rules-block img {
+    margin-top: 0.5rem;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.25rem; /* Скругление для картинки в правилах */
+    border: 1px solid #dee2e6;
+}
+
+/* Заголовки секций */
+h2 {
+    font-size: 1.5rem; /* Уменьшил заголовки H2 */
+    margin-top: 1rem;
+    margin-bottom: 0.75rem;
+    color: #495057;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.25rem;
+}
+
+/* Тонкие горизонтальные линии */
+hr.my-2 {
+    margin-top: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 767.98px) {
+    body {
+        font-size: 0.95rem; /* Чуть меньше базовый шрифт на мобильных */
+    }
+    #user-greeting {
+        font-size: 1.6rem; /* Чуть больше, чем было */
+    }
+    /* Подписи и рейтинг сделаем чуть крупнее на мобильных, если они были слишком мелкими */
+    .card-body .small, .card-body p.small, #user-rating-display {
+        font-size: 0.85rem; 
+    }
+    .game-board-cell {
+        min-height: 80px;
+        margin: 1.5px; /* Чуть меньше margin для ячеек */
+    }
+    .player-chip {
+        font-size: 0.65em;
+    }
+    .card-img-top {
+        max-height: 150px;
+    }
+    h2 {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .game-board {
+        gap: 2px;
+    }
+    .game-board-cell {
+        margin: 1px;
+        min-height: 70px; /* Еще меньше для очень маленьких экранов */
+    }
+    .card-img-top {
+        max-height: 120px; /* И картинки карт тоже */
+    }
+    .player-chip {
+        font-size: 0.6em; /* Совсем мелкие фишки */
+        padding: 1px 3px;
+    }
+     .card-body {
+        padding: 0.3rem;
+        font-size: 0.8rem;
+    }
+    .card-body .small, .card-body p.small {
+        font-size: 0.75rem;
+    }
+}
