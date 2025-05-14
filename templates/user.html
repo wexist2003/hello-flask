@@ -6,6 +6,273 @@
     <title>Страница игрока - {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-size: 1rem; 
+            transition: background-color 0.3s, color 0.3s; /* Плавный переход для темы */
+        }
+        .game-board {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px; 
+        }
+        .game-board-cell {
+            min-height: 90px; 
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            border: 1px solid #eee; 
+            margin: 2px; 
+            transition: border-color 0.3s;
+        }
+        .cell-number-badge {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 0.65em; 
+            opacity: 0.8;
+            padding: 0.2em 0.4em;
+        }
+        .player-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            padding: 1px 0; 
+        }
+        .player-chip {
+            padding: 2px 4px;
+            border-radius: .25rem;
+            margin: 1px;
+            font-size: 0.7em; 
+            line-height: 1;
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #user-greeting {
+            font-size: 1.75rem; 
+            margin-bottom: 0.25rem; 
+        }
+        #user-greeting .badge {
+            font-size: 0.8rem; 
+            vertical-align: middle; 
+            padding: .25em .5em;
+        }
+        #game-status-info p {
+            margin-bottom: 0.25rem;
+        }
+        #user-rating-display { 
+             font-size: 0.9rem;
+             margin-bottom: 0.5rem; 
+        }
+        .user-hand .card, .table-cards .card {
+            margin-bottom: 10px; 
+            height: 100%; 
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+        .card-img-top {
+            max-height: 180px; 
+            width: 100%; 
+            object-fit: contain; 
+            margin-top: 5px;
+            cursor: zoom-in; 
+            transition: border-color 0.3s;
+        }
+        .card-body {
+            padding: 0.4rem; 
+            font-size: 0.85rem; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+            flex-grow: 1;
+        }
+        .card-body .form-group {
+            margin-bottom: 0.3rem; 
+        }
+        .card-body .btn {
+            font-size: 0.75rem; 
+        }
+        .card-body .small, .card-body p.small { 
+            font-size: 0.8rem; 
+        }
+        .modal-dialog.modal-lg {
+            max-width: 90%; 
+        }
+        .modal-body img#modalImage {
+            max-width: 100%;    
+            max-height: 88vh;   
+            display: block;
+            margin: auto; 
+            object-fit: contain; 
+            border-radius: 0.3rem;
+        }
+        .pending-message { 
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+            padding: .75rem 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+        #rules-block {
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        #rules-block img {
+            margin-top: 0.5rem;
+            max-width: 100%; 
+            height: auto;
+        }
+        #rules-block h4, #rules-block h5, #rules-block p, #rules-block li, #rules-block a {
+            transition: color 0.3s;
+        }
+        #rules-block h4, #rules-block h5 {
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        #rules-block ul {
+            padding-left: 20px;
+            margin-bottom: 0.5rem;
+        }
+        #rules-block li {
+            margin-bottom: 0.15rem;
+        }
+
+        /* Стили для темной темы */
+        body.dark-theme {
+            background-color: #1a1a1d; /* Темно-серый, почти черный фон */
+            color: #c7c7c7; /* Светло-серый текст */
+        }
+        body.dark-theme .container {
+            /* Можно добавить специфичные стили для контейнера в темной теме, если нужно */
+        }
+        body.dark-theme hr {
+            border-top-color: #33373a; /* Темнее разделители */
+        }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p {
+            color: #e0e0e0;
+        }
+        body.dark-theme .card {
+            background-color: #2c2f33; /* Темно-серый для карт */
+            border-color: #42464d;
+            color: #c7c7c7;
+        }
+        body.dark-theme .card-img-top {
+            border-bottom-color: #42464d;
+        }
+        body.dark-theme .text-muted {
+            color: #8a8d90 !important; /* Bootstrap может переопределять, поэтому !important */
+        }
+        body.dark-theme #current-leader-display[style*="color: #007bff;"] {
+             color: #58a6ff !important; /* Светло-синий для темной темы, если был инлайн стиль */
+        }
+        body.dark-theme .btn-secondary {
+            background-color: #4f545c;
+            border-color: #4f545c;
+            color: #fff;
+        }
+        body.dark-theme .btn-secondary:hover {
+            background-color: #42464d;
+            border-color: #3b3f44;
+        }
+        body.dark-theme .btn-outline-secondary {
+            color: #adb5bd;
+            border-color: #4f545c;
+        }
+        body.dark-theme .btn-outline-secondary:hover {
+            color: #fff;
+            background-color: #4f545c;
+            border-color: #4f545c;
+        }
+        body.dark-theme .modal-content {
+            background-color: #2c2f33;
+            color: #c7c7c7;
+            border-color: #42464d;
+        }
+        body.dark-theme .modal-header {
+            border-bottom-color: #42464d;
+        }
+        body.dark-theme .modal-footer {
+            border-top-color: #42464d;
+        }
+        body.dark-theme .close {
+            color: #c7c7c7;
+            text-shadow: none;
+        }
+        body.dark-theme .close:hover {
+            color: #fff;
+        }
+        body.dark-theme .alert-info {
+            background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;
+        }
+        body.dark-theme .alert-warning {
+             background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;
+        }
+         body.dark-theme .alert-success {
+             background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;
+        }
+        body.dark-theme .alert-danger {
+             background-color: #3e1f23; border-color: #5c2e35; color: #ffb8c0;
+        }
+        body.dark-theme .game-board-cell {
+            border-color: #42464d;
+        }
+        body.dark-theme #rules-block {
+            background-color: #23272a; /* Чуть светлее фона для выделения */
+            border: 1px solid #3a3e42;
+        }
+        body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li {
+            color: #c0c0c0;
+        }
+        body.dark-theme #rules-block a {
+            color: #6c9cff; /* Светлее синий для ссылок */
+        }
+        body.dark-theme .form-control {
+            background-color: #3a3e42;
+            color: #e0e0e0;
+            border-color: #55595e;
+        }
+        body.dark-theme .form-control::placeholder {
+            color: #888c91;
+        }
+        body.dark-theme .form-control:focus {
+            background-color: #42464a;
+            border-color: #007bff; 
+            color: #e0e0e0;
+        }
+        body.dark-theme .badge-dark {
+            background-color: #55595e;
+            color: #e0e0e0;
+        }
+        body.dark-theme .badge-primary { background-color: #2a65a0; color: #fff; }
+        body.dark-theme .badge-success { background-color: #2e7d32; color: #fff; }
+        body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; }
+        body.dark-theme .badge-info { background-color: #206a8a; color: #fff; }
+
+
+        @media (max-width: 767.98px) {
+            #user-greeting { font-size: 1.5rem; }
+            #user-greeting .badge { font-size: 0.75rem; }
+            .card-body .small, .card-body p.small, #user-rating-display { font-size: 0.85rem; }
+            .game-board-cell { min-height: 80px; }
+            .player-chip { font-size: 0.65em; }
+            .card-img-top { max-height: 150px; }
+        }
+        @media (max-width: 575.98px) {
+            .game-board { gap: 2px; }
+            .game-board-cell { margin: 1px; }
+            .modal-dialog.modal-lg { max-width: 95%; }
+            .modal-body img#modalImage { max-height: 85vh; }
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-3">
@@ -23,19 +290,38 @@
         {% endwith %}
 
         <h1 id="user-greeting">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
-        <p style="margin-bottom: 0.25rem;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
-        <p id="user-status-display-container" style="margin-bottom: 0.5rem;">Статус: <span id="user-status-display">Загрузка...</span></p>
-
+        <p style="margin-bottom: 0.5rem;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
         <hr class="my-2">
 
         <div id="game-messages" class="alert alert-info" role="alert" style="display: none;"></div>
-
         <div id="game-status-info">
             <p id="game-progress-status-container">Статус игры: <strong id="game-progress-status">Загрузка...</strong></p>
             <p>Ведущий: <strong id="current-leader-display" style="font-weight: bold; color: #007bff;">Загрузка...</strong></p>
             <p id="pending-player-message" class="pending-message" style="display: none;">
                 Вы присоединились как наблюдатель. Ваше участие начнется со следующей НОВОЙ игры. Пока вы можете следить за процессом.
             </p>
+        </div>
+        <hr class="my-2">
+
+        <h2 id="table-cards-header">Общий стол (<span id="cards-on-table-count">0</span>/<span id="active-players-count">0</span>):</h2>
+        <div id="table-cards" class="row table-cards">
+        </div>
+        <div id="table-placeholder" class="text-center" style="display: none;">
+            <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
+            <p id="leader-empty-table-rating" style="display: none;"></p>
+            <p>На столе пока нет карт...</p>
+        </div>
+        <hr class="my-2">
+
+        <div id="player-hand-section" style="display: none;">
+            <h2 id="player-hand-header">Мои карты:</h2>
+            <div id="player-hand" class="row user-hand">
+            </div>
+        </div>
+        <hr class="my-2">
+
+        <h2>Игровое поле:</h2>
+        <div id="game-board" class="game-board"> 
         </div>
         <hr class="my-2">
 
@@ -55,32 +341,13 @@
                 <li>В любом другом случае по 3 очка получают все игроки, правильно угадавшие карточку Ведущего. Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.</li>
                 <li>Все игроки получают по одному очку за каждого игрока, который угадал их карточку.</li>
             </ul>
-            <h5>Иллюстрация к правилам</h5>
             <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid rounded">
         </div>
         <hr class="my-2">
-        <h2 id="table-cards-header">Общий стол (<span id="cards-on-table-count">0</span>/<span id="active-players-count">0</span>):</h2>
-        <div id="table-cards" class="row table-cards">
-        </div>
-        <div id="table-placeholder" class="text-center" style="display: none;">
-            <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
-            <p id="leader-empty-table-rating" style="display: none;"></p>
-            <p>На столе пока нет карт...</p>
-        </div>
-        <hr class="my-2">
 
-        <div id="player-hand-section" style="display: none;">
-            <h2 id="player-hand-header">Мои карты:</h2>
-            <div id="player-hand" class="row user-hand">
-            </div>
+        <div class="my-3">
+             <button id="theme-toggle-button" class="btn btn-outline-secondary btn-sm">Сменить тему</button>
         </div>
-        <hr class="my-2">
-
-
-        <h2>Игровое поле:</h2>
-        <div id="game-board" class="game-board"> 
-        </div>
-        <hr class="my-2">
 
         <p><a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">Вернуться на главную</a></p>
         {% if session.get('is_admin') %}
@@ -92,7 +359,7 @@
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="imageModalLabel">Изображение карты</h5>
+                    <h5 class="modal-title" id="imageModalLabel"></h5> 
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -118,7 +385,6 @@
 
         socket.on('connect', () => {
             console.log('Socket.IO: Connected to server! SID:', socket.id);
-            // Можно добавить индикатор подключения на страницу, если нужно
         });
 
         socket.on('disconnect', () => {
@@ -131,121 +397,134 @@
             }
         });
 
-        socket.on('message', (data) => { // Для общих сообщений или flash-сообщений от сервера через socket
+        socket.on('message', (data) => {
             console.log('Socket.IO: Message from server:', data);
             const gameMessagesDiv = document.getElementById('game-messages');
-            if (gameMessagesDiv && data.data) { // Предполагаем, что сообщение в data.data
+            if (gameMessagesDiv && data.data) {
                  gameMessagesDiv.textContent = data.data;
                  gameMessagesDiv.className = data.category ? `alert alert-${data.category} mt-2` : 'alert alert-info mt-2';
                  gameMessagesDiv.style.display = 'block';
-                 setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 5000); // Скрывать через 5 секунд
+                 setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 5000);
             }
         });
 
         socket.on('game_update', (gameState) => {
             console.log('Socket.IO: Received game_update:', gameState);
 
-            // Обновление данных текущего пользователя (если они есть в gameState)
             if (gameState.current_user_data) {
                 currentUserId = gameState.current_user_data.id;
                 currentUserName = gameState.current_user_data.name;
-                document.getElementById('user-greeting').textContent = `Добро пожаловать, ${currentUserName}!`;
-                document.getElementById('user-rating-display').textContent = gameState.current_user_data.rating;
                 
-                const userStatusSpan = document.getElementById('user-status-display');
-                let statusText = gameState.current_user_data.status;
-                let statusClass = "badge badge-secondary"; // Статус по умолчанию
+                const userGreetingH1 = document.getElementById('user-greeting');
+                let statusText = ""; 
+                let statusBadgeHTML = ""; 
+
                 if (gameState.current_user_data.status === 'active') {
                     statusText = "Активен";
-                    statusClass = "badge badge-success";
+                    statusBadgeHTML = `<span class="badge badge-success ml-1">${statusText}</span>`;
                 } else if (gameState.current_user_data.status === 'pending') {
                     statusText = "Ожидание";
-                    statusClass = "badge badge-warning";
+                    statusBadgeHTML = `<span class="badge badge-warning ml-1">${statusText}</span>`;
                 }
-                userStatusSpan.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
 
-                // Показ/скрытие сообщения для ожидающих и блока карт
+                if (userGreetingH1) {
+                    userGreetingH1.innerHTML = `Добро пожаловать, ${currentUserName}${statusBadgeHTML}!`;
+                }
+
+                const userRatingDisplay = document.getElementById('user-rating-display');
+                if (userRatingDisplay) {
+                    userRatingDisplay.textContent = gameState.current_user_data.rating;
+                }
+                
                 const pendingPlayerMessage = document.getElementById('pending-player-message');
                 const playerHandSectionDiv = document.getElementById('player-hand-section');
                 if (gameState.current_user_data.status === 'pending') {
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
                     if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
-                } else {
+                } else { 
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'none';
-                    if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'block'; // Показываем, если активен
+                    if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'block';
                 }
-            } else { // Если нет current_user_data, считаем пользователя неавторизованным или наблюдателем без данных
+            } else { 
                  const playerHandSectionDiv = document.getElementById('player-hand-section');
                  if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
-                 // Можно добавить обработку для userStatusSpan, если нужно
+                 const userGreetingH1 = document.getElementById('user-greeting');
+                 if (userGreetingH1) {
+                    userGreetingH1.innerHTML = `Добро пожаловать, Гость!`;
+                 }
+                 const userRatingDisplay = document.getElementById('user-rating-display');
+                 if (userRatingDisplay) {
+                    userRatingDisplay.textContent = "0";
+                 }
             }
 
-            // Вызов функций обновления для каждого блока
             updateGameStatusInfo(gameState);
-            updatePlayerHand(gameState); // Эта функция сама проверит current_user_data
+            updatePlayerHand(gameState); 
             updateTableCards(gameState);
             updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
 
-            // Обработка flash-сообщений, если они приходят через gameState
             const gameMessagesDiv = document.getElementById('game-messages');
             if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
-                const firstMessage = gameState.flashed_messages[0]; // Берем первое сообщение
+                const firstMessage = gameState.flashed_messages[0];
                 gameMessagesDiv.textContent = firstMessage.message;
                 gameMessagesDiv.className = `alert alert-${firstMessage.category} mt-2`;
                 gameMessagesDiv.style.display = 'block';
-                setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 7000); // Увеличил время показа
+                setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 7000);
             } else if (gameMessagesDiv && gameMessagesDiv.textContent === 'Соединение с сервером потеряно. Попытка переподключения...') {
-                 // Если пришло обновление, а висело сообщение о потере соединения, скрываем его
                  gameMessagesDiv.style.display = 'none';
             }
         });
 
-        // Функция для показа изображения в модальном окне
         function showImageModal(imageSrc) {
             const modalImage = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('imageModalLabel'); // Получаем элемент заголовка
+
             if (modalImage) {
                  modalImage.src = imageSrc;
-                 $('#imageModal').modal('show'); // Используем jQuery для модального окна Bootstrap
+                 if (modalTitle) {
+                    modalTitle.textContent = ''; // Очищаем текст заголовка
+                 }
+                 $('#imageModal').modal('show'); 
             } else {
                 console.error("Modal image element not found");
             }
         }
 
-        // Функция обновления информации о статусе игры
         function updateGameStatusInfo(gameState) {
             const statusContainer = document.getElementById('game-progress-status-container');
-            if (!statusContainer) return; // Если элемента нет, выходим
+            if (!statusContainer) return; 
 
             if (!gameState.game_in_progress && !gameState.game_over) {
                 statusContainer.style.display = 'block';
                 document.getElementById('game-progress-status').textContent = 'Игра не начата / Ожидание игроков';
             } else if (gameState.game_in_progress && !gameState.game_over) {
-                statusContainer.style.display = 'none'; // Скрываем, если игра идет
+                statusContainer.style.display = 'none'; 
             } else if (gameState.game_over) {
                 statusContainer.style.display = 'block'; 
                 document.getElementById('game-progress-status').textContent = 'Игра окончена!';
             }
             
             let leaderName = 'Не определен';
-            let isCurrentUserLeader = false;
-            if (gameState.db_current_leader_id && gameState.current_user_data) { // Проверяем current_user_data
-                 isCurrentUserLeader = (gameState.db_current_leader_id === gameState.current_user_data.id);
-                 // Ищем имя ведущего
-                 const leaderUser = gameState.all_users_for_guessing?.find(u => u.id === gameState.db_current_leader_id) || 
-                                  (isCurrentUserLeader ? gameState.current_user_data : null);
-                 if (leaderUser) {
-                     leaderName = leaderUser.name;
-                 } else if (gameState.db_current_leader_id) { // Если имя не найдено, но ID есть
-                     // Можно попробовать найти в game_board, если очень нужно, но это менее надежно
+            let isCurrentUserLeader = false; 
+            if (gameState.db_current_leader_id) { 
+                if (gameState.current_user_data && gameState.db_current_leader_id === gameState.current_user_data.id) {
+                    isCurrentUserLeader = true;
+                    leaderName = gameState.current_user_data.name; 
+                } else if (gameState.all_users_for_guessing) { 
+                    const leaderUser = gameState.all_users_for_guessing.find(u => u.id === gameState.db_current_leader_id);
+                    if (leaderUser) {
+                        leaderName = leaderUser.name;
+                    } else { 
+                        leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
+                    }
+                } else { 
                      leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
-                 }
-            } else if (gameState.db_current_leader_id) { // Если нет current_user_data, но есть ID ведущего
-                leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
+                }
             }
 
             const leaderDisplay = document.getElementById('current-leader-display');
             if(leaderDisplay) {
-                leaderDisplay.innerHTML = leaderName; // Сначала базовое имя
+                leaderDisplay.innerHTML = leaderName; 
                 if (isCurrentUserLeader && gameState.game_in_progress && !gameState.game_over) {
                     leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
                 }
@@ -258,17 +537,15 @@
             if(cardsOnTableCountEl) cardsOnTableCountEl.textContent = gameState.num_cards_on_table || 0;
         }
 
-        // Функция обновления карт в руке игрока
         function updatePlayerHand(gameState) {
-            const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template, db_current_leader_id } = gameState;
+            const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template } = gameState;
             const playerHandDiv = document.getElementById('player-hand');
             const playerHandSectionDiv = document.getElementById('player-hand-section');
 
-            if (!playerHandDiv || !playerHandSectionDiv) return; // Элементов нет - выходим
-            playerHandDiv.innerHTML = ''; // Очищаем в любом случае перед заполнением
+            if (!playerHandDiv || !playerHandSectionDiv) return; 
+            playerHandDiv.innerHTML = ''; 
 
-            // Секция карт игрока показывается только для активных, авторизованных пользователей
-            if (!current_user_data || current_user_data.status === 'pending') {
+            if (!current_user_data || current_user_data.status !== 'active') { 
                 playerHandSectionDiv.style.display = 'none'; 
                 return;
             }
@@ -286,7 +563,6 @@
 
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // Используем более гибкие классы Bootstrap для колонок
                 cardDiv.className = 'col-lg-2 col-md-3 col-sm-4 col-6 mb-2'; 
                 let buttonHtml = '';
                 if (canPlaceCard) {
@@ -315,22 +591,23 @@
             });
         }
 
-        // Функция обновления карт на общем столе
         function updateTableCards(gameState) {
             const { table_images, all_users_for_guessing, show_card_info, all_cards_placed_for_guessing_phase_to_template, db_current_leader_id, current_user_data, game_in_progress, game_over, leader_pole_pictogram_path, leader_pictogram_rating_display } = gameState;
             const tableCardsDiv = document.getElementById('table-cards');
             const tablePlaceholderDiv = document.getElementById('table-placeholder');
             
-            if (!tableCardsDiv || !tablePlaceholderDiv) return; // Элементов нет - выходим
+            if (!tableCardsDiv || !tablePlaceholderDiv) return; 
             tableCardsDiv.innerHTML = ''; 
 
             const leaderPictogramImg = document.getElementById('leader-empty-table-pictogram');
             const leaderPictogramRatingP = document.getElementById('leader-empty-table-rating');
+            
+            const noCardsOnTable = !table_images || table_images.length === 0;
 
-            // Логика для плейсхолдера, если игра не идет или стол пуст
             if ((!game_in_progress && !show_card_info && !game_over) || 
-                (game_over && !show_card_info && (!table_images || table_images.length === 0)) ||
-                (!show_card_info && (!table_images || table_images.length === 0) && game_in_progress && !game_over) ) {
+                (game_over && !show_card_info && noCardsOnTable) ||     
+                (noCardsOnTable && game_in_progress && !game_over && !show_card_info ) 
+               ) { 
                 
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
@@ -338,20 +615,20 @@
 
                 if (!game_in_progress && !game_over) {
                     placeholderText = 'Игра еще не началась.';
-                } else if (game_over && !show_card_info) {
-                     placeholderText = 'Игра завершена. Результаты не показаны или нет карт.';
-                } else if (game_in_progress && !game_over && (!table_images || table_images.length === 0)) {
+                } else if (game_over && !show_card_info && noCardsOnTable) {
+                     placeholderText = 'Игра завершена. На столе не было карт.';
+                } else if (game_in_progress && !game_over && noCardsOnTable) { 
                     placeholderText = 'На столе пока нет карт. Ожидание игроков...';
                      if (leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status) {
                         if(leaderPictogramImg) { leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`; leaderPictogramImg.style.display = 'block'; }
                         if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карту.`; leaderPictogramRatingP.style.display = 'block'; }
-                        placeholderText = ''; // Убираем текст, если есть пиктограмма
+                        placeholderText = ''; 
                     } else {
                         if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
                         if(leaderPictogramRatingP) leaderPictogramRatingP.style.display = 'none';
                     }
                 }
-                const pElement = tablePlaceholderDiv.querySelector('p:not(#leader-empty-table-rating)'); // Ищем основной текстовый p
+                const pElement = tablePlaceholderDiv.querySelector('p:not(#leader-empty-table-rating)');
                 if (pElement) pElement.textContent = placeholderText;
                 return;
             }
@@ -359,16 +636,15 @@
             tablePlaceholderDiv.style.display = 'none';
             tableCardsDiv.style.display = 'flex'; 
 
-            table_images.forEach(card => {
+            (table_images || []).forEach(card => { 
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'col-lg-2 col-md-3 col-sm-4 col-6 mb-2';
                 let cardImageSrc = "";
                 let cardAltText = "Карта на столе";
                 let cardBodyContent = '';
 
-                // Определение, какую карту показывать: заглушку или реальную
                 if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) {
-                    cardImageSrc = "/static/images/a.jpg"; // Ваша заглушка
+                    cardImageSrc = "/static/images/a.jpg"; 
                     cardAltText = "Карта на столе (заглушка)";
                     cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Карта выложена)</p>';
                 } else {
@@ -376,7 +652,6 @@
                     cardAltText = `Карта ${card.image}`;
                 }
 
-                // Формирование содержимого card-body
                 if (show_card_info) { 
                     cardBodyContent = `<h6 class="card-subtitle mb-1 text-muted small">Владелец: ${card.owner_name || 'Неизв.'}</h6>`;
                     if (card.guesses && Object.keys(card.guesses).length > 0) {
@@ -405,16 +680,14 @@
                         let selectOptions = '<option value="">-- Выберите --</option>';
                         if(all_users_for_guessing) {
                             all_users_for_guessing.forEach(user => {
-                                if (user.id !== current_user_data.id) { // Не предлагаем себя
+                                if (user.id !== current_user_data.id) { 
                                     selectOptions += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
                                 }
                             });
                         }
-                        // Добавляем владельца карты в список, если он не текущий и не в общем списке "других"
                          if (card.owner_id && card.owner_id !== current_user_data.id && !(all_users_for_guessing?.find(u=>u.id === card.owner_id))) {
                              selectOptions += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || `Игрок ID ${card.owner_id}`}</option>`;
                         }
-
 
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
@@ -439,9 +712,9 @@
                     }
                 } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) { 
                      cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Вы наблюдатель)</p>';
-                } else if (game_over && show_card_info) {
-                    // Этот случай уже покрыт блоком if(show_card_info)
-                } else if (cardImageSrc !== "/static/images/a.jpg") { // Если не заглушка и не один из верхних блоков (например, игра окончена, карты не открыты)
+                } else if (game_over && !show_card_info && cardImageSrc !== "/static/images/a.jpg") { 
+                     cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Игра окончена)</p>';
+                } else if (cardImageSrc !== "/static/images/a.jpg") { 
                     cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Просмотр)</p>';
                 }
                 
@@ -459,10 +732,9 @@
             });
         }
 
-        // Функция обновления игрового поля
         function updateGameBoard(boardCells, totalCells) {
             const gameBoardDiv = document.getElementById('game-board');
-            if (!gameBoardDiv) return; // Элемента нет - выходим
+            if (!gameBoardDiv) return; 
             gameBoardDiv.innerHTML = '';
 
             if (!boardCells || boardCells.length === 0) {
@@ -470,7 +742,6 @@
                 return;
             }
 
-            // Адаптивное количество ячеек в ряду
             const cellsInRow = totalCells > 0 ? Math.min(Math.max(5, Math.ceil(Math.sqrt(totalCells * 1.8))), 12) : 10;
             const cellWidthPercent = 100 / cellsInRow;
 
@@ -478,9 +749,7 @@
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'game-board-cell text-white p-1';
                 cellDiv.style.backgroundImage = `url(/static/${cell.image_path})`;
-                // -4px для margin: 2px с каждой стороны в .game-board-cell
                 cellDiv.style.flexBasis = `calc(${cellWidthPercent}% - 4px)`; 
-                // Высота задается в CSS для .game-board-cell
                 cellDiv.title = `Ячейка ${cell.cell_number}`;
 
                 let cellHtml = `<div class="cell-number-badge badge badge-dark">${cell.cell_number}</div>`;
@@ -496,6 +765,48 @@
                 gameBoardDiv.appendChild(cellDiv);
             });
         }
+
+        // --- JavaScript для смены темы ---
+        const themeToggleButton = document.getElementById('theme-toggle-button');
+        const preferDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+                if (themeToggleButton) themeToggleButton.textContent = 'Светлая тема';
+            } else {
+                document.body.classList.remove('dark-theme');
+                if (themeToggleButton) themeToggleButton.textContent = 'Темная тема';
+            }
+        }
+
+        // Загружаем сохраненную тему или используем системную/светлую по умолчанию
+        let savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else {
+            // Если нет сохраненной темы, можно проверить системные настройки
+            // applyTheme(preferDarkScheme.matches ? 'dark' : 'light'); 
+            // Или просто по умолчанию светлая
+            applyTheme('light'); 
+        }
+        
+        if (themeToggleButton) {
+            themeToggleButton.addEventListener('click', () => {
+                let newTheme = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+                localStorage.setItem('theme', newTheme);
+                applyTheme(newTheme);
+            });
+        }
+        // Слушатель на изменение системных настроек (опционально, если не хотим перезаписывать явный выбор пользователя)
+        /*
+        preferDarkScheme.addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) { // Если пользователь не выбрал тему явно
+                applyTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+        */
+
     </script>
 </body>
 </html>
