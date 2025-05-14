@@ -10,8 +10,21 @@
         body {
             font-size: 1rem; 
             transition: background-color 0.3s, color 0.3s;
-            padding-top: 60px; 
+            /* padding-top: 60px; УДАЛЕНО, т.к. шапка теперь часть потока */
         }
+        /* ИЗМЕНЕНИЕ: Стили для новой шапки */
+        .page-header-custom {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            /* background-color: #f8f9fa; /* Светлый фон для шапки, можно убрать или настроить */
+            /* border-bottom: 1px solid #dee2e6; /* Граница снизу для шапки */
+            margin-bottom: 0.5rem; /* Отступ от шапки до основного контента */
+        }
+        body.dark-theme .page-header-custom {
+            /* background-color: #23272a; */
+            /* border-bottom-color: #3a3e42; */
+        }
+
         .game-board {
             display: flex;
             flex-wrap: wrap;
@@ -40,18 +53,11 @@
             opacity: 0.8;
             padding: 0.2em 0.4em;
         }
-        .player-chips-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
-            padding: 1px 0; 
-        }
-        .player-chip {
-            padding: 2px 4px;
-            border-radius: .25rem;
+        .player-chip { /* Стили для десктопа */
+            padding: 1px 3px; 
+            border-radius: .2rem; 
             margin: 1px;
-            font-size: 0.7em; 
+            font-size: 0.48em; 
             line-height: 1;
             max-width: 90%;
             overflow: hidden;
@@ -61,138 +67,104 @@
         #user-greeting-container {
             display: flex;
             align-items: center;
-            margin-bottom: 0.1rem; /* УМЕНЬШЕН отступ для контейнера приветствия */
+            /* margin-bottom: 0.1rem; /* Управляется теперь отступом page-header-custom */
         }
         #user-greeting-text {
-            font-size: 1.75rem; 
+            font-size: 1.5rem; /* Немного уменьшен для компактности в шапке */
             margin-right: 0.5rem; 
+            margin-bottom: 0; /* Убираем стандартный отступ h1 */
         }
         #user-status-badge-container .badge {
-            font-size: 0.9rem; 
+            font-size: 0.8rem; /* Немного уменьшен для компактности */
             vertical-align: middle; 
-            padding: .3em .6em;
+            padding: .25em .5em;
         }
-        
-        /* Стили для минимизации отступов */
-        p:has(> #user-rating-display) { /* Более точный селектор для строки рейтинга */
-            margin-bottom: 0.1rem !important; /* Минимальный отступ */
+        /* Минимальные отступы для рейтинга и ведущего */
+        p:has(> #user-rating-display) {
+            margin-bottom: 0.1rem !important; 
+            margin-top: 0.25rem; /* Небольшой отступ от приветствия */
+        }
+        #game-status-info {
+            /* margin-top: 0.25rem; /* Небольшой отступ от HR */
         }
         #game-status-info p {
-            margin-bottom: 0.1rem; /* Минимальный отступ для строк в #game-status-info */
+            margin-bottom: 0.1rem; 
         }
-        #game-status-info p:last-child { /* Убираем отступ у последнего элемента, если нужно */
+        #game-status-info p:last-child {
              margin-bottom: 0;
-        }
-        #user-rating-display { /* Для самого strong элемента, если нужно (но лучше через родительский <p>) */
-             /* font-size: 0.9rem; - уже есть */
-             /* margin-bottom: 0.5rem; - этот отступ теперь у родительского <p> */
         }
 
         .user-hand .card, .table-cards .card {
-            margin-bottom: 10px; 
+            margin-bottom: 8px; 
             height: 100%; 
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+            display: flex; 
+            flex-direction: column; 
+        }
+        .card-owner-info {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.25rem;
+            text-align: center;
+            margin-bottom: 0; 
+            order: -1; 
         }
         .card-img-top {
-            max-height: 180px; 
+            max-height: 280px; 
             width: 100%; 
             object-fit: contain; 
-            margin-top: 5px;
+            margin-top: 0;   
             cursor: zoom-in; 
             transition: border-color 0.3s;
         }
         .card-body {
-            padding: 0.4rem; 
+            padding: 0.25rem; 
             font-size: 0.85rem; 
             display: flex;
             flex-direction: column;
             justify-content: space-between; 
             flex-grow: 1;
         }
-        .card-body .form-group {
-            margin-bottom: 0.3rem; 
-        }
-        .card-body .btn {
-            font-size: 0.75rem; 
-        }
-        .card-body .small, .card-body p.small { 
-            font-size: 0.8rem; 
-        }
+        .card-body .form-group { margin-bottom: 0.2rem; }
+        .card-body .btn { font-size: 0.7rem; padding: 0.2rem 0.4rem; }
+        .card-body .small, .card-body p.small { font-size: 0.75rem; }
         
         .modal-dialog.modal-fullscreen-viewer {
-            max-width: none;
-            width: 100vw;
-            height: 100vh;
-            margin: 0;
-            padding: 0;
+            max-width: none; width: 100vw; height: 100vh; margin: 0; padding: 0;
         }
         .modal-fullscreen-viewer .modal-content {
-            height: 100vh;
-            border-radius: 0;
-            border: none;
-            display: flex; 
-            flex-direction: column;
+            height: 100vh; border-radius: 0; border: none; display: flex; flex-direction: column;
         }
-        .modal-fullscreen-viewer .modal-header {
-            flex-shrink: 0; 
-        }
+        .modal-fullscreen-viewer .modal-header { flex-shrink: 0; }
         .modal-fullscreen-viewer .modal-body {
-            overflow: hidden; /* Убираем auto, т.к. картинка должна вписываться */
-            padding: 2px;     /* Минимальнейший padding, чтобы края не прилипали к границам модалки */
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            flex-grow: 1; 
+            overflow: hidden; padding: 2px; display: flex; 
+            align-items: center; justify-content: center; flex-grow: 1; 
         }
         .modal-fullscreen-viewer .modal-body img#modalImage {
-            max-width: 100%;    /* Максимальная ширина ТЕЛА модалки (body padding учтен) */
-            max-height: 100%;   /* Максимальная высота ТЕЛА модалки (body padding учтен) */
-                                /* Высота modal-body уже учитывает шапку за счет flex-grow:1 */
-            object-fit: contain;
-            border-radius: 0.15rem; /* Чуть меньше радиус для максимального размера */
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; border-radius: 0.15rem; 
         }
 
         .pending-message { 
-            background-color: #fff3cd;
-            border-color: #ffeeba;
-            padding: .75rem 1.25rem;
-            margin-bottom: 1rem;
-            border: 1px solid transparent;
-            border-radius: .25rem;
+            background-color: #fff3cd; border-color: #ffeeba; padding: .75rem 1.25rem;
+            margin-bottom: 1rem; border: 1px solid transparent; border-radius: .25rem;
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
         }
-        #rules-block {
-            transition: background-color 0.3s, border-color 0.3s;
-        }
-        #rules-block img {
-            margin-top: 0.5rem;
-            max-width: 100%; 
-            height: auto;
-        }
+        #rules-block { transition: background-color 0.3s, border-color 0.3s; }
+        #rules-block img.rules-image { margin-top: 0.5rem; }
         #rules-block h4, #rules-block h5, #rules-block p, #rules-block li, #rules-block a {
             transition: color 0.3s;
         }
-        #rules-block h4, #rules-block h5 {
-            margin-top: 0.75rem;
-            margin-bottom: 0.25rem;
-        }
-        #rules-block ul {
-            padding-left: 20px;
-            margin-bottom: 0.5rem;
-        }
-        #rules-block li {
-            margin-bottom: 0.15rem;
-        }
+        #rules-block h4, #rules-block h5 { margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        #rules-block ul { padding-left: 20px; margin-bottom: 0.5rem; }
+        #rules-block li { margin-bottom: 0.15rem; }
 
-        #theme-icon-container {
-            position: fixed;
-            top: 10px;
-            right: 15px;
-            z-index: 1050; 
+        /* ИЗМЕНЕНИЕ: Иконка темы больше не position:fixed */
+        #theme-icon-wrapper { /* Новый враппер для иконки */
+            /* Стили для позиционирования в flex-контейнере шапки уже есть (justify-content-between) */
         }
         #theme-toggle-icon-button {
-            width: 38px; 
-            height: 38px;
+            width: 32px; /* Уменьшил кнопку для компактности в шапке */
+            height: 32px;
             line-height: 1; 
             display: flex;
             align-items: center;
@@ -201,114 +173,117 @@
             background-color: #f8f9fa; 
             color: #212529; 
             padding: 0; 
+            border-radius: 50%; /* Круглая кнопка */
         }
-        #theme-toggle-icon-button svg {
-             width: 20px; 
-             height: 20px;
-        }
+        #theme-toggle-icon-button svg { width: 16px; height: 16px; } /* Уменьшил SVG */
 
         /* Стили для темной темы */
-        body.dark-theme {
-            background-color: #1a1a1d; 
-            color: #c7c7c7; 
-        }
+        body.dark-theme { background-color: #1a1a1d; color: #e0e0e0; } 
         body.dark-theme #theme-toggle-icon-button {
-            background-color: #3a3f44;
-            border-color: #565e64;
-            color: #f8f9fa; 
+            background-color: #3a3f44; border-color: #565e64; color: #f0f0f0; 
         }
-        body.dark-theme .container {}
-        body.dark-theme hr { border-top-color: #33373a; }
+        body.dark-theme hr { border-top-color: #404040; } 
         body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
-        body.dark-theme #user-greeting-text {
+        body.dark-theme #user-greeting-text, body.dark-theme #user-rating-display, 
+        body.dark-theme #current-leader-display, body.dark-theme .card-owner-info { 
             color: #e0e0e0;
         }
         body.dark-theme .card {
-            background-color: #2c2f33; 
-            border-color: #42464d;
-            color: #c7c7c7;
+            background-color: #2c2f33; border-color: #4a4e53; color: #e0e0e0; 
         }
-        body.dark-theme .card-img-top { border-bottom-color: #42464d; }
-        body.dark-theme .text-muted { color: #8a8d90 !important; }
-        body.dark-theme #current-leader-display[style*="color: #007bff;"] {
-             color: #58a6ff !important; 
-        }
-        body.dark-theme .btn-secondary {
-            background-color: #4f545c; border-color: #4f545c; color: #fff;
-        }
-        body.dark-theme .btn-secondary:hover {
-            background-color: #42464d; border-color: #3b3f44;
-        }
-        body.dark-theme .btn-outline-secondary {
-            color: #adb5bd; border-color: #4f545c;
-        }
-        body.dark-theme .btn-outline-secondary:hover {
-            color: #fff; background-color: #4f545c; border-color: #4f545c;
-        }
-        body.dark-theme .modal-content {
-            background-color: #2c2f33; color: #c7c7c7; border-color: #42464d;
-        }
-        body.dark-theme .modal-header { border-bottom-color: #42464d; }
-        body.dark-theme .modal-footer { border-top-color: #42464d; }
-        body.dark-theme .close { color: #c7c7c7; text-shadow: none; }
+        body.dark-theme .card-img-top { border-bottom-color: #4a4e53; }
+        body.dark-theme .text-muted { color: #909397 !important; } 
+        body.dark-theme #current-leader-display[style*="color: #007bff;"] { color: #6cabff !important; }
+        body.dark-theme .btn-secondary { background-color: #4f545c; border-color: #4f545c; color: #e0e0e0; }
+        body.dark-theme .btn-secondary:hover { background-color: #42464d; border-color: #3b3f44; }
+        body.dark-theme .btn-outline-secondary { color: #adb5bd; border-color: #4f545c; }
+        body.dark-theme .btn-outline-secondary:hover { color: #fff; background-color: #4f545c; border-color: #4f545c; }
+        body.dark-theme .btn-primary { background-color: #0056b3; border-color: #004085; color: #e0e0e0;}
+        body.dark-theme .btn-primary:hover { background-color: #004085; border-color: #002752;}
+        body.dark-theme .btn-warning { background-color: #b87d00; border-color: #946400; color: #e0e0e0;}
+        body.dark-theme .btn-warning:hover { background-color: #946400; border-color: #674600;}
+        body.dark-theme .btn-info { background-color: #138496; border-color: #117a8b; color: #e0e0e0;}
+        body.dark-theme .btn-info:hover { background-color: #0d6e7c; border-color: #0c626e;}
+        body.dark-theme .modal-content { background-color: #2c2f33; color: #e0e0e0; border-color: #4a4e53; }
+        body.dark-theme .modal-header { border-bottom-color: #4a4e53; }
+        body.dark-theme .modal-footer { border-top-color: #4a4e53; }
+        body.dark-theme .close { color: #e0e0e0; text-shadow: none; }
         body.dark-theme .close:hover { color: #fff; }
         body.dark-theme .alert-info { background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;}
         body.dark-theme .alert-warning { background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;}
         body.dark-theme .alert-success { background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;}
         body.dark-theme .alert-danger { background-color: #3e1f23; border-color: #5c2e35; color: #ffb8c0;}
-        body.dark-theme .game-board-cell { border-color: #42464d; }
-        body.dark-theme #rules-block {
-            background-color: #23272a; border: 1px solid #3a3e42;
-        }
+        body.dark-theme .game-board-cell { border-color: #4a4e53; }
+        body.dark-theme #rules-block { background-color: #23272a; border: 1px solid #3a3e42; }
         body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li { color: #c0c0c0; }
         body.dark-theme #rules-block a { color: #6c9cff; }
-        body.dark-theme .form-control {
-            background-color: #3a3e42; color: #e0e0e0; border-color: #55595e;
-        }
+        body.dark-theme .form-control { background-color: #3a3e42; color: #e0e0e0; border-color: #55595e; }
         body.dark-theme .form-control::placeholder { color: #888c91; }
-        body.dark-theme .form-control:focus {
-            background-color: #42464a; border-color: #007bff; color: #e0e0e0;
-        }
+        body.dark-theme .form-control:focus { background-color: #42464a; border-color: #007bff; color: #e0e0e0; }
         body.dark-theme .badge-dark { background-color: #55595e; color: #e0e0e0; }
         body.dark-theme .badge-primary { background-color: #2a65a0; color: #fff; }
         body.dark-theme .badge-success { background-color: #2e7d32; color: #fff; }
         body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; }
         body.dark-theme .badge-info { background-color: #206a8a; color: #fff; }
 
-
         @media (max-width: 767.98px) {
-            body { padding-top: 55px; } 
-            #theme-icon-container { top: 8px; right: 8px; }
-            #theme-toggle-icon-button { width: 32px; height: 32px; }
-            #theme-toggle-icon-button svg { width: 16px; height: 16px; }
+            .page-header-custom { margin-bottom: 0.25rem; }
+            #user-greeting-text { font-size: 1.25rem; } /* Еще меньше на мобильных */
+            #user-status-badge-container .badge { font-size: 0.7rem; }
+            #theme-toggle-icon-button { width: 30px; height: 30px; }
+            #theme-toggle-icon-button svg { width: 14px; height: 14px; }
 
-            #user-greeting-text { font-size: 1.5rem; }
-            #user-status-badge-container .badge { font-size: 0.8rem; }
+            /* ИЗМЕНЕНИЕ: Квадратные фишки игроков на мобильных */
+            .player-chip {
+                font-size: 9px; /* Маленький шрифт для инициалов */
+                width: 18px;    /* Фиксированная ширина */
+                height: 18px;   /* Фиксированная высота (равна ширине) */
+                line-height: 18px; /* Вертикальное центрирование текста */
+                padding: 0;        /* Убираем padding */
+                text-align: center;/* Горизонтальное центрирование текста */
+                border-radius: 3px; /* Слегка скругленные углы для "квадратности" */
+                overflow: hidden; 
+                white-space: nowrap;
+            }
+
             .card-body .small, .card-body p.small, #user-rating-display { font-size: 0.85rem; }
             .game-board-cell { min-height: 80px; }
-            .player-chip { font-size: 0.65em; }
-            .card-img-top { max-height: 150px; }
+            .card-img-top { max-height: 200px; } 
+            .card-body { font-size: 0.75rem; padding: 0.2rem; }
+            .card-body .btn { font-size: 0.65rem; padding: 0.15rem 0.3rem; }
         }
         @media (max-width: 575.98px) {
             .game-board { gap: 2px; }
             .game-board-cell { margin: 1px; }
+            .card-img-top { max-height: 160px; }
+            #user-greeting-text { font-size: 1.1rem; }
         }
     </style>
 </head>
 <body>
-    <div id="theme-icon-container">
-        <button id="theme-toggle-icon-button" class="btn btn-sm rounded-circle" title="Сменить тему">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon-stars-fill" viewBox="0 0 16 16" id="icon-moon">
-              <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
-              <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
-            </svg>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brightness-high-fill" viewBox="0 0 16 16" id="icon-sun" style="display:none;">
-              <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/>
-            </svg>
-        </button>
+    <div class="page-header-custom container-fluid">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="user-greeting-container">
+                    <h1 id="user-greeting-text">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
+                    <span id="user-status-badge-container" class="ml-2"></span>
+                </div>
+                <div id="theme-icon-wrapper">
+                    <button id="theme-toggle-icon-button" class="btn btn-sm rounded-circle" title="Сменить тему">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon-stars-fill" viewBox="0 0 16 16" id="icon-moon">
+                          <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+                          <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brightness-high-fill" viewBox="0 0 16 16" id="icon-sun" style="display:none;">
+                          <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="container mt-3">
+    <div class="container"> {/* Основной контент теперь не имеет mt-3 по умолчанию */}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -322,12 +297,8 @@
             {% endif %}
         {% endwith %}
 
-        <div id="user-greeting-container">
-            <h1 id="user-greeting-text">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
-            <span id="user-status-badge-container" class="ml-2"></span>
-        </div>
-        <p style="margin-bottom: 0.1rem;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
-        <hr class="my-2">
+        <p style="margin-bottom: 0.1rem !important;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
+        <hr class="mt-1 mb-1">
 
         <div id="game-messages" class="alert alert-info" role="alert" style="display: none;"></div>
         <div id="game-status-info">
@@ -338,7 +309,7 @@
         </div>
         <hr class="my-2">
 
-        <h2 id="table-cards-header">Общий стол (<span id="cards-on-table-count">0</span>/<span id="active-players-count">0</span>):</h2>
+        <h2 id="table-cards-header">Общий стол</h2>
         <div id="table-cards" class="row table-cards"></div>
         <div id="table-placeholder" class="text-center" style="display: none;">
             <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
@@ -373,7 +344,7 @@
                 <li>В любом другом случае по 3 очка получают все игроки, правильно угадавшие карточку Ведущего. Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.</li>
                 <li>Все игроки получают по одному очку за каждого игрока, который угадал их карточку.</li>
             </ul>
-            <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid rounded">
+            <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid rounded d-block mx-auto rules-image">
         </div>
         <hr class="my-2">
 
@@ -404,9 +375,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <script>
-        // Полный JavaScript код из предыдущего ответа, включая все функции update...
-        // и логику для темы, должен быть здесь. Я привожу его снова, чтобы
-        // убедиться, что он полный и включает изменения для приветствия.
+        // Весь предыдущий JavaScript код остается здесь без изменений,
+        // так как он уже содержит логику для тем, обновления карточек и т.д.
+        // Ключевые моменты, которые были затронуты предыдущими изменениями и 
+        // должны быть в этом скрипте:
+        // 1. Логика для user-greeting-text и user-status-badge-container
+        // 2. Удаление обновления счетчиков карт из updateGameStatusInfo
+        // 3. Классы колонок 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1' в updatePlayerHand и updateTableCards
+        // 4. Информация "Чья:" над карточкой в updateTableCards
+        // 5. Логика переключения темы с иконками.
 
         const currentUserCode = "{{ user_data_for_init.code if user_data_for_init else '' }}";
         let currentUserId = parseInt("{{ user_data_for_init.id if user_data_for_init else 0 }}") || null;
@@ -414,9 +391,7 @@
 
         const socket = io();
 
-        socket.on('connect', () => {
-            console.log('Socket.IO: Connected to server! SID:', socket.id);
-        });
+        socket.on('connect', () => { console.log('Socket.IO: Connected to server! SID:', socket.id); });
         socket.on('disconnect', () => {
             console.log('Socket.IO: Disconnected from server.');
             const gameMessagesDiv = document.getElementById('game-messages');
@@ -476,7 +451,7 @@
                  if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
-            updateGameStatusInfo(gameState);
+            updateGameStatusInfo(gameState); 
             updatePlayerHand(gameState); 
             updateTableCards(gameState);
             updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
@@ -531,12 +506,6 @@
                     leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
                 }
             }
-            
-            const activePlayersCountEl = document.getElementById('active-players-count');
-            if(activePlayersCountEl) activePlayersCountEl.textContent = gameState.num_active_players || 0;
-            
-            const cardsOnTableCountEl = document.getElementById('cards-on-table-count');
-            if(cardsOnTableCountEl) cardsOnTableCountEl.textContent = gameState.num_cards_on_table || 0;
         }
 
         function updatePlayerHand(gameState) {
@@ -565,7 +534,7 @@
 
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-2 col-md-3 col-sm-4 col-6 mb-2'; 
+                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1'; 
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-primary btn-sm btn-block">Выложить</button></form>`;
@@ -610,11 +579,9 @@
                 (game_over && !show_card_info && noCardsOnTable) ||     
                 (noCardsOnTable && game_in_progress && !game_over && !show_card_info ) 
                ) { 
-                
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
                 let placeholderText = 'На столе нет карт для отображения.';
-
                 if (!game_in_progress && !game_over) {
                     placeholderText = 'Игра еще не началась.';
                 } else if (game_over && !show_card_info && noCardsOnTable) {
@@ -640,10 +607,11 @@
 
             (table_images || []).forEach(card => { 
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-2 col-md-3 col-sm-4 col-6 mb-2';
+                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1';
                 let cardImageSrc = "";
                 let cardAltText = "Карта на столе";
                 let cardBodyContent = '';
+                let ownerInfoAboveImage = ''; 
 
                 if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) {
                     cardImageSrc = "/static/images/a.jpg"; 
@@ -655,21 +623,19 @@
                 }
 
                 if (show_card_info) { 
-                    cardBodyContent = `<h6 class="card-subtitle mb-1 text-muted small">Владелец: ${card.owner_name || 'Неизв.'}</h6>`;
+                    ownerInfoAboveImage = `<p class="mb-0 small text-center card-owner-info">Чья: <strong>${card.owner_name || 'Неизв.'}</strong></p>`;
                     if (card.guesses && Object.keys(card.guesses).length > 0) {
-                        cardBodyContent += '<p class="card-text small my-1"><u>Предположения:</u></p><ul class="list-unstyled small mb-0">';
+                        cardBodyContent = '<p class="card-text small my-1"><u>Предположения:</u></p><ul class="list-unstyled small mb-0">';
                         for (const guesserIdStr in card.guesses) {
                             const guessedTargetId = card.guesses[guesserIdStr];
                             let guesserName = `ID ${guesserIdStr}`;
                             const guesserUser = all_users_for_guessing?.find(u => u.id === parseInt(guesserIdStr)) || (current_user_data && current_user_data.id === parseInt(guesserIdStr) ? current_user_data : null);
                             if (guesserUser) guesserName = guesserUser.name;
-
                             let targetName = `ID ${guessedTargetId}`;
                             const targetUser = all_users_for_guessing?.find(u => u.id === guessedTargetId) || 
                                              (card.owner_id === guessedTargetId ? {name: card.owner_name} : null) ||
                                              (current_user_data && current_user_data.id === guessedTargetId ? current_user_data : null);
                             if(targetUser) targetName = targetUser.name;
-                            
                             const isCorrect = guessedTargetId === card.owner_id;
                             cardBodyContent += `<li class="mb-0">${guesserName} -> ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
                         }
@@ -690,7 +656,6 @@
                          if (card.owner_id && card.owner_id !== current_user_data.id && !(all_users_for_guessing?.find(u=>u.id === card.owner_id))) {
                              selectOptions += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || `Игрок ID ${card.owner_id}`}</option>`;
                         }
-
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
@@ -724,6 +689,7 @@
 
                 cardDiv.innerHTML = `
                     <div class="card h-100">
+                        ${ownerInfoAboveImage}
                         <img src="${imagePathForModal}" class="card-img-top" alt="${cardAltText}" onclick="showImageModal('${imagePathForModal}')">
                         <div class="card-body"> 
                             ${cardBodyContent}
