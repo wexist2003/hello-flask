@@ -7,153 +7,177 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
+        /* Новый стандартный размер шрифта для основного контента */
+        :root {
+            --standard-font-size: 1.1rem;
+            --standard-font-size-mobile: 1rem;
+            --flash-message-font-size: 1rem;
+        }
+
         body {
-            font-size: 1rem; 
+            font-size: 1rem; /* Базовый шрифт для body, от которого могут зависеть rem */
             transition: background-color 0.3s, color 0.3s;
+            line-height: 1.5; /* Базовая высота строки */
         }
         .page-header-custom {
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
             margin-bottom: 0.5rem; 
         }
-        body.dark-theme .page-header-custom {}
-
+        
         .game-board {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 4px; 
+            gap: 2px; /* Уменьшен gap для более плотного поля */
         }
         .game-board-cell {
-            min-height: 90px; /* Для десктопа */
+            min-height: 70px; /* Для десктопа, попытка сделать квадратнее */
             background-size: cover;
             background-position: center;
             position: relative;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: space-between; /* Распределяем контент внутри ячейки */
             align-items: center;
             box-sizing: border-box;
             border: 1px solid #eee; 
-            margin: 2px; 
+            margin: 1px; /* Уменьшен margin */
+            padding: 2px; /* Минимальный padding */
             transition: border-color 0.3s;
         }
         .cell-number-badge {
             position: absolute;
-            top: 2px;
-            left: 2px;
-            font-size: 0.65em; 
-            opacity: 0.8;
-            padding: 0.2em 0.4em;
+            top: 1px; left: 1px;
+            font-size: 0.7em; /* Чуть больше для читаемости на фоне */
+            opacity: 0.9;
+            padding: 0.15em 0.3em;
+            line-height: 1;
         }
         .player-chip { 
-            padding: 1px 3px; 
+            padding: 1px 2px; 
             border-radius: .2rem; 
             margin: 1px;
-            font-size: 0.48em; 
-            line-height: 1;
-            max-width: 90%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 0.6em; /* Уменьшен для компенсации общего увеличения */
+            line-height: 1.1; /* Чуть больше для маленького шрифта */
+            max-width: 95%;
         }
-        #user-greeting-container {
-            display: flex;
-            align-items: center;
-        }
+        #user-greeting-container { display: flex; align-items: center; }
         #user-greeting-text {
-            font-size: 1.5rem; 
+            font-size: 1.4rem; /* Немного уменьшен относительно H2, но все еще крупный */
             margin-right: 0.5rem; 
             margin-bottom: 0; 
         }
         #user-status-badge-container .badge {
-            font-size: 0.8rem; 
+            font-size: 0.9rem; 
             vertical-align: middle; 
             padding: .25em .5em;
         }
         
-        .rating-leader-info {}
-        .rating-leader-info p {
-            margin-bottom: 0 !important; 
-        }
+        .rating-leader-info { font-size: var(--standard-font-size); }
+        .rating-leader-info p { margin-bottom: 0 !important; }
+        #user-rating-display, #current-leader-display { font-weight: bold; }
         
-        #game-status-info p {
-            margin-bottom: 0.1rem; 
-        }
-        #game-status-info p:last-child {
-             margin-bottom: 0;
-        }
+        #game-status-info p { margin-bottom: 0.1rem; font-size: var(--standard-font-size); }
+        #game-status-info p:last-child { margin-bottom: 0; }
 
         .user-hand .card, .table-cards .card {
-            margin-bottom: 8px; 
+            margin-bottom: 5px; /* Уменьшен отступ между картами */
             height: 100%; 
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
             display: flex; 
             flex-direction: column; 
         }
-        .card-owner-info {
-            font-size: 0.8rem;
-            padding: 0.2rem 0.25rem;
+        .card-owner-info { /* "Чья:" */
+            font-size: var(--standard-font-size);
+            padding: 0.1rem 0.2rem; /* Минимальный padding */
             text-align: center;
             margin-bottom: 0; 
             order: -1; 
+            line-height: 1.3;
         }
         .card-img-top {
-            max-height: 280px; 
+            /* max-height УБРАН - пусть определяется шириной колонки и object-fit */
             width: 100%; 
             object-fit: contain; 
             margin-top: 0;   
             cursor: zoom-in; 
             transition: border-color 0.3s;
+            min-height: 150px; /* Минимальная высота для изображения, чтобы карточка не схлопывалась */
         }
         .card-body {
-            padding: 0.25rem; 
-            font-size: 0.85rem; 
+            padding: 0.2rem; /* Уменьшен padding */
+            font-size: var(--standard-font-size); 
+            line-height: 1.4;
             display: flex;
             flex-direction: column;
-            justify-content: space-between; 
+            justify-content: center; /* Центрируем контент, если его мало */
             flex-grow: 1;
+            text-align: center; /* Центрируем текст в card-body */
         }
         .card-body .form-group { margin-bottom: 0.2rem; }
-        /* Базовые стили для кнопок в карточке, будут переопределены спец. классами */
-        .card-body .btn { font-size: 0.7rem; padding: 0.2rem 0.4rem; } 
-        .card-body .small, .card-body p.small { font-size: 0.75rem; } /* Базовый размер для этих текстов */
-
-
-        .place-action-button { /* Кнопка "Выложить" */
-            font-size: 1.1rem !important; 
-            padding: 0.4rem 0.5rem !important; 
-            line-height: 1.5; 
+        
+        /* Общие стили для кнопок в карточках - будут переопределены */
+        .card-body .btn { 
+            font-size: var(--standard-font-size) !important; 
+            padding: 0.3rem 0.5rem !important; 
+            line-height: 1.4 !important;
+            margin-top: 0.2rem; /* Небольшой отступ сверху для кнопок/форм */
         }
-        /* ИЗМЕНЕНИЕ: Стили для кнопки "Угадать" */
-        .guess-action-button {
-            font-size: 0.9rem !important; /* Увеличен по сравнению с базовым .card-body .btn */
-            padding: 0.3rem 0.5rem !important;
+        .card-body .form-control-sm { /* Для select угадывания */
+             font-size: var(--standard-font-size);
+             padding: 0.2rem 0.3rem;
+             height: auto; /* Чтобы padding влиял на высоту */
+        }
+        .card-body label { /* Для "Чья карта?" */
+            font-size: var(--standard-font-size);
+            margin-bottom: 0.1rem;
+        }
+
+        .card-body .small, .card-body p.small { /* Тексты типа (Это ваша карта) */
+            font-size: var(--standard-font-size) !important; /* Увеличиваем */
+            line-height: 1.3;
+            margin-top: 0.1rem; margin-bottom: 0.1rem;
+        }
+        .my-choice-text { /* Для "Мой выбор:" */
+            /* color будет наследоваться */
+        }
+        ul.guesses-list { /* Список угадываний */
+            list-style: none;
+            padding-left: 0;
+            margin-bottom: 0;
+            font-size: var(--standard-font-size);
             line-height: 1.4;
         }
+        ul.guesses-list li {
+            margin-bottom: 0.1rem;
+        }
+
+
+        .place-action-button, .guess-action-button { /* Кнопки "Выложить", "Угадать" */
+            /* font-size и padding уже заданы через .card-body .btn !important */
+        }
         
+        /* Модальное окно с МАКСИМАЛЬНЫМ изображением */
         .modal-dialog.modal-fullscreen-viewer {
-            max-width: none; width: 100vw; height: 100vh; margin: 0; padding: 0;
+            max-width: 100vw; width: 100vw; height: 100vh; margin: 0; padding: 0;
         }
         .modal-fullscreen-viewer .modal-content {
-            height: 100vh; border-radius: 0; border: none; 
-            background-color: transparent; 
-            display: flex; flex-direction: column;
+            height: 100vh; width:100vw; border-radius: 0; border: none; 
+            background-color: rgba(0,0,0,0.85); /* Полупрозрачный фон */
+            display: flex; flex-direction: column; /* Для выравнивания body */
+            position: fixed; top:0; left:0;
         }
         .modal-fullscreen-viewer .modal-header { 
-            flex-shrink: 0; 
-             background-color: rgba(0,0,0,0.5); 
-             border-bottom: none; 
-             padding: 0.5rem 1rem; 
+            display: none; /* ПОЛНОСТЬЮ СКРЫВАЕМ ШАПКУ */
+            /* Если нужен крестик - раскомментировать и стилизовать */
+            /* position: absolute; top: 5px; right: 15px; z-index: 1060; border: none; 
+            background: transparent; padding: 0; */
         }
-         .modal-fullscreen-viewer .modal-header .modal-title {
-            color: #f0f0f0; 
-         }
-        .modal-fullscreen-viewer .modal-header .close {
-            color: #fff; 
-            opacity: 0.8;
-            text-shadow: 0 1px 0 #000;
-        }
+        /* .modal-fullscreen-viewer .modal-header .close {
+            color: white; text-shadow: 0 0 5px black, 0 0 3px black; font-size: 2rem; 
+            opacity: 0.7; font-weight: bold;
+        } */
         .modal-fullscreen-viewer .modal-body {
             flex-grow: 1; 
             padding: 0;     
@@ -161,27 +185,28 @@
             align-items: center; 
             justify-content: center; 
             overflow: hidden;
-            background-color: rgba(0,0,0,0.85); 
+            width: 100%; height: 100%; /* Занимает все пространство modal-content */
         }
         .modal-fullscreen-viewer .modal-body img#modalImage {
-            max-width: 100%;  
-            max-height: 100%; 
+            max-width: 100vw;  
+            max-height: 100vh; 
             object-fit: contain;
             border-radius: 0; 
             cursor: zoom-out; 
         }
 
-        .pending-message { 
-            background-color: #fff3cd; border-color: #ffeeba; padding: .75rem 1.25rem;
-            border: 1px solid transparent; border-radius: .25rem;
-            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        /* Флеш-сообщения */
+        .alert {
+            padding: 0.3rem 0.6rem !important;
+            margin-bottom: 0.5rem !important;
+            font-size: var(--flash-message-font-size) !important;
+            line-height: 1.4;
         }
+
         #rules-block { transition: background-color 0.3s, border-color 0.3s; }
         #rules-block img.rules-image { margin-top: 0.5rem; }
-        #rules-block h4, #rules-block h5, #rules-block p, #rules-block li, #rules-block a {
-            transition: color 0.3s;
-        }
-        #rules-block h4, #rules-block h5 { margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        #rules-block h4, #rules-block h5 { font-size: 1.5rem; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        #rules-block p, #rules-block li { font-size: var(--standard-font-size); line-height: 1.4; }
         #rules-block ul { padding-left: 20px; margin-bottom: 0.5rem; }
         #rules-block li { margin-bottom: 0.15rem; }
 
@@ -194,23 +219,27 @@
         }
         #theme-toggle-icon-button svg { width: 16px; height: 16px; } 
 
-        /* Стили для темной темы */
-        body.dark-theme { background-color: #1a1a1d; color: #e0e0e0; } 
+        /* === Темная тема === */
+        body.dark-theme { background-color: #121212; color: #e0e0e0; } /* Более темный фон, стандартный светлый текст */
+        body.dark-theme .page-header-custom { background-color: #1f1f1f; border-bottom-color: #303030;}
         body.dark-theme #theme-toggle-icon-button {
             background-color: #3a3f44; border-color: #565e64; color: #f0f0f0; 
         }
-        body.dark-theme hr { border-top-color: #404040; } 
+        body.dark-theme hr { border-top-color: #383838; } 
         body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
         body.dark-theme #user-greeting-text, body.dark-theme #user-rating-display, 
-        body.dark-theme #current-leader-display, body.dark-theme .card-owner-info { 
+        body.dark-theme #current-leader-display, body.dark-theme .card-owner-info, 
+        body.dark-theme .my-choice-text, body.dark-theme ul.guesses-list li { 
             color: #e0e0e0;
         }
         body.dark-theme .card {
-            background-color: #2c2f33; border-color: #4a4e53; color: #e0e0e0; 
+            background-color: #1e1e1e; border-color: #333; color: #e0e0e0; 
         }
-        body.dark-theme .card-img-top { border-bottom-color: #4a4e53; }
-        body.dark-theme .text-muted { color: #909397 !important; } 
-        body.dark-theme #current-leader-display[style*="color: #007bff;"] { color: #6cabff !important; }
+        body.dark-theme .card-img-top { border-bottom-color: #333; }
+        body.dark-theme .text-muted { color: #a0a0a0 !important; } 
+        body.dark-theme #current-leader-display[style*="color: #007bff;"] { color: #62aeff !important; }
+        
+        /* Кнопки в темной теме */
         body.dark-theme .btn-secondary { background-color: #4f545c; border-color: #4f545c; color: #e0e0e0; }
         body.dark-theme .btn-secondary:hover { background-color: #42464d; border-color: #3b3f44; }
         body.dark-theme .btn-outline-secondary { color: #adb5bd; border-color: #4f545c; }
@@ -220,100 +249,99 @@
         body.dark-theme .btn-warning, 
         body.dark-theme .place-action-button, 
         body.dark-theme .guess-action-button { 
-             background-color: #b87d00; border-color: #946400; color: #1a1a1d !important; 
+             background-color: #ffc107; border-color: #ffc107; color: #212529 !important; /* Стандартный желтый Bootstrap с темным текстом */
         }
         body.dark-theme .btn-warning:hover, 
         body.dark-theme .place-action-button:hover,
         body.dark-theme .guess-action-button:hover {
-             background-color: #946400; border-color: #674600;
+             background-color: #e0a800; border-color: #d39e00;
         }
         body.dark-theme .btn-info { background-color: #138496; border-color: #117a8b; color: #e0e0e0;}
         body.dark-theme .btn-info:hover { background-color: #0d6e7c; border-color: #0c626e;}
-        body.dark-theme .modal-fullscreen-viewer .modal-header { background-color: rgba(30,30,30,0.7); }
-        body.dark-theme .modal-fullscreen-viewer .modal-body { background-color: rgba(10,10,10,0.85); }
-        body.dark-theme .modal-content { background-color: transparent; }
-        body.dark-theme .modal-header .close { color: #f0f0f0; opacity: 0.9;}
+        
+        /* Модальное окно в темной теме */
+        body.dark-theme .modal-fullscreen-viewer .modal-content { background-color: rgba(10,10,10,0.9); }
+        /* body.dark-theme .modal-fullscreen-viewer .modal-header { background-color: rgba(20,20,20,0.7); }
+        body.dark-theme .modal-fullscreen-viewer .modal-header .close { color: #f0f0f0; opacity: 0.9;} */
+
+        body.dark-theme .alert { /* Общий стиль для alert в темной теме */
+            color: #e0e0e0;
+            background-color: #303030;
+            border-color: #454545;
+        }
         body.dark-theme .alert-info { background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;}
         body.dark-theme .alert-warning { background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;}
         body.dark-theme .alert-success { background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;}
         body.dark-theme .alert-danger { background-color: #3e1f23; border-color: #5c2e35; color: #ffb8c0;}
-        body.dark-theme .game-board-cell { border-color: #4a4e53; }
-        body.dark-theme #rules-block { background-color: #23272a; border: 1px solid #3a3e42; }
+        
+        body.dark-theme .game-board-cell { border-color: #333; }
+        body.dark-theme #rules-block { background-color: #1e1e1e; border: 1px solid #333; }
         body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li { color: #c0c0c0; }
-        body.dark-theme #rules-block a { color: #6c9cff; }
-        body.dark-theme .form-control { background-color: #3a3e42; color: #e0e0e0; border-color: #55595e; }
+        body.dark-theme #rules-block a { color: #62aeff; }
+        body.dark-theme .form-control { background-color: #2b2b2b; color: #e0e0e0; border-color: #444; }
         body.dark-theme .form-control::placeholder { color: #888c91; }
-        body.dark-theme .form-control:focus { background-color: #42464a; border-color: #007bff; color: #e0e0e0; }
-        body.dark-theme .badge-dark { background-color: #55595e; color: #e0e0e0; }
-        body.dark-theme .badge-primary { background-color: #2a65a0; color: #fff; }
-        body.dark-theme .badge-success { background-color: #2e7d32; color: #fff; }
-        body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; } 
-        body.dark-theme .badge-info { background-color: #206a8a; color: #fff; }
+        body.dark-theme .form-control:focus { background-color: #333; border-color: #007bff; color: #e0e0e0; }
+        body.dark-theme .badge-dark { background-color: #454d55; color: #e0e0e0; }
+        body.dark-theme .badge-primary { background-color: #0056b3; color: #fff; }
+        body.dark-theme .badge-success { background-color: #1e7e34; color: #fff; }
+        body.dark-theme .badge-warning { background-color: #ffc107; color: #212529; } 
+        body.dark-theme .badge-info { background-color: #138496; color: #fff; }
 
-        @media (max-width: 767.98px) {
+        /* === Медиа-запросы (адаптивность) === */
+        @media (max-width: 767.98px) { /* Планшеты и крупные телефоны */
+            :root { --standard-font-size: var(--standard-font-size-mobile); } /* Используем мобильный размер шрифта */
+
             .page-header-custom { margin-bottom: 0.25rem; padding-top: 0.3rem; padding-bottom: 0.3rem; }
-            #user-greeting-text { font-size: 1.25rem; } 
-            #user-status-badge-container .badge { font-size: 0.7rem; }
+            #user-greeting-text { font-size: 1.2rem; } 
+            #user-status-badge-container .badge { font-size: 0.8rem; }
             #theme-toggle-icon-button { width: 30px; height: 30px; }
             #theme-toggle-icon-button svg { width: 14px; height: 14px; }
 
             .player-chip {
-                font-size: 9px; 
-                width: 18px;    
-                height: 18px;   
-                line-height: 18px; 
+                font-size: 8px; /* Еще меньше для мобильных */
+                width: 16px;    
+                height: 16px;   
+                line-height: 16px; 
                 padding: 0;        
                 text-align: center;
                 border-radius: 3px; 
-                overflow: hidden; 
-                white-space: nowrap;
             }
-            /* ИЗМЕНЕНИЕ: Ячейки игрового поля на мобильных */
             .game-board-cell { 
-                min-height: 65px; /* Уменьшено для попытки сделать более квадратными */
-                                  /* Идеально - JS для установки высоты = ширине */
+                min-height: 55px; /* Уменьшено для попытки сделать более квадратными */
+                padding: 1px;
             }
+            .rating-leader-info { font-size: var(--standard-font-size-mobile); }
+            #user-rating-display { font-size: var(--standard-font-size-mobile); }
 
-            .rating-leader-info {}
-            .rating-leader-info p {}
-            .rating-leader-info p.mr-md-3 {}
-
-            /* ИЗМЕНЕНИЕ: Текст на карточках на мобильных */
+            .card-img-top { min-height: 120px; } 
+            .card-body { font-size: var(--standard-font-size-mobile); padding: 0.15rem; }
+            .card-body .btn { /* Общий для кнопок на мобильных */
+                font-size: var(--standard-font-size-mobile) !important; 
+                padding: 0.25rem 0.4rem !important;
+            }
             .card-body .small, .card-body p.small { 
-                font-size: 0.9rem !important; /* Увеличен текст типа "(Это ваша карта)" */
+                font-size: var(--standard-font-size-mobile) !important;
             }
-            #user-rating-display { font-size: 0.85rem; } /* Оставляем рейтинг как был */
-            
-            .game-board-cell { min-height: 60px; } /* Повторное правило, уточнил до 60px */
-            .card-img-top { max-height: 200px; } 
-            .card-body { font-size: 0.75rem; padding: 0.2rem; } /* Базовый для card-body */
-            
-            /* ИЗМЕНЕНИЕ: Кнопка "Угадать" на мобильных */
-            .guess-action-button {
-                 font-size: 0.9rem !important; 
-                 padding: 0.3rem 0.4rem !important;
-            }
-             /* Кнопка "Выложить" на мобильных */
-            .place-action-button {
-                 font-size: 0.9rem !important; /* Сделаем такой же, как "Угадать" для консистентности на мобильных */
-                 padding: 0.3rem 0.4rem !important;
-            }
+            #rules-block p, #rules-block li { font-size: var(--standard-font-size-mobile); }
+            #rules-block h4, #rules-block h5 { font-size: 1.3rem; }
         }
-        @media (max-width: 575.98px) {
-            .game-board { gap: 2px; }
-            .game-board-cell { margin: 1px; min-height: 50px; } /* Еще меньше для очень маленьких экранов */
-            .card-img-top { max-height: 160px; }
+
+        @media (max-width: 575.98px) { /* Маленькие телефоны */
+            :root { --standard-font-size-mobile: 0.9rem; --flash-message-font-size: 0.9rem;} /* Еще чуть меньше для самых маленьких */
+             
+            .game-board-cell { min-height: calc( (100vw - 20px) / 6 ); /* Попытка сделать квадратными, 6 в ряд */ height: calc( (100vw - 20px) / 6 ); padding:0; margin:1px;}
+            .player-chips-container { margin-top:0 !important;}
+
+
+            .card-img-top { min-height: 100px; }
             #user-greeting-text { font-size: 1.1rem; }
             .rating-leader-info { 
                  flex-direction: column;
                  align-items: flex-start;
+                 font-size: var(--standard-font-size-mobile);
             }
-            .rating-leader-info p {
-                margin-bottom: 0.05rem !important; 
-            }
-             .rating-leader-info p.mr-3 { 
-                margin-right: 0 !important; 
-            }
+            .rating-leader-info p { margin-bottom: 0.05rem !important; }
+            .rating-leader-info p.mr-md-3, .rating-leader-info p.mr-2 { margin-right: 0 !important; }
         }
     </style>
 </head>
@@ -344,7 +372,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-2" role="alert">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
@@ -356,7 +384,7 @@
 
         <div class="rating-leader-info d-flex flex-wrap justify-content-start align-items-baseline mb-1">
             <p class="mr-md-3 mr-2">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
-            <p>Ведущий: <strong id="current-leader-display" style="font-weight: bold; color: #007bff;">Загрузка...</strong></p>
+            <p>Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
         </div>
         
         <div id="game-messages" class="alert alert-info mt-1" role="alert" style="display: none;"></div>
@@ -367,8 +395,8 @@
         </div>
         <hr class="my-2">
 
-        <h2 id="table-cards-header">Общий стол</h2>
-        <div id="table-cards" class="row table-cards"></div>
+        <h2 id="table-cards-header" style="font-size: 2rem;">Общий стол</h2>
+        <div id="table-cards" class="row table-cards no-gutters"> </div>
         <div id="table-placeholder" class="text-center" style="display: none;">
             <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
             <p id="leader-empty-table-rating" style="display: none;"></p>
@@ -377,12 +405,12 @@
         <hr class="my-2">
 
         <div id="player-hand-section" style="display: none;">
-            <h2 id="player-hand-header">Мои карты:</h2>
-            <div id="player-hand" class="row user-hand"></div>
+            <h2 id="player-hand-header" style="font-size: 2rem;">Мои карты:</h2>
+            <div id="player-hand" class="row user-hand no-gutters"> </div>
         </div>
         <hr class="my-2">
 
-        <h2>Игровое поле:</h2>
+        <h2 style="font-size: 2rem;">Игровое поле:</h2>
         <div id="game-board" class="game-board"></div>
         <hr class="my-2">
 
@@ -414,12 +442,6 @@
     <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen-viewer" role="document"> 
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="imageModalLabel"></h5> 
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
                 <div class="modal-body text-center">
                     <img src="" id="modalImage" alt="Увеличенное изображение карты">
                 </div>
@@ -524,7 +546,6 @@
                 }
             }
 
-            updateGameStatusInfo(gameState); 
             updatePlayerHand(gameState); 
             updateTableCards(gameState);
             updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
@@ -543,17 +564,17 @@
 
         function showImageModal(imageSrc) {
             const modalImage = document.getElementById('modalImage');
-            const modalTitle = document.getElementById('imageModalLabel');
+            // const modalTitle = document.getElementById('imageModalLabel'); // Шапка скрыта
             if (modalImage) {
                  modalImage.src = imageSrc;
-                 if (modalTitle) modalTitle.textContent = ''; // Можно очистить или установить заголовок
+                 // if (modalTitle) modalTitle.textContent = ''; 
                  $('#imageModal').modal('show'); 
             } else {
                 console.error("Modal image element not found");
             }
         }
 
-        function updateGameStatusInfo(gameState) { /* Больше не обновляет ведущего здесь */ }
+        // updateGameStatusInfo была пустой, удалена для краткости
 
         function updatePlayerHand(gameState) {
             const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template } = gameState;
@@ -581,7 +602,8 @@
 
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-6 mb-1'; 
+                // ИЗМЕНЕНИЕ: col-lg-4 для более крупных карт, col-6 на мобильных
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1'; // p-1 для маленького отступа между картами
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
@@ -654,7 +676,7 @@
 
             (table_images || []).forEach(card => { 
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-6 mb-1';
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1'; // p-1 для маленького отступа
                 let cardImageSrc = "";
                 let cardAltText = "Карта на столе";
                 let cardBodyContent = '';
@@ -663,7 +685,7 @@
                 if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) {
                     cardImageSrc = "/static/images/a.jpg"; 
                     cardAltText = "Карта на столе (заглушка)";
-                    cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Карта выложена)</p>';
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карта выложена)</p>';
                 } else {
                     cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
                     cardAltText = `Карта ${card.image}`;
@@ -672,7 +694,8 @@
                 if (show_card_info) { 
                     ownerInfoAboveImage = `<p class="mb-0 small text-center card-owner-info">Чья: <strong>${card.owner_name || 'Неизв.'}</strong></p>`;
                     if (card.guesses && Object.keys(card.guesses).length > 0) {
-                        cardBodyContent = '<p class="card-text small my-1"><u>Предположения:</u></p><ul class="list-unstyled small mb-0">';
+                        // Добавляем класс к UL для стилизации размера шрифта
+                        cardBodyContent = '<p class="card-text small my-1"><u>Предположения:</u></p><ul class="list-unstyled small mb-0 guesses-list">'; 
                         for (const guesserIdStr in card.guesses) {
                             const guessedTargetId = card.guesses[guesserIdStr];
                             let guesserName = `ID ${guesserIdStr}`;
@@ -684,7 +707,7 @@
                                              (current_user_data && current_user_data.id === guessedTargetId ? current_user_data : null);
                             if(targetUser) targetName = targetUser.name;
                             const isCorrect = guessedTargetId === card.owner_id;
-                            cardBodyContent += `<li class="mb-0">${guesserName} -> ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
+                            cardBodyContent += `<li class="mb-0">${guesserName} → ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
                         }
                         cardBodyContent += '</ul>';
                     } else {
@@ -703,11 +726,10 @@
                          if (card.owner_id && card.owner_id !== current_user_data.id && !(all_users_for_guessing?.find(u=>u.id === card.owner_id))) {
                              selectOptions += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || `Игрок ID ${card.owner_id}`}</option>`;
                         }
-                        // ИЗМЕНЕНИЕ: Класс для кнопки "Угадать"
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
-                                    <label for="guess-for-${card.id}" class="small d-block text-center">Чья карта?</label>
+                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карта?</label>
                                     <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
                                         ${selectOptions}
                                     </select>
@@ -720,17 +742,18 @@
                                                  (card.owner_id == card.my_guess_for_this_card_value ? { name: card.owner_name } : null) ||
                                                  (current_user_data && current_user_data.id == card.my_guess_for_this_card_value ? current_user_data : null) ;
                             if(guessedUserObj) guessedName = guessedUserObj.name;
-                            cardBodyContent += `<p class="mt-1 mb-0 small text-success text-center">Мой выбор: ${guessedName}</p>`;
+                            // ИЗМЕНЕНИЕ: Убран text-success, добавлен класс my-choice-text
+                            cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
                         }
                     } else { 
-                        cardBodyContent += '<p class="card-text text-muted small text-center my-1">(Это ваша карта)</p>';
+                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карта)</p>';
                     }
                 } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) { 
-                     cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Вы наблюдатель)</p>';
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
                 } else if (game_over && !show_card_info && cardImageSrc !== "/static/images/a.jpg") { 
-                     cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Игра окончена)</p>';
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
                 } else if (cardImageSrc !== "/static/images/a.jpg") { 
-                    cardBodyContent = '<p class="card-text text-muted small text-center my-1">(Просмотр)</p>';
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Просмотр)</p>';
                 }
                 
                 const imagePathForModal = (cardImageSrc === "/static/images/a.jpg") ? cardImageSrc : `/static/images/${card.subfolder}/${card.image}`;
@@ -758,19 +781,27 @@
                 return;
             }
 
-            const cellsInRow = totalCells > 0 ? Math.min(Math.max(5, Math.ceil(Math.sqrt(totalCells * 1.8))), 12) : 10;
+            let cellsInRow = window.innerWidth < 576 ? 6 : (totalCells > 0 ? Math.min(Math.max(5, Math.ceil(Math.sqrt(totalCells * 1.8))), 12) : 10);
+            if (window.innerWidth < 768 && window.innerWidth >= 576) {
+                cellsInRow = 8; // Больше ячеек на sm экранах
+            }
+
+
             const cellWidthPercent = 100 / cellsInRow;
 
             boardCells.forEach(cell => {
                 const cellDiv = document.createElement('div');
-                cellDiv.className = 'game-board-cell text-white p-1'; // p-1 был убран ранее, но для контента может быть полезен
+                cellDiv.className = 'game-board-cell text-white'; 
                 cellDiv.style.backgroundImage = `url(/static/${cell.image_path})`;
-                cellDiv.style.flexBasis = `calc(${cellWidthPercent}% - 4px)`; 
+                cellDiv.style.flexBasis = `calc(${cellWidthPercent}% - 2px)`; // -2px из-за margin:1px
+                // Для попытки сделать квадратными через JS (если CSS не справится)
+                // const cellComputedWidth = (gameBoardDiv.offsetWidth * (cellWidthPercent / 100)) - 2;
+                // cellDiv.style.height = `${cellComputedWidth}px`;
                 cellDiv.title = `Ячейка ${cell.cell_number}`;
 
                 let cellHtml = `<div class="cell-number-badge badge badge-dark">${cell.cell_number}</div>`;
                 if (cell.users_in_cell && cell.users_in_cell.length > 0) {
-                    cellHtml += '<div class="player-chips-container mt-1">';
+                    cellHtml += '<div class="player-chips-container mt-auto mb-1">'; // mt-auto чтобы прижать вниз
                     cell.users_in_cell.forEach(user => {
                         const isCurrentUserOnCell = currentUserId && user.id === currentUserId;
                         cellHtml += `<span class="player-chip badge ${isCurrentUserOnCell ? 'badge-success' : 'badge-primary'}" title="${user.name} (Рейтинг: ${user.rating})">${user.name.substring(0,3)}</span>`;
