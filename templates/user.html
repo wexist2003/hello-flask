@@ -10,20 +10,13 @@
         body {
             font-size: 1rem; 
             transition: background-color 0.3s, color 0.3s;
-            /* padding-top: 60px; УДАЛЕНО, т.к. шапка теперь часть потока */
         }
-        /* ИЗМЕНЕНИЕ: Стили для новой шапки */
         .page-header-custom {
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
-            /* background-color: #f8f9fa; /* Светлый фон для шапки, можно убрать или настроить */
-            /* border-bottom: 1px solid #dee2e6; /* Граница снизу для шапки */
-            margin-bottom: 0.5rem; /* Отступ от шапки до основного контента */
+            margin-bottom: 0.5rem; 
         }
-        body.dark-theme .page-header-custom {
-            /* background-color: #23272a; */
-            /* border-bottom-color: #3a3e42; */
-        }
+        body.dark-theme .page-header-custom {}
 
         .game-board {
             display: flex;
@@ -32,7 +25,7 @@
             gap: 4px; 
         }
         .game-board-cell {
-            min-height: 90px; 
+            min-height: 90px; /* Для десктопа */
             background-size: cover;
             background-position: center;
             position: relative;
@@ -53,7 +46,7 @@
             opacity: 0.8;
             padding: 0.2em 0.4em;
         }
-        .player-chip { /* Стили для десктопа */
+        .player-chip { 
             padding: 1px 3px; 
             border-radius: .2rem; 
             margin: 1px;
@@ -67,26 +60,23 @@
         #user-greeting-container {
             display: flex;
             align-items: center;
-            /* margin-bottom: 0.1rem; /* Управляется теперь отступом page-header-custom */
         }
         #user-greeting-text {
-            font-size: 1.5rem; /* Немного уменьшен для компактности в шапке */
+            font-size: 1.5rem; 
             margin-right: 0.5rem; 
-            margin-bottom: 0; /* Убираем стандартный отступ h1 */
+            margin-bottom: 0; 
         }
         #user-status-badge-container .badge {
-            font-size: 0.8rem; /* Немного уменьшен для компактности */
+            font-size: 0.8rem; 
             vertical-align: middle; 
             padding: .25em .5em;
         }
-        /* Минимальные отступы для рейтинга и ведущего */
-        p:has(> #user-rating-display) {
-            margin-bottom: 0.1rem !important; 
-            margin-top: 0.25rem; /* Небольшой отступ от приветствия */
+        
+        .rating-leader-info {}
+        .rating-leader-info p {
+            margin-bottom: 0 !important; 
         }
-        #game-status-info {
-            /* margin-top: 0.25rem; /* Небольшой отступ от HR */
-        }
+        
         #game-status-info p {
             margin-bottom: 0.1rem; 
         }
@@ -125,28 +115,65 @@
             flex-grow: 1;
         }
         .card-body .form-group { margin-bottom: 0.2rem; }
-        .card-body .btn { font-size: 0.7rem; padding: 0.2rem 0.4rem; }
-        .card-body .small, .card-body p.small { font-size: 0.75rem; }
+        /* Базовые стили для кнопок в карточке, будут переопределены спец. классами */
+        .card-body .btn { font-size: 0.7rem; padding: 0.2rem 0.4rem; } 
+        .card-body .small, .card-body p.small { font-size: 0.75rem; } /* Базовый размер для этих текстов */
+
+
+        .place-action-button { /* Кнопка "Выложить" */
+            font-size: 1.1rem !important; 
+            padding: 0.4rem 0.5rem !important; 
+            line-height: 1.5; 
+        }
+        /* ИЗМЕНЕНИЕ: Стили для кнопки "Угадать" */
+        .guess-action-button {
+            font-size: 0.9rem !important; /* Увеличен по сравнению с базовым .card-body .btn */
+            padding: 0.3rem 0.5rem !important;
+            line-height: 1.4;
+        }
         
         .modal-dialog.modal-fullscreen-viewer {
             max-width: none; width: 100vw; height: 100vh; margin: 0; padding: 0;
         }
         .modal-fullscreen-viewer .modal-content {
-            height: 100vh; border-radius: 0; border: none; display: flex; flex-direction: column;
+            height: 100vh; border-radius: 0; border: none; 
+            background-color: transparent; 
+            display: flex; flex-direction: column;
         }
-        .modal-fullscreen-viewer .modal-header { flex-shrink: 0; }
+        .modal-fullscreen-viewer .modal-header { 
+            flex-shrink: 0; 
+             background-color: rgba(0,0,0,0.5); 
+             border-bottom: none; 
+             padding: 0.5rem 1rem; 
+        }
+         .modal-fullscreen-viewer .modal-header .modal-title {
+            color: #f0f0f0; 
+         }
+        .modal-fullscreen-viewer .modal-header .close {
+            color: #fff; 
+            opacity: 0.8;
+            text-shadow: 0 1px 0 #000;
+        }
         .modal-fullscreen-viewer .modal-body {
-            overflow: hidden; padding: 2px; display: flex; 
-            align-items: center; justify-content: center; flex-grow: 1; 
+            flex-grow: 1; 
+            padding: 0;     
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden;
+            background-color: rgba(0,0,0,0.85); 
         }
         .modal-fullscreen-viewer .modal-body img#modalImage {
-            max-width: 100%; max-height: 100%; 
-            object-fit: contain; border-radius: 0.15rem; 
+            max-width: 100%;  
+            max-height: 100%; 
+            object-fit: contain;
+            border-radius: 0; 
+            cursor: zoom-out; 
         }
 
         .pending-message { 
             background-color: #fff3cd; border-color: #ffeeba; padding: .75rem 1.25rem;
-            margin-bottom: 1rem; border: 1px solid transparent; border-radius: .25rem;
+            border: 1px solid transparent; border-radius: .25rem;
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
         }
         #rules-block { transition: background-color 0.3s, border-color 0.3s; }
@@ -158,24 +185,14 @@
         #rules-block ul { padding-left: 20px; margin-bottom: 0.5rem; }
         #rules-block li { margin-bottom: 0.15rem; }
 
-        /* ИЗМЕНЕНИЕ: Иконка темы больше не position:fixed */
-        #theme-icon-wrapper { /* Новый враппер для иконки */
-            /* Стили для позиционирования в flex-контейнере шапки уже есть (justify-content-between) */
-        }
+        #theme-icon-wrapper {}
         #theme-toggle-icon-button {
-            width: 32px; /* Уменьшил кнопку для компактности в шапке */
-            height: 32px;
-            line-height: 1; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #ccc; 
-            background-color: #f8f9fa; 
-            color: #212529; 
-            padding: 0; 
-            border-radius: 50%; /* Круглая кнопка */
+            width: 32px; height: 32px; line-height: 1; display: flex;
+            align-items: center; justify-content: center;
+            border: 1px solid #ccc; background-color: #f8f9fa; 
+            color: #212529; padding: 0; border-radius: 50%; 
         }
-        #theme-toggle-icon-button svg { width: 16px; height: 16px; } /* Уменьшил SVG */
+        #theme-toggle-icon-button svg { width: 16px; height: 16px; } 
 
         /* Стили для темной темы */
         body.dark-theme { background-color: #1a1a1d; color: #e0e0e0; } 
@@ -200,15 +217,22 @@
         body.dark-theme .btn-outline-secondary:hover { color: #fff; background-color: #4f545c; border-color: #4f545c; }
         body.dark-theme .btn-primary { background-color: #0056b3; border-color: #004085; color: #e0e0e0;}
         body.dark-theme .btn-primary:hover { background-color: #004085; border-color: #002752;}
-        body.dark-theme .btn-warning { background-color: #b87d00; border-color: #946400; color: #e0e0e0;}
-        body.dark-theme .btn-warning:hover { background-color: #946400; border-color: #674600;}
+        body.dark-theme .btn-warning, 
+        body.dark-theme .place-action-button, 
+        body.dark-theme .guess-action-button { 
+             background-color: #b87d00; border-color: #946400; color: #1a1a1d !important; 
+        }
+        body.dark-theme .btn-warning:hover, 
+        body.dark-theme .place-action-button:hover,
+        body.dark-theme .guess-action-button:hover {
+             background-color: #946400; border-color: #674600;
+        }
         body.dark-theme .btn-info { background-color: #138496; border-color: #117a8b; color: #e0e0e0;}
         body.dark-theme .btn-info:hover { background-color: #0d6e7c; border-color: #0c626e;}
-        body.dark-theme .modal-content { background-color: #2c2f33; color: #e0e0e0; border-color: #4a4e53; }
-        body.dark-theme .modal-header { border-bottom-color: #4a4e53; }
-        body.dark-theme .modal-footer { border-top-color: #4a4e53; }
-        body.dark-theme .close { color: #e0e0e0; text-shadow: none; }
-        body.dark-theme .close:hover { color: #fff; }
+        body.dark-theme .modal-fullscreen-viewer .modal-header { background-color: rgba(30,30,30,0.7); }
+        body.dark-theme .modal-fullscreen-viewer .modal-body { background-color: rgba(10,10,10,0.85); }
+        body.dark-theme .modal-content { background-color: transparent; }
+        body.dark-theme .modal-header .close { color: #f0f0f0; opacity: 0.9;}
         body.dark-theme .alert-info { background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;}
         body.dark-theme .alert-warning { background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;}
         body.dark-theme .alert-success { background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;}
@@ -223,40 +247,73 @@
         body.dark-theme .badge-dark { background-color: #55595e; color: #e0e0e0; }
         body.dark-theme .badge-primary { background-color: #2a65a0; color: #fff; }
         body.dark-theme .badge-success { background-color: #2e7d32; color: #fff; }
-        body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; }
+        body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; } 
         body.dark-theme .badge-info { background-color: #206a8a; color: #fff; }
 
         @media (max-width: 767.98px) {
-            .page-header-custom { margin-bottom: 0.25rem; }
-            #user-greeting-text { font-size: 1.25rem; } /* Еще меньше на мобильных */
+            .page-header-custom { margin-bottom: 0.25rem; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+            #user-greeting-text { font-size: 1.25rem; } 
             #user-status-badge-container .badge { font-size: 0.7rem; }
             #theme-toggle-icon-button { width: 30px; height: 30px; }
             #theme-toggle-icon-button svg { width: 14px; height: 14px; }
 
-            /* ИЗМЕНЕНИЕ: Квадратные фишки игроков на мобильных */
             .player-chip {
-                font-size: 9px; /* Маленький шрифт для инициалов */
-                width: 18px;    /* Фиксированная ширина */
-                height: 18px;   /* Фиксированная высота (равна ширине) */
-                line-height: 18px; /* Вертикальное центрирование текста */
-                padding: 0;        /* Убираем padding */
-                text-align: center;/* Горизонтальное центрирование текста */
-                border-radius: 3px; /* Слегка скругленные углы для "квадратности" */
+                font-size: 9px; 
+                width: 18px;    
+                height: 18px;   
+                line-height: 18px; 
+                padding: 0;        
+                text-align: center;
+                border-radius: 3px; 
                 overflow: hidden; 
                 white-space: nowrap;
             }
+            /* ИЗМЕНЕНИЕ: Ячейки игрового поля на мобильных */
+            .game-board-cell { 
+                min-height: 65px; /* Уменьшено для попытки сделать более квадратными */
+                                  /* Идеально - JS для установки высоты = ширине */
+            }
 
-            .card-body .small, .card-body p.small, #user-rating-display { font-size: 0.85rem; }
-            .game-board-cell { min-height: 80px; }
+            .rating-leader-info {}
+            .rating-leader-info p {}
+            .rating-leader-info p.mr-md-3 {}
+
+            /* ИЗМЕНЕНИЕ: Текст на карточках на мобильных */
+            .card-body .small, .card-body p.small { 
+                font-size: 0.9rem !important; /* Увеличен текст типа "(Это ваша карта)" */
+            }
+            #user-rating-display { font-size: 0.85rem; } /* Оставляем рейтинг как был */
+            
+            .game-board-cell { min-height: 60px; } /* Повторное правило, уточнил до 60px */
             .card-img-top { max-height: 200px; } 
-            .card-body { font-size: 0.75rem; padding: 0.2rem; }
-            .card-body .btn { font-size: 0.65rem; padding: 0.15rem 0.3rem; }
+            .card-body { font-size: 0.75rem; padding: 0.2rem; } /* Базовый для card-body */
+            
+            /* ИЗМЕНЕНИЕ: Кнопка "Угадать" на мобильных */
+            .guess-action-button {
+                 font-size: 0.9rem !important; 
+                 padding: 0.3rem 0.4rem !important;
+            }
+             /* Кнопка "Выложить" на мобильных */
+            .place-action-button {
+                 font-size: 0.9rem !important; /* Сделаем такой же, как "Угадать" для консистентности на мобильных */
+                 padding: 0.3rem 0.4rem !important;
+            }
         }
         @media (max-width: 575.98px) {
             .game-board { gap: 2px; }
-            .game-board-cell { margin: 1px; }
+            .game-board-cell { margin: 1px; min-height: 50px; } /* Еще меньше для очень маленьких экранов */
             .card-img-top { max-height: 160px; }
             #user-greeting-text { font-size: 1.1rem; }
+            .rating-leader-info { 
+                 flex-direction: column;
+                 align-items: flex-start;
+            }
+            .rating-leader-info p {
+                margin-bottom: 0.05rem !important; 
+            }
+             .rating-leader-info p.mr-3 { 
+                margin-right: 0 !important; 
+            }
         }
     </style>
 </head>
@@ -283,7 +340,7 @@
         </div>
     </div>
 
-    <div class="container"> {/* Основной контент теперь не имеет mt-3 по умолчанию */}
+    <div class="container"> 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -297,12 +354,13 @@
             {% endif %}
         {% endwith %}
 
-        <p style="margin-bottom: 0.1rem !important;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
-        <hr class="mt-1 mb-1">
-
-        <div id="game-messages" class="alert alert-info" role="alert" style="display: none;"></div>
-        <div id="game-status-info">
+        <div class="rating-leader-info d-flex flex-wrap justify-content-start align-items-baseline mb-1">
+            <p class="mr-md-3 mr-2">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
             <p>Ведущий: <strong id="current-leader-display" style="font-weight: bold; color: #007bff;">Загрузка...</strong></p>
+        </div>
+        
+        <div id="game-messages" class="alert alert-info mt-1" role="alert" style="display: none;"></div>
+        <div id="game-status-info" class="mt-1"> 
             <p id="pending-player-message" class="pending-message" style="display: none;">
                 Вы присоединились как наблюдатель. Ваше участие начнется со следующей НОВОЙ игры. Пока вы можете следить за процессом.
             </p>
@@ -375,16 +433,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <script>
-        // Весь предыдущий JavaScript код остается здесь без изменений,
-        // так как он уже содержит логику для тем, обновления карточек и т.д.
-        // Ключевые моменты, которые были затронуты предыдущими изменениями и 
-        // должны быть в этом скрипте:
-        // 1. Логика для user-greeting-text и user-status-badge-container
-        // 2. Удаление обновления счетчиков карт из updateGameStatusInfo
-        // 3. Классы колонок 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1' в updatePlayerHand и updateTableCards
-        // 4. Информация "Чья:" над карточкой в updateTableCards
-        // 5. Логика переключения темы с иконками.
-
         const currentUserCode = "{{ user_data_for_init.code if user_data_for_init else '' }}";
         let currentUserId = parseInt("{{ user_data_for_init.id if user_data_for_init else 0 }}") || null;
         let currentUserName = "{{ user_data_for_init.name if user_data_for_init else 'Игрок' }}";
@@ -420,6 +468,7 @@
             const userRatingDisplay = document.getElementById('user-rating-display');
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
+            const leaderDisplay = document.getElementById('current-leader-display');
 
             if (gameState.current_user_data) {
                 currentUserId = gameState.current_user_data.id;
@@ -450,6 +499,30 @@
                  if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '';
                  if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
+            
+            let leaderName = 'Не определен';
+            let isCurrentUserLeader = false; 
+            if (gameState.db_current_leader_id) { 
+                if (gameState.current_user_data && gameState.db_current_leader_id === gameState.current_user_data.id) {
+                    isCurrentUserLeader = true;
+                    leaderName = gameState.current_user_data.name; 
+                } else if (gameState.all_users_for_guessing) { 
+                    const leaderUser = gameState.all_users_for_guessing.find(u => u.id === gameState.db_current_leader_id);
+                    if (leaderUser) {
+                        leaderName = leaderUser.name;
+                    } else { 
+                        leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
+                    }
+                } else { 
+                     leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
+                }
+            }
+            if(leaderDisplay) { 
+                leaderDisplay.innerHTML = leaderName; 
+                if (isCurrentUserLeader && gameState.game_in_progress && !gameState.game_over) {
+                    leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
+                }
+            }
 
             updateGameStatusInfo(gameState); 
             updatePlayerHand(gameState); 
@@ -473,40 +546,14 @@
             const modalTitle = document.getElementById('imageModalLabel');
             if (modalImage) {
                  modalImage.src = imageSrc;
-                 if (modalTitle) modalTitle.textContent = '';
+                 if (modalTitle) modalTitle.textContent = ''; // Можно очистить или установить заголовок
                  $('#imageModal').modal('show'); 
             } else {
                 console.error("Modal image element not found");
             }
         }
 
-        function updateGameStatusInfo(gameState) {
-            let leaderName = 'Не определен';
-            let isCurrentUserLeader = false; 
-            if (gameState.db_current_leader_id) { 
-                if (gameState.current_user_data && gameState.db_current_leader_id === gameState.current_user_data.id) {
-                    isCurrentUserLeader = true;
-                    leaderName = gameState.current_user_data.name; 
-                } else if (gameState.all_users_for_guessing) { 
-                    const leaderUser = gameState.all_users_for_guessing.find(u => u.id === gameState.db_current_leader_id);
-                    if (leaderUser) {
-                        leaderName = leaderUser.name;
-                    } else { 
-                        leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
-                    }
-                } else { 
-                     leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
-                }
-            }
-
-            const leaderDisplay = document.getElementById('current-leader-display');
-            if(leaderDisplay) {
-                leaderDisplay.innerHTML = leaderName; 
-                if (isCurrentUserLeader && gameState.game_in_progress && !gameState.game_over) {
-                    leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
-                }
-            }
-        }
+        function updateGameStatusInfo(gameState) { /* Больше не обновляет ведущего здесь */ }
 
         function updatePlayerHand(gameState) {
             const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template } = gameState;
@@ -534,10 +581,10 @@
 
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1'; 
+                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-6 mb-1'; 
                 let buttonHtml = '';
                 if (canPlaceCard) {
-                    buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-primary btn-sm btn-block">Выложить</button></form>`;
+                    buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
                 } else if (on_table_status) {
                      buttonHtml = '<p class="text-muted small text-center my-1">(Ваша карта на столе)</p>';
                 } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
@@ -607,7 +654,7 @@
 
             (table_images || []).forEach(card => { 
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-12 mb-1';
+                cardDiv.className = 'col-lg-3 col-md-4 col-sm-6 col-6 mb-1';
                 let cardImageSrc = "";
                 let cardAltText = "Карта на столе";
                 let cardBodyContent = '';
@@ -656,6 +703,7 @@
                          if (card.owner_id && card.owner_id !== current_user_data.id && !(all_users_for_guessing?.find(u=>u.id === card.owner_id))) {
                              selectOptions += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || `Игрок ID ${card.owner_id}`}</option>`;
                         }
+                        // ИЗМЕНЕНИЕ: Класс для кнопки "Угадать"
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
@@ -664,7 +712,7 @@
                                         ${selectOptions}
                                     </select>
                                 </div>
-                                <button type="submit" class="btn btn-warning btn-sm btn-block">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
+                                <button type="submit" class="btn btn-warning btn-block guess-action-button">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
                             </form>`;
                         if(card.my_guess_for_this_card_value) { 
                             let guessedName = `ID ${card.my_guess_for_this_card_value}`;
@@ -715,7 +763,7 @@
 
             boardCells.forEach(cell => {
                 const cellDiv = document.createElement('div');
-                cellDiv.className = 'game-board-cell text-white p-1';
+                cellDiv.className = 'game-board-cell text-white p-1'; // p-1 был убран ранее, но для контента может быть полезен
                 cellDiv.style.backgroundImage = `url(/static/${cell.image_path})`;
                 cellDiv.style.flexBasis = `calc(${cellWidthPercent}% - 4px)`; 
                 cellDiv.title = `Ячейка ${cell.cell_number}`;
@@ -762,6 +810,13 @@
                 let newTheme = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
                 localStorage.setItem('theme', newTheme);
                 applyTheme(newTheme);
+            });
+        }
+
+        const modalImageElement = document.getElementById('modalImage');
+        if (modalImageElement) {
+            modalImageElement.addEventListener('click', () => {
+                $('#imageModal').modal('hide');
             });
         }
     </script>
