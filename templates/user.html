@@ -1,449 +1,379 @@
-<!doctype html>
-<html lang="ru" data-bs-theme="light">
-
-{# === Макросы === #}
-{% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_for_guessing_macro, current_user_data_macro, get_user_name_func_macro, num_active_players_to_template_macro, num_cards_on_table_to_template_macro) %}
-    {# Новые параметры: num_active_players_to_template_macro, num_cards_on_table_to_template_macro #}
-    <div class="card">
-        {# Вычисляем, все ли карты выложены, для Этапа 2 #}
-        {% set all_cards_now_placed_for_guessing = (g.game_in_progress and num_active_players_to_template_macro > 0 and num_cards_on_table_to_template_macro >= num_active_players_to_template_macro) %}
-
-        {# Блок 1: Отображение владельца карты (только если админ открыл карты - Этап 3) #}
-        {% if g.show_card_info %}
-            <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
-                <h6 class="card-subtitle text-muted text-center mb-1 card-owner-text">
-                    <span class="card-text-bigger">Чья:</span>
-                    <strong>{{ get_user_name_func_macro(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
-                    {% if db_current_leader_id_macro == table_image.owner_id %}
-                        <span class="badge bg-success ms-1 card-custom-badge" title="Карта ведущего этого раунда"><i class="bi bi-star-fill"></i></span>
-                    {% endif %}
-                </h6>
-            </div>
-        {% endif %}
-
-        {# Блок 2: Отображение изображения карты (реальное или заглушка) #}
-        {% if g.show_card_info or all_cards_now_placed_for_guessing %}
-            {# Показываем реальную карту, ЕСЛИ:
-                1. Админ открыл карты (g.show_card_info == True) - Этап 3
-                ИЛИ
-                2. Игра идет И все активные игроки выложили свои карты (all_cards_now_placed_for_guessing == True) - Этап 2
-            #}
-            <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-                 class="card-img-top" 
-                 alt="Карта {{ table_image.id if g.show_card_info else 'Карта игрока' }}" loading="lazy"
-                 style="margin-top: 0.25rem;">
-        {% elif g.game_in_progress %}
-            {# Показываем заглушку, если игра идет, но НЕ все карты выложены (Этап 1) #}
-            <img src="{{ url_for('static', filename='images/a.jpg') }}"
-                 class="card-img-top" 
-                 alt="Карта скрыта" loading="lazy"
-                 style="margin-top: 0.25rem;">
-        {% else %}
-             {# Если игра не идет - можно тоже заглушку или специальный плейсхолдер, если стол пуст #}
-             <img src="{{ url_for('static', filename='images/a.jpg') }}"
-                 class="card-img-top" 
-                 alt="Карта не активна" loading="lazy"
-                 style="margin-top: 0.25rem;">
-        {% endif %}
-        
-        {# Блок 3: Тело карточки (информация о голосовании или форма для голосования) #}
-        <div class="card-body pt-1"> 
-            {% if g.show_card_info %}
-                {# ЭТАП 3: Карты открыты админом - показываем результаты голосования #}
-                <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
-                <ul class="list-unstyled mb-2 card-guess-list"> 
-                    {% for guesser_id_str, guessed_user_id_loop in table_image.guesses.items() %}
-                        <li><small>
-                            {{ get_user_name_func_macro(guesser_id_str|int) or 'ID ' + guesser_id_str }}:
-                            {{ get_user_name_func_macro(guessed_user_id_loop) or 'ID ' + guessed_user_id_loop|string }}
-                            {% if guessed_user_id_loop == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
-                        </small></li>
-                    {% else %}
-                        <li><small class="text-muted">Нет</small></li>
-                    {% endfor %}
-                </ul>
-                <hr class="my-1">
-                <p class="card-text mb-0 card-label-text card-text-bigger"><small> 
-                    {% if current_user_data_macro.status == 'active' %}
-                        {% set my_guess_owner_id = table_image.guesses.get(current_user_data_macro.id|string) %}
-                        {% if my_guess_owner_id is not none %}
-                            Ваше предположение: <strong>{{ get_user_name_func_macro(my_guess_owner_id) or ('ID ' + my_guess_owner_id|string) }}</strong>
-                            {% if my_guess_owner_id == table_image.owner_id %}<i class="bi bi-check-circle-fill text-success ms-1" title="Верно"></i>{% else %}<i class="bi bi-x-circle-fill text-danger ms-1" title="Неверно"></i>{% endif %}
-                        {% else %}
-                            {% if table_image.owner_id == current_user_data_macro.id %}<span class="text-primary fw-bold card-info-text card-text-bigger">Это ваша карточка.</span>{% else %}Ваше предположение: <span class="text-muted">Вы не делали предположение.</span>{% endif %} 
-                        {% endif %}
-                    {% else %}
-                         <span class="text-muted">(Наблюдатель)</span>
-                    {% endif %}
-                </small></p>
-            {% elif g.game_in_progress and all_cards_now_placed_for_guessing %}
-                {# ЭТАП 2: Все карты выложены (показываются реальные изображения), но админ еще не открыл их. Показываем форму голосования. #}
-                {% if current_user_data_macro.status == 'active' %}
-                    {% if table_image.owner_id == current_user_data_macro.id %} 
-                        <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> 
-                    {% else %} {# Чужая карта, можно угадывать #}
-                        {% if not g.game_over %}
-                            <form method="post" action="{{ url_for('guess_image', code=current_user_data_macro.code, image_id=table_image.id) }}">
-                                <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
-                                <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
-                                    <option value="">-- Выберите игрока --</option>
-                                    {# all_users_for_guessing_macro должен содержать других активных игроков #}
-                                    {% for user_loop_var in all_users_for_guessing_macro %}
-                                        {# table_image.my_guess_for_this_card_value - это значение вашего текущего голоса за эту карту, если оно было передано из app.py #}
-                                        {# В вашем app.py (функция user) table_image сейчас содержит 'my_guess_for_this_card_value' #}
-                                        <option value="{{ user_loop_var.id }}" {% if table_image.my_guess_for_this_card_value == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> 
-                                    {% if table_image.my_guess_for_this_card_value is not none %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
-                                </button>
-                            </form>
-                            {% if table_image.my_guess_for_this_card_value is not none %}
-                                <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func_macro(table_image.my_guess_for_this_card_value) }}</small></p> 
-                            {% endif %}
-                        {% else %} {# g.game_over == True #}
-                            <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
-                        {% endif %}
-                    {% endif %}
-                {% elif current_user_data_macro.status == 'pending' and g.game_in_progress %}
-                     <p class="text-center text-muted mb-0 card-info-text card-text-bigger"><small>(Наблюдатель)</small></p>
-                {% endif %}
-            {% elif g.game_in_progress %}
-                {# ЭТАП 1: Игра идет, но не все карты выложены (показывается заглушка). #}
-                <p class="text-center text-muted mb-0 card-info-text card-text-bigger" style="min-height: 50px; display:flex; align-items:center; justify-content:center;"><small>Карта выложена</small></p>
-            {% else %} 
-                 {# Игра не активна #}
-                 <p class="text-center text-muted mb-0 card-info-text card-text-bigger" style="min-height: 50px; display:flex; align-items:center; justify-content:center;"><small>Игра не активна</small></p>
-            {% endif %}
-        </div>
-        {# --- КОНЕЦ ИЗМЕНЕНИЙ В МАКРОСЕ --- #}
-    </div>
-{% endmacro %}
-
-{% macro render_my_card(card_item, current_user_data_macro, on_table_macro, is_current_user_the_db_leader_macro, game_in_progress_macro, game_over_macro) %}
-    <div class="card">
-        <img src="{{ url_for('static', filename='images/' + card_item.subfolder + '/' + card_item.image) }}"
-             class="card-img-top" alt="Карта {{ card_item.id }}" loading="lazy" style="margin-top:0.25rem;">
-        <div class="card-body text-center pt-1 pb-2">
-            {% if game_in_progress_macro and not game_over_macro and current_user_data_macro.status == 'active' %}
-                {% if not on_table_macro %}
-                    {% if is_current_user_the_db_leader_macro %}
-                        <form method="post" action="{{ url_for('place_card', code=current_user_data_macro.code, image_id=card_item.id) }}">
-                            <button type="submit" class="btn btn-success btn-sm w-100 card-form-button card-button-bigger">
-                                <i class="bi bi-send"></i> Выложить (Ведущий)
-                            </button>
-                        </form>
-                    {% else %} 
-                        <form method="post" action="{{ url_for('place_card', code=current_user_data_macro.code, image_id=card_item.id) }}">
-                            <button type="submit" class="btn btn-secondary btn-sm w-100 card-form-button card-button-bigger">
-                                <i class="bi bi-send"></i> Выложить на стол
-                            </button>
-                        </form>
-                    {% endif %}
-                {% else %} 
-                    <small class="text-muted card-info-text card-text-bigger">Вы уже выложили карту</small>
-                {% endif %}
-            {% elif game_over_macro %} 
-                <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p>
-            {% elif current_user_data_macro.status == 'pending' %}
-                 <p class="text-center text-muted mb-0 card-info-text"><small>(Наблюдатель)</small></p>
-            {% else %} 
-                 <p class="text-center text-muted mb-0 card-info-text"><small>Игра не начата</small></p>
-            {% endif %}
-        </div>
-    </div>
-{% endmacro %}
-
-{% macro render_game_board_cell(cell_data, get_user_name_func_macro) %}
-<div class="game-board-spot-container m-1 text-center">
-    <div class="game-board-pictogram" 
-         title="Клетка #{{ cell_data.cell_number }}"
-         style="background-image: url('{{ url_for('static', filename=cell_data.image_path) }}');">
-        <div class="game-board-cell-number">
-            {{ cell_data.cell_number }}
-        </div>
-    </div>
-    <div class="game-board-player-names-area">
-        {% if cell_data.users_in_cell %}
-            {% for player in cell_data.users_in_cell %}
-                <span class="player-avatar-on-board" title="{{ player.name }} (Рейтинг: {{ player.rating }})">
-                    {{ player.name[0]|upper if player.name and player.name|trim else '?' }}
-                </span>{%- if not loop.last %}<span class="avatar-separator">, </span>{% endif -%}
-            {% endfor %}
-        {% else %}
-            <div class="player-name-on-board-empty">&nbsp;</div>
-        {% endif %}
-    </div>
-</div>
-{% endmacro %}
-{# === Конец Макросов === #}
-
+<!DOCTYPE html>
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Профиль {{ user_data.name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Страница игрока - {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        body { line-height: 1.3; }
-        .card-img-top { height: auto; display: block; margin: 0.3rem auto 0.3rem; cursor: zoom-in !important; transition: opacity 0.2s ease-in-out; position: relative; z-index: 1; pointer-events: auto !important; }
-        .card { width: auto; flex-shrink: 0; margin-bottom: 1rem; display: flex; flex-direction: column; }
-        .card-body { padding: 0.75rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-        .card-owner-text { font-size: 1.1em; line-height: 1.3; }
-        .card-label-text { font-size: 1em; line-height: 1.3; }
-        .card-guess-list li small { font-size: 1.2em !important; line-height: 1.3; }
-        .card-info-text { font-size: 1em; line-height: 1.3; }
-        .card-form-label { font-size: 1em; line-height: 1.3; } 
-        .card-form-select { font-size: 1.2em !important; line-height: 1.3; padding: 0.3rem 0.5rem; }
-        .card-form-button { padding: 0.3rem 0.5rem; } 
-        .card .badge { vertical-align: middle; }
-        .card-text-bigger { font-size: 1.25em !important; }
-        .card-button-bigger { font-size: 1.15em !important; }
-        .card-custom-badge { font-size: 1em !important; padding: 0.3em 0.5em; }
-        .desktop-card-row { display: flex; flex-direction: row; overflow-x: auto; gap: 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; min-height: 200px; /* Для пустого состояния */ }
-        .desktop-card-row-empty-placeholder { width: 100%; text-align: center; padding: 2rem 0; color: #6c757d; display: flex; align-items: center; justify-content: center; }
-        .theme-toggle-button { position: fixed; top: 1rem; right: 1rem; z-index: 1050; }
-        h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
-        h2, .h2-like-bigger { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; font-size: 1.75rem; }
-        p { margin-bottom: 0.5rem; }
-        hr { margin-top: 1rem; margin-bottom: 1rem; } 
-        .image-zoom-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.88); z-index: 1051; cursor: zoom-out; }
-        .card-img-top.zoomed { display: block !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; object-fit: contain !important; transform: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; z-index: 1052 !important; cursor: zoom-out !important; opacity: 1 !important; visibility: visible !important; background-color: transparent; }
-        .carousel-control-prev-icon, .carousel-control-next-icon { filter: none !important; width: 2rem; height: 2rem; }
-        .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
-        .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
-        html[data-bs-theme="dark"] .carousel-control-prev-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/%3e%3c/svg%3e") !important; }
-        html[data-bs-theme="dark"] .carousel-control-next-icon { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important; }
-        .carousel-item { padding: 0.5rem 0; }
-        .game-board-container { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; justify-content: flex-start; }
-        .game-board-spot-container { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin: 1px; }
-        .game-board-pictogram { width: 42px; height: 42px; position: relative; background-size: contain; background-position: center; background-repeat: no-repeat; border: 1px solid #ccc; border-radius: .2rem; margin-bottom: 2px; }
-        .game-board-cell-number { position: absolute; top: 0px; left: 0px; background-color: rgba(255,255,255,0.9); color: #212529; padding: 0px 2px; border-radius: 0.15rem 0 0.15rem 0; font-size: 0.55em; font-weight: bold; border-right: 1px solid rgba(0,0,0,0.1); border-bottom: 1px solid rgba(0,0,0,0.1); line-height: 1; }
-        html[data-bs-theme="dark"] .game-board-cell-number { background-color: rgba(40,40,40,0.9); color: #f0f0f0; border-right: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .game-board-player-names-area { width: 42px; line-height: 1; max-height: 3.2em; min-height: 1.5em; overflow-y: auto; text-align: center; margin-top: 1px; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1px; }
-        .player-avatar-on-board { display: inline-flex; width: 1.2em; height: 1.2em; border-radius: 50%; align-items: center; justify-content: center; font-weight: bold; font-size: 1.25em; overflow: hidden; vertical-align: middle; line-height: 1; }
-        html[data-bs-theme="dark"] .player-avatar-on-board { background-color: #5A67D8; color: #EBF4FF; }
-        html[data-bs-theme="light"] .player-avatar-on-board { background-color: #A3BFFA; color: #2C5282; }
-        .avatar-separator { font-size: 0.9em; padding: 0; vertical-align: middle; line-height: 1;}
-        html[data-bs-theme="dark"] .avatar-separator { color: #A0AEC0; }
-        html[data-bs-theme="light"] .avatar-separator { color: #4A5568; }
-        .player-name-on-board-empty { height: 1.5em; line-height: 1.5em; width: 100%; font-size: 1em; }
-        .card { min-width: 220px; max-width: 275px; }
-        .card-img-top { width: 216px; margin: 0.5rem auto; }
-        @media (max-width: 768px) { .card { min-width: 200px; max-width: 250px; } .card-img-top { width: 192px; } }
-        @media (max-width: 576px) { body { padding: 0.5rem !important; line-height: 1.25; } h1 { font-size: 1.5rem; margin-bottom: 0.2rem;} h2, .h2-like-bigger { font-size: 1.35rem; margin-top: 0.8rem; margin-bottom: 0.3rem; padding-bottom: 0.2rem;} p { margin-bottom: 0.3rem; line-height: 1.2;} hr { margin-top: 0.75rem; margin-bottom: 0.75rem; } .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; } .card-body { padding: 0.6rem; } .card-img-top { width: 156px; margin: 0.2rem auto; } .card-owner-text { font-size: 1em; } .card-label-text { font-size: 0.95em; } .card-guess-list li small { font-size: 1.1em !important; } .card-info-text { font-size: 0.95em; } .card-form-label { font-size: 0.95em; } .card-form-select { font-size: 0.95em !important; padding: .25rem .4rem; } .card-form-button { padding: 0.25rem 0.4rem; } .card-text-bigger { font-size: 1.1em !important; } .card-button-bigger { font-size: 1.05em !important; } .card-custom-badge { font-size: 0.9em !important; } .alert { margin-top: 0.5rem; padding: 0.4rem; font-size: 0.8rem; } .border.p-2.p-sm-3.mb-4.rounded { padding: 0.3rem !important; margin-bottom: 0.75rem !important; } .desktop-card-row { min-height: auto; } .desktop-card-row-empty-placeholder { padding: 1rem 0; } .theme-toggle-button {top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.4rem; font-size: 0.8rem; } }
-        @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
-        @media (min-width: 992px) { .game-board-pictogram { width: 72px; height: 72px; } .game-board-player-names-area { width: 72px; } .player-avatar-on-board { font-size: 1.45em; } .game-board-cell-number { font-size: 0.65em; } }
+        /* Примерные стили, можете их доработать или вынести в style.css */
+        .game-board-cell {
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin: 2px;
+            min-height: 80px; /* Минимальная высота для ячейки */
+            background-size: cover;
+            background-position: center;
+            position: relative; /* Для позиционирования фишек игроков */
+        }
+        .player-chip {
+            display: inline-block;
+            background-color: rgba(0,0,255,0.7);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin: 1px;
+            font-size: 0.8em;
+        }
+        .user-hand .card, .table-cards .card {
+            margin-bottom: 10px;
+        }
+        .pending-message {
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+            padding: .75rem 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+        }
     </style>
 </head>
-
-<body class="p-4">
-    <div class="container-fluid">
-        <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
-            <i class="bi bi-circle-half"></i>
-            <span id="theme-toggle-text" class="visually-hidden">Сменить тему</span>
-        </button>
-
-        <h1>Привет, {{ user_data.name }}!
-            {% if is_pending_player %}
-                <span class="badge bg-secondary fs-6 align-middle ms-2">Наблюдатель</span>
-            {% elif is_current_user_the_db_leader and g.game_in_progress %}
-                <span class="badge bg-success fs-6 align-middle ms-2">Ведущий</span>
-            {% elif not is_pending_player %}
-                 <span class="badge bg-primary bg-opacity-75 fs-6 align-middle ms-2">Активный игрок</span>
-            {% endif %}
-        </h1>
-        <p class="fs-4">Ваш рейтинг: <strong>{{ user_data.rating }}</strong></p>
-
-        <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-start align-items-sm-baseline mb-2">
-            {% if db_current_leader_id and g.game_in_progress %}
-                {% set current_leader_name_in_db = get_user_name(db_current_leader_id) %}
-                <span class="text-muted mb-1 mb-sm-0 fs-4">
-                    <i class="bi bi-star-fill {{ 'text-success' if not g.show_card_info else 'text-secondary' }}"></i>
-                    Ведущий: <strong>{{ current_leader_name_in_db or ('ID ' + db_current_leader_id|string) }}</strong>
-                </span>
-            {% elif not g.game_in_progress and not g.game_over %}
-                 <span class="text-muted mb-1 mb-sm-0 fs-4"><i class="bi bi-hourglass-split text-info"></i> Ожидание начала игры...</span>
-            {% elif g.game_over %}
-                <span class="text-muted mb-1 mb-sm-0 fs-4"><i class="bi bi-flag-checkered text-danger"></i> Игра окончена.</span>
-            {% endif %}
-
-            {% if g.show_card_info and potential_next_leader_id and not g.game_over %}
-                {% set next_leader_name_to_display = get_user_name(potential_next_leader_id) %}
-                <span class="text-muted fs-4">
-                    Следующий: <strong>{{ next_leader_name_to_display or ('ID ' + potential_next_leader_id|string) }}</strong>
-                </span>
-            {% elif g.show_card_info and db_current_leader_id and not potential_next_leader_id and not g.game_over %}
-                 <span class="text-muted fs-4">Больше нет игроков для передачи хода.</span>
-            {% endif %}
-        </div>
-
+<body>
+    <div class="container mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                  <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show mt-2" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                  </div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
-        {% if is_pending_player and g.game_in_progress %}
-            <div class="alert alert-info mt-2" role="alert">
-                <i class="bi bi-eye-fill"></i> Вы наблюдаете за текущей игрой. Ваше активное участие начнется со следующей новой игры.
+
+        <h1 id="user-greeting">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
+        <p>Ваш код: <code id="user-code-display">{{ user_data_for_init.code if user_data_for_init else 'Не определен' }}</code></p>
+        <p>Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
+        <p id="user-status-display">Статус: {{ user_data_for_init.status if user_data_for_init else 'Не определен' }}</p>
+
+        <hr>
+
+        <div id="game-messages" class="alert alert-info" role="alert" style="display: none;"></div>
+
+        <div id="game-status-info">
+            <p>Статус игры: <strong id="game-progress-status">Загрузка...</strong></p>
+            <p>Текущая колода: <strong id="current-deck-display">Загрузка...</strong></p>
+            <p>Ведущий: <strong id="current-leader-display">Загрузка...</strong></p>
+            <p id="pending-player-message" class="pending-message" style="display: none;">
+                Вы присоединились как наблюдатель. Ваше участие начнется со следующей НОВОЙ игры. Пока вы можете следить за процессом.
+            </p>
+        </div>
+        <hr>
+
+        <div id="player-hand-section" style="display: none;">
+            <h2>Ваши карты:</h2>
+            <div id="player-hand" class="row user-hand">
+                </div>
+        </div>
+
+        <h2>Карты на столе (<span id="cards-on-table-count">0</span>/<span id="active-players-count">0</span>):</h2>
+        <div id="table-cards" class="row table-cards">
             </div>
-        {% elif is_pending_player and not g.game_in_progress and not g.game_over %}
-            <div class="alert alert-success mt-2" role="alert">
-                <i class="bi bi-check-circle-fill"></i> Вы зарегистрированы! Ожидайте начала новой игры, чтобы стать активным участником.
+        <div id="table-placeholder" class="text-center" style="display: none;">
+            <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
+            <p id="leader-empty-table-rating" style="display: none;"></p>
+            <p>На столе пока нет карт. Если вы ведущий, выберите карту для выкладывания.</p>
+        </div>
+        <hr>
+
+        <h2>Игровое поле:</h2>
+        <div id="game-board" class="d-flex flex-wrap justify-content-center">
             </div>
+        <hr>
+
+        <p><a href="{{ url_for('index') }}" class="btn btn-secondary">Вернуться на главную</a></p>
+        {% if session.get('is_admin') %}
+            <p><a href="{{ url_for('admin') }}" class="btn btn-info">Перейти в Админ панель</a></p>
         {% endif %}
-
-        {% if g.game_over %}
-            <div class="alert alert-danger mt-2" role="alert">
-              <i class="bi bi-exclamation-triangle-fill"></i> Игра окончена! Ожидайте начала новой игры администратором.
-            </div>
-        {% endif%}
-
-        <hr class="my-2">
-
-        <h2 class="h2-like-bigger">Общий стол</h2> 
-        <div class="border p-1 p-sm-2 mb-3 rounded">
-            <div class="desktop-card-row">
-                {% if table_images %} {# Если есть хоть какие-то карты на столе #}
-                    {% for table_image in table_images %}
-                        {# Передаем новые параметры в макрос #}
-                        {{ render_table_card(table_image, g, db_current_leader_id, all_users_for_guessing, user_data, get_user_name, num_active_players_to_template, num_cards_on_table_to_template) }}
-                    {% endfor %}
-                {% else %} {# Если стол абсолютно пуст #}
-                    <p class="desktop-card-row-empty-placeholder">
-                        {% if g.game_in_progress %}
-                            {# Если пиктограмма ведущего должна отображаться (логика из app.py) #}
-                            {% if is_current_user_the_db_leader and not on_table and leader_pole_pictogram_path and not all_cards_placed_for_guessing_phase_to_template %}
-                                <div class="card" style="min-width: 220px; max-width: 275px; border-style: dashed; border-color: var(--bs-primary);">
-                                    <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
-                                        <h6 class="card-subtitle text-primary text-center mb-1 card-owner-text">
-                                            {% if leader_pictogram_rating_display and leader_pictogram_rating_display > 0 %}
-                                                <span class="card-text-bigger">Ваша ассоциация для поля №{{ leader_pictogram_rating_display }}</span>
-                                            {% else %}
-                                                <span class="card-text-bigger">Ваша ассоциация</span>
-                                            {% endif %}
-                                        </h6>
-                                    </div>
-                                    <img src="{{ leader_pole_pictogram_path }}"
-                                         class="card-img-top"
-                                         alt="Пиктограмма поля для ассоциации (Поле №{{ leader_pictogram_rating_display if leader_pictogram_rating_display and leader_pictogram_rating_display > 0 else '?' }})" loading="lazy"
-                                         style="margin-top: 0.25rem; opacity: 0.7;">
-                                    <div class="card-body pt-1 text-center">
-                                        <small class="text-muted card-info-text card-text-bigger">Выберите карту из руки, соответствующую этой ассоциации, и выложите её.</small>
-                                    </div>
-                                </div>
-                            {% else %}
-                                На столе пока нет карточек.
-                                {% if is_current_user_the_db_leader %} Ожидание вашего хода... {% else %} Ожидание хода ведущего... {% endif %}
-                            {% endif %}
-                        {% elif g.game_over %}
-                            Игра окончена.
-                        {% else %}
-                            Игра не начата.
-                        {% endif %}
-                    </p>
-                {% endif %}
-            </div>
-        </div>
-
-        {% if not is_pending_player and g.game_in_progress %}
-            <h2 class="h2-like-bigger">Мои карточки</h2>
-            <div class="desktop-card-row mb-3">
-                {% if cards %}
-                    {% for card_item in cards %}
-                        {{ render_my_card(card_item, user_data, on_table, is_current_user_the_db_leader, g.game_in_progress, g.game_over) }}
-                    {% endfor %}
-                {% elif not g.game_over %}
-                     <p class="desktop-card-row-empty-placeholder">У вас пока нет карт на руках.</p>
-                {% endif %}
-            </div>
-        {% endif %}
-
-        <h2 class="h2-like-bigger">Игровое Поле (активные игроки)</h2>
-        <div class="border p-1 p-sm-2 mb-3 rounded">
-             <div class="game-board-container">
-                {% if game_board and game_board|length > 0 %}
-                    {% for cell_data in game_board %}
-                        {{ render_game_board_cell(cell_data, get_user_name) }}
-                    {% endfor %}
-                {% else %}
-                    <p class="text-muted w-100 text-center" style="padding: 1rem 0; display:flex; align-items:center; justify-content:center;">Игровое поле не загружено (нет активных игроков или игра не инициализирована).</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-top">
-            <h2 class="h2-like-bigger">Правила игры</h2>
-            <p><a href="{{ url_for('index') }}">Ссылка на голосование</a> (выбор колоды перед началом новой игры)</p>
-            
-            <div class="rules-text-block">
-                <h3>Правила</h3>
-                <p>В каждом раунде Ведущий озвучивает свою ассоциацию согласно игровому полю и выкладывает соответствующую карточку.</p>
-                <p>Каждый игрок выкладывает свою карточку на озвученную Ведущим ассоциацию.</p>
-                <p>Основная задача игроков - угадать, какую именно из выложенных на столе карточек загадал ведущий, и проголосовать за нее. Ведущий угадывает карточки других игроков.</p>
-
-                <h3 class="mt-3">Подсчет очков</h3>
-                <ol>
-                    <li>Если карточку ведущего угадали все игроки, то он идет на 3 хода назад (или на поле 1, если он еще не продвинулся дальше третьего поля), а остальные игроки стоят на месте.</li>
-                    <li>Если карточку ведущего никто не угадал, то ведущий идет на 2 хода назад. Плюс, очки получают игроки, чьи карточки угадали.</li>
-                    <li>В любом другом случае по 3 очка получают все игроки, правильно угадавшие карточку Ведущего. Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.</li>
-                    <li>Все игроки получают по одному очку за каждого игрока, который угадал их карточку.</li>
-                </ol>
-            </div>
-
-            <div class="mt-4 text-center">
-                <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid" style="max-width: 100%; height: auto; border: 1px solid #dee2e6; border-radius: .25rem;">
-            </div>
-        </div>
-
     </div>
 
-    <div class="image-zoom-overlay"></div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
     <script>
-        // Скрипт смены темы
-        (function() {
-            const themeToggleBtn = document.getElementById('theme-toggle-btn');
-            const htmlElement = document.documentElement;
-            const storageKey = 'globalThemePreference'; 
-            const applyTheme = (theme) => {
-                htmlElement.setAttribute('data-bs-theme', theme);
-                if (themeToggleBtn) {
-                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
-                }
-            };
-            const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-                localStorage.setItem(storageKey, newTheme);
-            };
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', toggleTheme);
-            }
-            const savedTheme = localStorage.getItem(storageKey);
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const defaultTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-            applyTheme(defaultTheme);
-        })();
+        // Определяем user_code из данных, переданных сервером при рендеринге,
+        // или оставляем null, если пользователь не аутентифицирован (хотя на /user/<code> он должен быть).
+        const currentUserCode = "{{ user_data_for_init.code if user_data_for_init else '' }}";
+        let currentUserId = null; // Будет установлен из game_update
+        let currentUserName = "{{ user_data_for_init.name if user_data_for_init else 'Игрок' }}";
 
-        // Скрипт для увеличения изображений
-        document.addEventListener('DOMContentLoaded', () => {
-            const imagesToZoom = document.querySelectorAll('.card-img-top');
-            const overlay = document.querySelector('.image-zoom-overlay');
-            let currentlyZoomedImage = null;
-            function unzoomImage() { if (currentlyZoomedImage) { currentlyZoomedImage.classList.remove('zoomed'); currentlyZoomedImage = null; } if (overlay) { overlay.style.display = 'none'; } }
-            imagesToZoom.forEach((image) => { image.addEventListener('click', function(event) { event.stopPropagation(); if (this.classList.contains('zoomed')) { unzoomImage(); } else { unzoomImage(); this.classList.add('zoomed'); currentlyZoomedImage = this; if (overlay) { overlay.style.display = 'block'; } } }); });
-            if (overlay) { overlay.addEventListener('click', function() { unzoomImage(); }); }
-            document.addEventListener('keydown', function(event) { if (event.key === 'Escape' || event.key === 'Esc') { unzoomImage(); } });
+        // Подключаемся к серверу Socket.IO.
+        // Если ваше Flask-приложение и Socket.IO сервер на том же домене и порту,
+        // io() без аргументов должно работать.
+        // Иначе, укажите полный URL: const socket = io('http://yourdomain.com');
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Socket.IO: Connected to server! SID:', socket.id);
+            // Можно отправить серверу user_code, если он не был получен из сессии Flask на сервере
+            // socket.emit('client_hello', { code: currentUserCode });
         });
+
+        socket.on('disconnect', () => {
+            console.log('Socket.IO: Disconnected from server.');
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameMessagesDiv) {
+                gameMessagesDiv.textContent = 'Соединение с сервером потеряно. Попытка переподключения...';
+                gameMessagesDiv.className = 'alert alert-danger';
+                gameMessagesDiv.style.display = 'block';
+            }
+        });
+
+        socket.on('message', (data) => { // Обработчик для простых сообщений от сервера (если будете использовать)
+            console.log('Socket.IO: Message from server:', data);
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameMessagesDiv && data.data) {
+                 gameMessagesDiv.textContent = data.data;
+                 gameMessagesDiv.className = data.category ? `alert alert-${data.category}` : 'alert alert-info';
+                 gameMessagesDiv.style.display = 'block';
+            }
+        });
+
+        // Основной обработчик обновлений состояния игры
+        socket.on('game_update', (gameState) => {
+            console.log('Socket.IO: Received game_update:', gameState);
+
+            // Обновляем данные текущего пользователя, если они пришли
+            if (gameState.current_user_data) {
+                currentUserId = gameState.current_user_data.id;
+                currentUserName = gameState.current_user_data.name;
+                document.getElementById('user-greeting').textContent = `Добро пожаловать, ${currentUserName}!`;
+                document.getElementById('user-code-display').textContent = gameState.current_user_data.code;
+                document.getElementById('user-rating-display').textContent = gameState.current_user_data.rating;
+                document.getElementById('user-status-display').textContent = `Статус: ${gameState.current_user_data.status}`;
+
+                const pendingPlayerMessage = document.getElementById('pending-player-message');
+                if (gameState.current_user_data.status === 'pending') {
+                    pendingPlayerMessage.style.display = 'block';
+                    document.getElementById('player-hand-section').style.display = 'none'; // Скрыть секцию карт
+                } else {
+                    pendingPlayerMessage.style.display = 'none';
+                    document.getElementById('player-hand-section').style.display = 'block'; // Показать секцию карт
+                }
+            } else if (currentUserCode) {
+                 // Если gameState.current_user_data не пришел, но мы знаем код пользователя,
+                 // возможно, это ошибка или пользователь еще не полностью идентифицирован на сервере.
+                 // Пока оставляем данные, которые были при инициализации страницы.
+            }
+
+
+            // Обновляем отображение на странице, используя данные из gameState
+            updateGameStatusInfo(gameState);
+            updatePlayerHand(gameState.user_cards || [], gameState.active_subfolder, gameState.current_user_data ? gameState.current_user_data.status : null);
+            updateTableCards(gameState.table_images || [], gameState.all_users_for_guessing || [], gameState.show_card_info, gameState.all_cards_placed_for_guessing_phase_to_template, gameState.db_current_leader_id, gameState.current_user_data ? gameState.current_user_data.id : null);
+            updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
+
+            // Отображение сообщений игры, если они есть
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
+                // Пока простой вывод первого сообщения
+                gameMessagesDiv.textContent = gameState.flashed_messages[0].message;
+                gameMessagesDiv.className = `alert alert-${gameState.flashed_messages[0].category}`;
+                gameMessagesDiv.style.display = 'block';
+            } else if (gameMessagesDiv.textContent === 'Соединение с сервером потеряно. Попытка переподключения...') {
+                // Если было сообщение о дисконнекте, но пришло обновление, значит, соединение восстановлено
+                gameMessagesDiv.style.display = 'none';
+            }
+        });
+
+        // --------------- Функции для рендеринга ---------------
+        // (Эти функции будут созданы и наполнены на Шаге 2.4)
+
+        function updateGameStatusInfo(gameState) {
+            document.getElementById('game-progress-status').textContent = gameState.game_in_progress ? (gameState.game_over ? 'Игра окончена (подсчет/результаты)' : 'Идет игра') : 'Игра не начата / Ожидание';
+            document.getElementById('current-deck-display').textContent = gameState.active_subfolder || 'Не выбрана';
+
+            let leaderName = 'Не определен';
+            if (gameState.db_current_leader_id && gameState.all_users_for_guessing) { // gameState.all_users_for_guessing это другие игроки
+                // Ищем имя ведущего в общем списке (включая текущего, если он ведущий)
+                const allPlayersForLeaderSearch = [...gameState.all_users_for_guessing];
+                if (gameState.current_user_data) { // Добавляем текущего пользователя в список для поиска
+                    allPlayersForLeaderSearch.push({id: gameState.current_user_data.id, name: gameState.current_user_data.name});
+                }
+                const leader = allPlayersForLeaderSearch.find(u => u.id === gameState.db_current_leader_id);
+                if (leader) {
+                    leaderName = leader.name;
+                } else if (gameState.db_current_leader_id === (gameState.current_user_data ? gameState.current_user_data.id : null)) {
+                    leaderName = gameState.current_user_data.name; // Если текущий пользователь - ведущий
+                }
+            }
+            document.getElementById('current-leader-display').textContent = leaderName + (gameState.db_current_leader_id === (gameState.current_user_data ? gameState.current_user_data.id : null) && gameState.game_in_progress ? ' (Это вы!)' : '');
+
+            document.getElementById('active-players-count').textContent = gameState.num_active_players || 0;
+            document.getElementById('cards-on-table-count').textContent = gameState.num_cards_on_table || 0;
+        }
+
+        function updatePlayerHand(cards, activeSubfolder, currentUserStatus) {
+            const playerHandDiv = document.getElementById('player-hand');
+            const playerHandSectionDiv = document.getElementById('player-hand-section');
+            playerHandDiv.innerHTML = ''; // Очищаем текущие карты
+
+            if (currentUserStatus === 'pending' || !cards || cards.length === 0) {
+                playerHandSectionDiv.style.display = 'none';
+                if (currentUserStatus !== 'pending' && cards && cards.length === 0 && document.getElementById('game-progress-status').textContent.includes('Идет игра')) {
+                     playerHandDiv.innerHTML = '<div class="col-12"><p>У вас нет карт на руках в этой колоде.</p></div>';
+                     playerHandSectionDiv.style.display = 'block';
+                }
+                return;
+            }
+            playerHandSectionDiv.style.display = 'block';
+
+            cards.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'col-md-3 col-sm-4 col-6'; // Адаптивная колонка
+                cardDiv.innerHTML = `
+                    <div class="card">
+                        <img src="/static/images/${card.subfolder}/${card.image}" class="card-img-top" alt="Карта ${card.image}">
+                        <div class="card-body text-center">
+                            <form action="/user/${currentUserCode}/place/${card.id}" method="POST" class="place-card-form">
+                                <button type="submit" class="btn btn-primary btn-sm">Выложить на стол</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                playerHandDiv.appendChild(cardDiv);
+            });
+        }
+
+        function updateTableCards(tableImages, allUsersForGuessing, showCardInfo, allCardsPlaced, currentLeaderId, currentUserId) {
+            const tableCardsDiv = document.getElementById('table-cards');
+            const tablePlaceholderDiv = document.getElementById('table-placeholder');
+            tableCardsDiv.innerHTML = ''; // Очищаем
+
+            if (!tableImages || tableImages.length === 0) {
+                tablePlaceholderDiv.style.display = 'block';
+                tableCardsDiv.style.display = 'none';
+                 // Логика для пиктограммы ведущего на пустом столе будет добавлена позже, если gameState.leader_pole_pictogram_path есть
+                return;
+            }
+            tablePlaceholderDiv.style.display = 'none';
+            tableCardsDiv.style.display = 'flex'; // Используем flex для выравнивания
+
+            tableImages.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'col-md-3 col-sm-4 col-6';
+                let cardContent = `
+                    <div class="card">
+                        <img src="/static/images/${card.subfolder}/${card.image}" class="card-img-top" alt="Карта ${card.image}">
+                        <div class="card-body">
+                `;
+
+                if (showCardInfo) { // ЭТАП 3: Карты открыты админом
+                    cardContent += `<h5 class="card-title">Владелец: ${card.owner_name || 'Неизвестен'}</h5>`;
+                    // Отображение, кто как угадал эту карту
+                    if (card.guesses && Object.keys(card.guesses).length > 0) {
+                        cardContent += '<p class="card-text"><u>Предположения:</u></p><ul>';
+                        for (const guesserIdStr in card.guesses) {
+                            const guessedTargetId = card.guesses[guesserIdStr];
+                            // Найти имя угадывающего
+                            let guesserName = `Игрок ID ${guesserIdStr}`;
+                            const guesserUser = allUsersForGuessing.find(u => u.id === parseInt(guesserIdStr)) || (currentUserId === parseInt(guesserIdStr) ? {name: currentUserName} : null) ;
+                            if (guesserUser) guesserName = guesserUser.name;
+
+                            // Найти имя того, на кого указали
+                            let targetName = `Игрок ID ${guessedTargetId}`;
+                            const targetUser = allUsersForGuessing.find(u => u.id === guessedTargetId) || (currentUserId === guessedTargetId ? {name: currentUserName} : null) || (card.owner_id === guessedTargetId ? {name: card.owner_name} : null);
+                            if (targetUser) targetName = targetUser.name;
+                            else if (card.owner_id === guessedTargetId) targetName = card.owner_name;
+
+
+                            const isCorrect = guessedTargetId === card.owner_id;
+                            cardContent += `<li>${guesserName} -> ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
+                        }
+                        cardContent += '</ul>';
+                    } else {
+                        cardContent += '<p class="card-text">Предположений не было.</p>';
+                    }
+                } else if (allCardsPlaced) { // ЭТАП 2: Все карты выложены, идет угадывание
+                    if (currentUserId && card.owner_id !== currentUserId) { // Нельзя угадывать свою карту
+                        cardContent += `
+                            <form action="/user/${currentUserCode}/guess/${card.id}" method="POST" class="guess-card-form">
+                                <div class="form-group">
+                                    <label for="guess-for-${card.id}">Чья это карта?</label>
+                                    <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
+                                        <option value="">-- Выберите игрока --</option>`;
+                        allUsersForGuessing.forEach(user => {
+                            // Добавляем также владельца карты в список, если он есть среди активных, но не текущий пользователь
+                            if(user.id !== currentUserId) { // Убеждаемся что не предлагаем угадать "себя" для своей карты (хотя это уже отфильтровано выше)
+                                cardContent += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
+                            }
+                        });
+                        // Добавить владельца карты в список для угадывания, если он не текущий юзер
+                        if (card.owner_id && card.owner_id !== currentUserId && !allUsersForGuessing.find(u=>u.id === card.owner_id)) {
+                             cardContent += `<option value="${card.owner_id}" ${card.my_guess_for_this_card_value == card.owner_id ? 'selected' : ''}>${card.owner_name || 'Владелец этой карты'}</option>`;
+                        }
+
+                        cardContent += `
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-warning btn-sm">${card.my_guess_for_this_card_value ? 'Изменить голос' : 'Угадать'}</button>
+                            </form>`;
+                         if(card.my_guess_for_this_card_value) {
+                            const guessedUserObj = allUsersForGuessing.find(u => u.id == card.my_guess_for_this_card_value) || (card.owner_id == card.my_guess_for_this_card_value ? {name: card.owner_name} : null) ;
+                            const guessedName = guessedUserObj ? guessedUserObj.name : `ID ${card.my_guess_for_this_card_value}`;
+                            cardContent += `<p class="mt-2 small">Ваш выбор: ${guessedName}</p>`;
+                        }
+
+                    } else if (card.owner_id === currentUserId) {
+                        cardContent += '<p class="card-text text-muted">(Это ваша карта)</p>';
+                    } else {
+                         cardContent += '<p class="card-text text-muted">(Карта другого игрока, но вы не можете голосовать/вы наблюдатель)</p>';
+                    }
+                } else { // ЭТАП 1: Карты выкладываются, угадывать еще нельзя
+                    cardContent += '<p class="card-text text-muted">(Ожидание карт от всех игроков)</p>';
+                }
+
+                cardContent += `
+                        </div> </div> `;
+                cardDiv.innerHTML = cardContent;
+                tableCardsDiv.appendChild(cardDiv);
+            });
+        }
+
+        function updateGameBoard(boardCells, totalCells) {
+            const gameBoardDiv = document.getElementById('game-board');
+            gameBoardDiv.innerHTML = ''; // Очищаем
+
+            if (!boardCells || boardCells.length === 0) {
+                gameBoardDiv.innerHTML = '<p>Игровое поле не загружено.</p>';
+                return;
+            }
+
+            boardCells.forEach(cell => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'game-board-cell';
+                // Устанавливаем относительный путь к картинке фона
+                cellDiv.style.backgroundImage = `url(/static/${cell.image_path})`;
+                cellDiv.style.width = `calc(${100 / Math.min(totalCells, 10)}% - 4px)`; // Пример: 10 ячеек в ряду
+                cellDiv.title = `Ячейка ${cell.cell_number}`;
+
+                let cellHtml = `<small class="cell-number">${cell.cell_number}</small>`;
+                if (cell.users_in_cell && cell.users_in_cell.length > 0) {
+                    cell.users_in_cell.forEach(user => {
+                        cellHtml += `<span class="player-chip" title="${user.name} (Рейтинг: ${user.rating})">${user.name.substring(0,3)}</span>`;
+                    });
+                }
+                cellDiv.innerHTML = cellHtml;
+                gameBoardDiv.appendChild(cellDiv);
+            });
+        }
+
     </script>
 </body>
 </html>
