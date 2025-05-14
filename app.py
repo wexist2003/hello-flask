@@ -1051,64 +1051,109 @@ def start_new_game():
     
 @app.route('/user/<code>')
 def user(code):
-    db = get_db()
-    c = db.cursor()
+    # --- Начало блока отладочного вывода g.user (из вашего app.py) ---
+    print(f"[DEBUG /user/{code}] Route entered.", flush=True)
+    user_name_in_user_func = "N/A_USER_FUNC"
+    user_id_in_user_func = "N/A_USER_FUNC"
+    user_status_in_user_func = "N/A_USER_FUNC"
+    user_rating_value_in_user_func = "RATING_KEY_MISSING_OR_GUSER_NONE_USER_FUNC"
+    user_rating_type_in_user_func = "N/A_USER_FUNC"
+
+    if hasattr(g, 'user') and g.user:
+        user_name_in_user_func = g.user['name'] if 'name' in g.user else "Name_Key_Missing"
+        user_id_in_user_func = g.user['id'] if 'id' in g.user else "ID_Key_Missing"
+        user_status_in_user_func = g.user['status'] if 'status' in g.user else "Status_Key_Missing"
+        if 'rating' in g.user:
+            user_rating_value_in_user_func = g.user['rating'] 
+            user_rating_type_in_user_func = type(g.user['rating']).__name__
+        else:
+            user_rating_value_in_user_func = "Rating_Key_Missing_In_g.user"
+    print(f"[DEBUG /user/{code}] User at entry: Name: {user_name_in_user_func}, ID: {user_id_in_user_func}, Status: {user_status_in_user_func}, RATING_VALUE: {user_rating_value_in_user_func} (Type: {user_rating_type_in_user_func})", flush=True)
+    # --- Конец блока отладочного вывода g.user ---
 
     if g.user is None: 
-        session.pop('user_id', None); session.pop('user_name', None); session.pop('user_code', None)
+        print(f"[DEBUG /user/{code}] g.user is None. Redirecting to login.", flush=True)
+        session.pop('user_id', None)
+        session.pop('user_name', None)
+        session.pop('user_code', None)
         flash("Пользователя не найдено или сессия устарела. Пожалуйста, войдите или зарегистрируйтесь.", "warning")
         return redirect(url_for('login_player'))
 
+    db = get_db()
+    # c = db.cursor() # Не используется в вашем файле, если db.execute достаточно
+
+    # Обновление сессии (из вашего app.py)
     session['user_id'] = g.user['id']
     session['user_name'] = g.user['name']
     session['user_code'] = g.user['code']
     session.pop('is_admin', None)
 
     is_pending_player = g.user['status'] == 'pending'
+    print(f"[DEBUG /user/{code}] Is pending player: {is_pending_player}", flush=True)
 
-    active_subfolder_row = c.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
+    active_subfolder_row = db.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
     active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
+    print(f"[DEBUG /user/{code}] Active subfolder: {active_subfolder}", flush=True)
+
+    # g.game_in_progress, g.show_card_info, g.game_over установлены в before_request_func
+    print(f"[DEBUG /user/{code}] Game state from g: game_in_progress={g.game_in_progress}, show_card_info={g.show_card_info}, game_over={g.game_over}", flush=True)
 
     user_cards = []
     if not is_pending_player and active_subfolder and g.game_in_progress:
-        c.execute("""
+        user_cards = db.execute("""
             SELECT id, image, subfolder FROM images
             WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'
-        """, (g.user['id'], active_subfolder))
-        user_cards = c.fetchall()
+        """, (g.user['id'], active_subfolder)).fetchall()
+    print(f"[DEBUG /user/{code}] User cards count: {len(user_cards)}", flush=True)
+
+    # --- НАЧАЛО ДОБАВЛЕНИЙ ДЛЯ ТРЕХЭТАПНОГО ОТОБРАЖЕНИЯ ---
+    num_active_players = get_active_players_count(db) 
+    
+    num_cards_on_table = 0
+    if g.game_in_progress and active_subfolder:
+        cards_on_table_count_row = db.execute(
+            "SELECT COUNT(id) FROM images WHERE subfolder = ? AND status LIKE 'На столе:%'",
+            (active_subfolder,)
+        ).fetchone()
+        num_cards_on_table = cards_on_table_count_row[0] if cards_on_table_count_row else 0
+    
+    # Флаг, что все карты выложены (для Этапа 2)
+    # g.show_card_info - это флаг, который админ устанавливает для Этапа 3
+    all_cards_placed_for_guessing_phase = (g.game_in_progress and num_active_players > 0 and num_cards_on_table >= num_active_players)
+    
+    print(f"[DEBUG /user/{code}] Calculated for template: num_active_players={num_active_players}, num_cards_on_table={num_cards_on_table}, all_cards_placed_for_guessing_phase={all_cards_placed_for_guessing_phase}", flush=True)
+    # --- КОНЕЦ ДОБАВЛЕНИЙ ДЛЯ ТРЕХЭТАПНОГО ОТОБРАЖЕНИЯ ---
 
     table_cards_raw = []
-    if g.game_in_progress and active_subfolder: 
-        c.execute("""
+    if g.game_in_progress and active_subfolder:
+        table_cards_raw = db.execute("""
             SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses
-            FROM images i 
-            LEFT JOIN users u ON i.owner_id = u.id 
-            WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' 
+            FROM images i
+            LEFT JOIN users u ON i.owner_id = u.id
+            WHERE i.subfolder = ? AND i.status LIKE 'На столе:%'
                   AND (u.status = 'active' OR u.status IS NULL) 
-        """, (active_subfolder,))
-        table_cards_raw = c.fetchall()
+        """, (active_subfolder,)).fetchall()
+    print(f"[DEBUG /user/{code}] Raw table cards count: {len(table_cards_raw)}", flush=True)
 
     table_cards_for_template = []
     on_table_status = False 
-    
+
     for card_row in table_cards_raw:
         if not is_pending_player and card_row['owner_id'] == g.user['id']:
-            on_table_status = True
-        
+            on_table_status = True 
+
         guesses_json_str = card_row['guesses'] or '{}'
         try:
             current_card_guesses_dict = json.loads(guesses_json_str)
         except json.JSONDecodeError:
+            print(f"Warning: JSONDecodeError for card ID {card_row['id']}, guesses: {guesses_json_str}", flush=True)
             current_card_guesses_dict = {}
-        
+
         my_guess_for_this_card_value = None
-        # --- ИЗМЕНЕНО УСЛОВИЕ: Ведущий теперь тоже может иметь 'my_guess_for_this_card_value' ---
-        # Теперь любой активный игрок (включая ведущего, если он голосует за чужую карту)
-        # может иметь запись о своем голосе.
-        # Проверка g.user['id'] != get_leading_user_id() УБРАНА.
-        if not is_pending_player and g.game_in_progress and not g.show_card_info:
-            my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        # Угадывать можно только если все карты выложены (Этап 2) и админ еще не открыл их (not g.show_card_info)
+        if not is_pending_player and g.game_in_progress and all_cards_placed_for_guessing_phase and not g.show_card_info:
+            if card_row['owner_id'] != g.user['id']: # Нельзя угадывать свою карту
+                 my_guess_for_this_card_value = current_card_guesses_dict.get(str(g.user['id']))
 
         table_cards_for_template.append({
             'id': card_row['id'],
@@ -1116,44 +1161,97 @@ def user(code):
             'subfolder': card_row['subfolder'],
             'owner_id': card_row['owner_id'],
             'owner_name': card_row['owner_name'] if card_row['owner_name'] else "Неизвестный владелец",
-            'guesses': current_card_guesses_dict, 
-            'has_guessed': my_guess_for_this_card_value is not None,
-            'guessed_user_id': my_guess_for_this_card_value
+            'guesses': current_card_guesses_dict,
+            'my_guess_for_this_card_value': my_guess_for_this_card_value, # Для отображения текущего голоса в select
+            'has_guessed': my_guess_for_this_card_value is not None # Упростил, чтобы шаблон решал текст кнопки
         })
+    print(f"[DEBUG /user/{code}] Processed table cards for template count: {len(table_cards_for_template)}", flush=True)
+    print(f"[DEBUG /user/{code}] On table status for current user: {on_table_status}", flush=True)
 
     other_active_users_for_template = []
-    if not is_pending_player and g.game_in_progress: 
-        c.execute("SELECT id, name FROM users WHERE status = 'active' AND id != ?", (g.user['id'],))
-        other_active_users_for_template = c.fetchall()
+    if not is_pending_player and g.game_in_progress:
+        other_active_users_for_template = db.execute(
+            "SELECT id, name FROM users WHERE status = 'active' AND id != ?", 
+            (g.user['id'],)
+        ).fetchall()
+    print(f"[DEBUG /user/{code}] Other active users for guessing count: {len(other_active_users_for_template)}", flush=True)
 
-    leader_id_from_db = get_leading_user_id() 
+    leader_id_from_db = get_leading_user_id() # Ваша функция
     is_current_user_the_db_leader = False
     if not is_pending_player and leader_id_from_db is not None and g.game_in_progress:
         is_current_user_the_db_leader = (g.user['id'] == leader_id_from_db)
+    print(f"[DEBUG /user/{code}] Leader ID from DB: {leader_id_from_db}, Is current user the leader: {is_current_user_the_db_leader}", flush=True)
+
+    # Логика для пиктограммы ведущего на пустом столе (если она вам все еще нужна для других целей)
+    # Если задача из ответа #167 больше не актуальна, этот блок можно упростить или удалить.
+    # Пока оставим его, так как он не мешает новой логике трехэтапного отображения.
+    leader_pole_pictogram_path = None
+    leader_pictogram_rating_display = None
+    # ... (ваш существующий код для leader_pole_pictogram_path из app.py, 
+    # который вы мне показывали или который был в #167, если он используется в шаблоне для чего-то еще)
+    # Например:
+    if is_current_user_the_db_leader and \
+       not on_table_status and \
+       g.game_in_progress and \
+       not g.show_card_info and \
+       not all_cards_placed_for_guessing_phase: # Добавил это условие, чтобы не показывать, если уже идет угадывание
+        
+        current_leader_actual_rating = 0
+        if g.user and 'rating' in g.user and g.user['rating'] is not None:
+            try:
+                current_leader_actual_rating = int(g.user['rating'])
+            except (ValueError, TypeError):
+                current_leader_actual_rating = 0
+        
+        leader_pictogram_rating_display = current_leader_actual_rating
+
+        if current_leader_actual_rating > 0 and \
+           _current_game_board_pole_image_config and \
+           len(_current_game_board_pole_image_config) > 0 and \
+           _current_game_board_num_cells > 0 and \
+           current_leader_actual_rating <= _current_game_board_num_cells and \
+           (current_leader_actual_rating - 1) < len(_current_game_board_pole_image_config):
+            
+            relative_pole_image_path = _current_game_board_pole_image_config[current_leader_actual_rating - 1]
+            leader_pole_pictogram_path = url_for('static', filename=relative_pole_image_path)
+    print(f"[DEBUG /user/{code}] Leader pole pictogram path (for empty table placeholder): {leader_pole_pictogram_path}", flush=True)
+
 
     potential_next_leader_id_for_user_page = None
-    if leader_id_from_db and g.game_in_progress : 
-        potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db)
+    if leader_id_from_db and g.game_in_progress:
+        potential_next_leader_id_for_user_page = determine_new_leader(leader_id_from_db) # Ваша функция
+    print(f"[DEBUG /user/{code}] Potential next leader ID: {potential_next_leader_id_for_user_page}", flush=True)
 
-    c.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
-    all_active_users_for_board_query = c.fetchall()
-    game_board_data = generate_game_board_data_for_display(all_active_users_for_board_query)
-    current_board_cells_value = _current_game_board_num_cells
+    all_active_users_for_board_query = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
+    game_board_data = generate_game_board_data_for_display(all_active_users_for_board_query) # Ваша функция
+    current_board_cells_value = _current_game_board_num_cells # Глобальная переменная
+    print(f"[DEBUG /user/{code}] Game board data count: {len(game_board_data) if game_board_data else 0}, Current num board cells: {current_board_cells_value}", flush=True)
 
+    print(f"[DEBUG /user/{code}] Rendering user.html. show_card_info={g.show_card_info}, all_cards_placed={all_cards_placed_for_guessing_phase}", flush=True)
     return render_template('user.html',
-                           user_data=g.user, 
-                           is_pending_player=is_pending_player, 
+                           user_data=g.user,
+                           is_pending_player=is_pending_player,
                            cards=user_cards,
                            table_images=table_cards_for_template,
-                           all_users_for_guessing=other_active_users_for_template, 
-                           on_table=on_table_status,
+                           all_users_for_guessing=other_active_users_for_template,
+                           on_table=on_table_status, 
                            db_current_leader_id=leader_id_from_db,
-                           potential_next_leader_id=potential_next_leader_id_for_user_page, 
+                           potential_next_leader_id=potential_next_leader_id_for_user_page,
+                           # Для пиктограммы ведущего на пустом столе (если используется)
+                           leader_pole_pictogram_path=leader_pole_pictogram_path, 
+                           leader_pictogram_rating_display=leader_pictogram_rating_display,
                            is_current_user_the_db_leader=is_current_user_the_db_leader,
                            game_board=game_board_data,
                            current_num_board_cells=current_board_cells_value,
-                           )
-    
+                           # Новые переменные для трехэтапного отображения в шаблоне:
+                           num_active_players_to_template=num_active_players,
+                           num_cards_on_table_to_template=num_cards_on_table,
+                           # g (содержащий g.show_card_info, g.game_in_progress) уже доступен в шаблоне глобально
+                           # all_cards_placed_for_guessing_phase можно передать, но шаблон может вычислить его сам
+                           # из num_active_players_to_template и num_cards_on_table_to_template, если они переданы
+                           # Передадим его явно для простоты шаблона:
+                           all_cards_placed_for_guessing_phase_to_template=all_cards_placed_for_guessing_phase
+                          )
         
 # Маршрути для дій користувача (guess_image, place_card, open_cards, new_round) - ЗАЛИШАЮТЬСЯ ЯК У ВАШОМУ ФАЙЛІ
 # Я не буду їх дублювати тут, оскільки вони вже є у вашому файлі app.py,
@@ -1305,43 +1403,6 @@ def place_card(code, image_id):
         db.commit() # Первый commit - для выкладывания карты
         flash(f"Ваша карта '{card_info['image']}' выложена на стол.", "success")
         print(f"[PLACE_CARD] User {g.user['name']} (ID: {g.user['id']}) placed card ID {image_id} ('{card_info['image']}') on table. New status: {new_status_on_table}", flush=True)
-
-        # --- НАЧАЛО НОВОЙ ЛОГИКИ: ПРОВЕРКА И АВТОМАТИЧЕСКОЕ ОТКРЫТИЕ КАРТ ---
-        # Эту логику выполняем после успешного выкладывания карты
-        if not g.show_card_info: # Проверяем только если карты еще не открыты
-            try:
-                num_active_players = get_active_players_count(db)
-                print(f"[CARD_PLACEMENT_CHECK] Number of active players: {num_active_players}", flush=True)
-
-                if num_active_players > 0 and active_subfolder: # active_subfolder уже определен выше
-                    cards_on_table_count_row = db.execute(
-                        "SELECT COUNT(id) FROM images WHERE subfolder = ? AND status LIKE 'На столе:%'", # Статус должен соответствовать тому, как вы его устанавливаете
-                        (active_subfolder,)
-                    ).fetchone()
-                    cards_on_table_count = cards_on_table_count_row[0] if cards_on_table_count_row else 0
-                    print(f"[CARD_PLACEMENT_CHECK] Cards currently on table for subfolder {active_subfolder}: {cards_on_table_count}", flush=True)
-
-                    if cards_on_table_count >= num_active_players:
-                        print(f"[CARD_PLACEMENT_CHECK] All {num_active_players} active players have placed their cards. Setting show_card_info to True.", flush=True)
-                        db.execute("UPDATE settings SET value = 'true' WHERE key = 'show_card_info'")
-                        db.commit() # Второй commit - для обновления settings
-                        flash("Все игроки сделали ход! Карты открываются...", "info") 
-                    else:
-                        print(f"[CARD_PLACEMENT_CHECK] Not all players have placed cards yet ({cards_on_table_count}/{num_active_players}). show_card_info remains False.", flush=True)
-                elif not active_subfolder:
-                     print("[CARD_PLACEMENT_CHECK] Active subfolder not defined for card check. Cannot check card count.", flush=True)
-                else: # num_active_players == 0
-                    print("[CARD_PLACEMENT_CHECK] No active players found, cannot determine if all cards are placed.", flush=True)
-
-            except sqlite3.Error as e_check_cards:
-                print(f"Ошибка БД при проверке карт на столе и обновлении show_card_info: {e_check_cards}", flush=True)
-                traceback.print_exc(file=sys.stdout) # Логируем ошибку, но не прерываем основной редирект
-            except Exception as e_gen_check:
-                print(f"Неожиданная ошибка при проверке карт на столе: {e_gen_check}", flush=True)
-                traceback.print_exc(file=sys.stdout)
-        else:
-            print("[CARD_PLACEMENT_CHECK] show_card_info is already True. No check needed.", flush=True)
-        # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
     except sqlite3.Error as e:
         db.rollback() # Откатываем только если ошибка была в основном блоке try до первого commit
