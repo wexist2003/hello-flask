@@ -1,4 +1,5 @@
 import json
+import sys # Додано для детального логування помилок
 from flask import Flask, render_template, request, redirect, url_for, g, flash, session
 import sqlite3
 import os
@@ -294,6 +295,21 @@ def get_user_name(user_id):
         print(f"Error in get_user_name for ID '{user_id}': {e}")
         return None
 
+def get_active_players_count(db):
+    """Возвращает количество активных игроков, участвующих в текущей игре."""
+    # Этот запрос предполагает, что все пользователи со статусом 'active' участвуют.
+    # Если у вас есть более сложная логика (например, 'pending' игроки могут быть 'active',
+    # но не участвовать до следующей игры), этот запрос нужно будет уточнить.
+    try:
+        cursor = db.execute("SELECT COUNT(id) FROM users WHERE status = 'active'")
+        count_row = cursor.fetchone()
+        active_count = count_row[0] if count_row else 0
+        print(f"[get_active_players_count] Active players found: {active_count}", flush=True)
+        return active_count
+    except sqlite3.Error as e:
+        print(f"Ошибка БД в get_active_players_count: {e}", flush=True)
+        return 0 # Возвращаем 0 в случае ошибки, чтобы избежать проблем дальше
+        
 # --- ДОДАНО: Функції для ігрового поля ---
 def initialize_new_game_board_visuals(num_cells_for_board=None, all_users_for_rating_check=None):
     global _current_game_board_pole_image_config, _current_game_board_num_cells
@@ -1223,33 +1239,44 @@ def guess_image(code, image_id):
 
 @app.route("/user/<code>/place/<int:image_id>", methods=["POST"])
 def place_card(code, image_id):
+    print(f"[PLACE_CARD] Entered for user code {code}, image_id {image_id}. User from g: {g.user['name'] if g.user else 'None'}", flush=True)
     # g.user и g.user_id уже установлены в before_request
-    if not g.user or g.user['status'] != 'active':
+    if not g.user or g.user['status'] != 'active': # Проверка g.user сначала
         flash("Только активные игроки могут выкладывать карты.", "warning")
         return redirect(url_for('user', code=code))
 
-    # Проверка, что игрок не является ведущим, здесь НЕ НУЖНА,
-    # так как и ведущий, и другие активные игроки могут выкладывать карту.
-    # Разница будет только в тексте кнопки в шаблоне.
-
     db = get_db()
-    c = db.cursor()
+    # c = db.cursor() # Не используется в вашем коде, можно убрать если db.execute достаточно
+
     try:
         if g.game_over: # Проверка 1
             flash("Игра окончена, выкладывать карты нельзя.", "warning")
             return redirect(url_for('user', code=code))
         
-        # Проверка 2: Есть ли уже карта от ЭТОГО игрока на столе?
-        c.execute("SELECT 1 FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (g.user['id'],))
-        if c.fetchone() is not None:
+        # Получаем active_subfolder здесь, он нужен для проверки и для подсчета карт
+        active_subfolder_row = db.execute("SELECT value FROM settings WHERE key = 'active_subfolder'").fetchone()
+        active_subfolder = active_subfolder_row['value'] if active_subfolder_row else None
+
+        if not active_subfolder:
+            flash("Ошибка: не определена активная колода для игры.", "danger")
+            print("[PLACE_CARD] Critical error: active_subfolder not defined.", flush=True)
+            return redirect(url_for('user', code=code))
+        
+        # Проверка 2: Есть ли уже карта от ЭТОГО игрока на столе ДЛЯ ТЕКУЩЕЙ КОЛОДЫ?
+        # (В вашем коде не было фильтра по subfolder, добавляю его)
+        existing_card_on_table = db.execute(
+            "SELECT 1 FROM images WHERE owner_id = ? AND subfolder = ? AND status LIKE 'На столе:%'", 
+            (g.user['id'], active_subfolder)
+        ).fetchone()
+        if existing_card_on_table is not None:
             flash("У вас уже есть карта на столе в этом раунде.", "warning")
             return redirect(url_for('user', code=code))
         
-        # Проверка 3: Принадлежит ли карта игроку и находится ли она в статусе "Занято" им?
-        c.execute("SELECT status, owner_id FROM images WHERE id = ?", (image_id,)) # Получаем и owner_id для отладки
-        card_info = c.fetchone()
-
-        expected_status = f"Занято:{g.user['id']}"
+        # Проверка 3: Принадлежит ли карта игроку, находится ли в статусе "Занято" им и из правильной ли колоды?
+        card_info = db.execute(
+            "SELECT status, owner_id, subfolder, image FROM images WHERE id = ?", # Добавил image для flash
+            (image_id,)
+        ).fetchone()
 
         if not card_info:
             flash(f"Карта с ID {image_id} не найдена в базе данных.", "danger")
@@ -1259,28 +1286,75 @@ def place_card(code, image_id):
             flash(f"Вы не являетесь владельцем карты {image_id}. Владелец по БД: ID {card_info['owner_id']}.", "danger")
             return redirect(url_for('user', code=code))
 
+        # Статус "Занято" теперь включает ID пользователя, а не имя. Предполагаем, что before_request это учтет или это отдельная логика.
+        # В вашем коде "Занято:{g.user['id']}". Это нормально.
+        expected_status = f"Занято:{g.user['id']}" 
         if card_info['status'] != expected_status:
-            flash(f"Карту {image_id} нельзя выложить. Ожидаемый статус: '{expected_status}', текущий статус: '{card_info['status']}'.", "danger")
+            flash(f"Карту {image_id} ('{card_info['image']}') нельзя выложить. Ожидаемый статус: '{expected_status}', текущий статус: '{card_info['status']}'.", "danger")
             return redirect(url_for('user', code=code))
-        
+
+        if card_info['subfolder'] != active_subfolder:
+            flash(f"Карта '{card_info['image']}' не из текущей активной колоды ('{active_subfolder}'). Карта из колоды '{card_info['subfolder']}'.", "danger")
+            return redirect(url_for('user', code=code))
+            
         # Если все проверки пройдены, обновляем статус карты
-        c.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", 
-                  (f"На столе:{g.user['id']}", image_id))
-        db.commit()
-        flash("Ваша карта выложена на стол.", "success")
+        # Статус "На столе" теперь включает ID пользователя.
+        new_status_on_table = f"На столе:{g.user['id']}"
+        db.execute("UPDATE images SET status = ?, guesses = '{}' WHERE id = ?", 
+                   (new_status_on_table, image_id))
+        db.commit() # Первый commit - для выкладывания карты
+        flash(f"Ваша карта '{card_info['image']}' выложена на стол.", "success")
+        print(f"[PLACE_CARD] User {g.user['name']} (ID: {g.user['id']}) placed card ID {image_id} ('{card_info['image']}') on table. New status: {new_status_on_table}", flush=True)
+
+        # --- НАЧАЛО НОВОЙ ЛОГИКИ: ПРОВЕРКА И АВТОМАТИЧЕСКОЕ ОТКРЫТИЕ КАРТ ---
+        # Эту логику выполняем после успешного выкладывания карты
+        if not g.show_card_info: # Проверяем только если карты еще не открыты
+            try:
+                num_active_players = get_active_players_count(db)
+                print(f"[CARD_PLACEMENT_CHECK] Number of active players: {num_active_players}", flush=True)
+
+                if num_active_players > 0 and active_subfolder: # active_subfolder уже определен выше
+                    cards_on_table_count_row = db.execute(
+                        "SELECT COUNT(id) FROM images WHERE subfolder = ? AND status LIKE 'На столе:%'", # Статус должен соответствовать тому, как вы его устанавливаете
+                        (active_subfolder,)
+                    ).fetchone()
+                    cards_on_table_count = cards_on_table_count_row[0] if cards_on_table_count_row else 0
+                    print(f"[CARD_PLACEMENT_CHECK] Cards currently on table for subfolder {active_subfolder}: {cards_on_table_count}", flush=True)
+
+                    if cards_on_table_count >= num_active_players:
+                        print(f"[CARD_PLACEMENT_CHECK] All {num_active_players} active players have placed their cards. Setting show_card_info to True.", flush=True)
+                        db.execute("UPDATE settings SET value = 'true' WHERE key = 'show_card_info'")
+                        db.commit() # Второй commit - для обновления settings
+                        flash("Все игроки сделали ход! Карты открываются...", "info") 
+                    else:
+                        print(f"[CARD_PLACEMENT_CHECK] Not all players have placed cards yet ({cards_on_table_count}/{num_active_players}). show_card_info remains False.", flush=True)
+                elif not active_subfolder:
+                     print("[CARD_PLACEMENT_CHECK] Active subfolder not defined for card check. Cannot check card count.", flush=True)
+                else: # num_active_players == 0
+                    print("[CARD_PLACEMENT_CHECK] No active players found, cannot determine if all cards are placed.", flush=True)
+
+            except sqlite3.Error as e_check_cards:
+                print(f"Ошибка БД при проверке карт на столе и обновлении show_card_info: {e_check_cards}", flush=True)
+                traceback.print_exc(file=sys.stdout) # Логируем ошибку, но не прерываем основной редирект
+            except Exception as e_gen_check:
+                print(f"Неожиданная ошибка при проверке карт на столе: {e_gen_check}", flush=True)
+                traceback.print_exc(file=sys.stdout)
+        else:
+            print("[CARD_PLACEMENT_CHECK] show_card_info is already True. No check needed.", flush=True)
+        # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
     except sqlite3.Error as e:
-        db.rollback()
+        db.rollback() # Откатываем только если ошибка была в основном блоке try до первого commit
         flash(f"Ошибка базы данных при выкладывании карты: {e}", "danger")
-        print(f"DB Error in place_card for image {image_id}, user {g.user['id']}: {e}")
+        print(f"DB Error in place_card for image {image_id}, user {g.user['id'] if g.user else 'Unknown'}: {e}")
         print(traceback.format_exc())
     except Exception as e_gen:
-        # db.rollback() # Не всегда нужен для не-БД ошибок
         flash(f"Непредвиденная ошибка при выкладывании карты: {e_gen}", "danger")
-        print(f"Unexpected Error in place_card for image {image_id}, user {g.user['id']}: {e_gen}")
+        print(f"Unexpected Error in place_card for image {image_id}, user {g.user['id'] if g.user else 'Unknown'}: {e_gen}")
         print(traceback.format_exc())
         
     return redirect(url_for('user', code=code))
+    
     
 
 @app.route("/admin/open_cards", methods=["POST"])
