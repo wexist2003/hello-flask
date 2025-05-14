@@ -12,7 +12,6 @@
             --standard-font-size-mobile: 1.1rem; 
             --standard-font-size-mobile-small: 1rem; 
             --flash-message-font-size: 1rem;
-            /* ИЗМЕНЕНИЕ: Размер для заголовков H2, H4, H5 */
             --header-unified-font-size: 1.5rem;
             --header-unified-font-size-mobile: 1.3rem;
 
@@ -30,19 +29,16 @@
         .page-header-custom {
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
-            /* ИЗМЕНЕНИЕ: Уменьшен отступ снизу */
             margin-bottom: 0.15rem; 
         }
         
-        /* ИЗМЕНЕНИЕ: Единый стиль для заголовков H2, H4, H5 */
         h2, 
         #rules-block h4, 
         #rules-block h5 {
-            font-size: var(--header-unified-font-size) !important; /* Используем !important для переопределения Bootstrap, если нужно */
-            margin-top: 0.75rem; /* Стандартные отступы для заголовков */
+            font-size: var(--header-unified-font-size) !important; 
+            margin-top: 0.75rem; 
             margin-bottom: 0.35rem;
         }
-        /* Убираем индивидуальные стили размера шрифта для H2, если они были в HTML */
 
         .game-board {
             display: flex;
@@ -93,17 +89,28 @@
             padding: .25em .5em;
         }
         
-        /* ИЗМЕНЕНИЕ: "Ваш рейтинг", "Ведущий" и "На столе пока нет карт..." */
-        .rating-leader-info { 
+        /* ИЗМЕНЕНИЕ: обертка для информации о рейтинге и ведущих */
+        .rating-leader-info-wrapper { 
+            display: flex;
+            flex-wrap: wrap; /* Для переноса на мобильных, если не помещается */
+            justify-content: space-between; 
+            align-items: baseline;
             font-size: var(--standard-font-size); 
-            margin-bottom: 0.25rem; /* mb-1 из Bootstrap */
+            margin-bottom: 0.25rem; 
         }
-        .rating-leader-info p { margin-bottom: 0 !important; }
-        #user-rating-display, #current-leader-display { font-weight: bold; }
+        .rating-leader-info-wrapper p { margin-bottom: 0; } /* Убираем нижний отступ у параграфов внутри */
+        #current-game-info { /* Левая часть */
+            /* Можно добавить margin-right для отступа от правой части на больших экранах, если flex-wrap сработает */
+        }
+        #next-leader-info-container { /* Правая часть */
+            /* text-align: right; */ /* Можно добавить, если нужно прижать текст вправо внутри этого блока */
+        }
+
+        #user-rating-display, #current-leader-display, #next-leader-display { font-weight: bold; }
         
-        #table-placeholder p { /* Для "На столе пока нет карт" */
+        #table-placeholder p { 
             font-size: var(--standard-font-size);
-            color: inherit; /* Наследуем цвет от body/theme */
+            color: inherit; 
         }
         
         #game-status-info p { margin-bottom: 0.1rem; font-size: var(--standard-font-size); }
@@ -269,9 +276,10 @@
         body.dark-theme hr { border-top-color: #383838; } 
         body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
         body.dark-theme #user-greeting-text, body.dark-theme #user-rating-display, 
-        body.dark-theme #current-leader-display, body.dark-theme .card-owner-info, 
+        body.dark-theme #current-leader-display, body.dark-theme #next-leader-display, /* Добавлен #next-leader-display */
+        body.dark-theme .card-owner-info, 
         body.dark-theme .my-choice-text, body.dark-theme ul.guesses-list li, 
-        body.dark-theme #table-placeholder p { /* Добавлено для placeholder */
+        body.dark-theme #table-placeholder p { 
             color: #e0e0e0;
         }
         body.dark-theme .card {
@@ -310,7 +318,13 @@
         
         body.dark-theme .game-board-cell { border-color: #383838; }
         body.dark-theme #rules-block { background-color: #1e1e1e; border: 1px solid #333; }
-        /* body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li { color: #c0c0c0; } */ /* Уже покрыто общим правилом */
+        /* ИЗМЕНЕНИЕ: Цвет текста правил в темной теме */
+        body.dark-theme #rules-block h4, 
+        body.dark-theme #rules-block h5, 
+        body.dark-theme #rules-block p, 
+        body.dark-theme #rules-block li { 
+            color: #e0e0e0; /* Белый, как основной текст */
+        }
         body.dark-theme #rules-block a { color: #62aeff; }
         body.dark-theme .form-control { background-color: #2b2b2b; color: #e0e0e0; border-color: #444; }
         body.dark-theme .form-control::placeholder { color: #888c91; }
@@ -354,7 +368,7 @@
                 min-height: 60px; 
                 padding: 1px;
             }
-            .rating-leader-info { font-size: var(--standard-font-size-mobile); }
+            .rating-leader-info-wrapper { font-size: var(--standard-font-size-mobile); } /* Обновлено для обертки */
             #user-rating-display { font-size: var(--standard-font-size-mobile); }
             #table-placeholder p { font-size: var(--standard-font-size-mobile); }
 
@@ -367,14 +381,13 @@
             .card-body .small, .card-body p.small { 
                 font-size: var(--standard-font-size-mobile) !important;
             }
-            #rules-block p, #rules-block li { font-size: var(--standard-font-size-mobile); }
-            /* h2, #rules-block h4, #rules-block h5 уже покрыты :root изменением */
+            /* h2, #rules-block h4, #rules-block h5 уже покрыты :root изменением в этом медиа-запросе */
         }
 
         @media (max-width: 575.98px) { 
             :root { 
                 --standard-font-size: var(--standard-font-size-mobile-small); 
-                --header-unified-font-size: calc(var(--header-unified-font-size-mobile) - 0.1rem); /* Еще чуть меньше */
+                --header-unified-font-size: calc(var(--header-unified-font-size-mobile) - 0.1rem); 
                 --flash-message-font-size: 0.9rem;
             }
              
@@ -388,13 +401,14 @@
 
 
             #user-greeting-text { font-size: 1.1rem; }
-            .rating-leader-info { 
+            .rating-leader-info-wrapper { /* Обновлено для обертки */
                  flex-direction: column;
                  align-items: flex-start;
                  font-size: var(--standard-font-size-mobile-small);
             }
-            .rating-leader-info p { margin-bottom: 0.05rem !important; }
-            .rating-leader-info p.mr-md-3, .rating-leader-info p.mr-2 { margin-right: 0 !important; }
+            .rating-leader-info-wrapper p { margin-bottom: 0.05rem !important; }
+            .rating-leader-info-wrapper p.mr-md-3, .rating-leader-info-wrapper p.mr-2 { margin-right: 0 !important; }
+             #next-leader-info-container { margin-top: 0.2rem; } /* Небольшой отступ сверху на мобильных, если переносится */
         }
     </style>
 </head>
@@ -430,8 +444,14 @@
             {% endif %}
         {% endwith %}
 
-        <div class="rating-leader-info d-flex flex-wrap justify-content-start align-items-baseline"> <p class="mr-md-3 mr-2">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
-            <p>Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
+        <div class="rating-leader-info-wrapper">
+            <div id="current-game-info">
+                <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
+                <p class="mb-0">Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
+            </div>
+            <div id="next-leader-info-container" style="display: none;">
+                 <p class="mb-0">Следующий ведущий: <strong id="next-leader-display"></strong></p>
+            </div>
         </div>
         
         <div id="game-messages" class="alert alert-info mt-1" role="alert" style="display: none;"></div>
@@ -516,7 +536,7 @@
             const gameMessagesDiv = document.getElementById('game-messages');
             if (gameMessagesDiv) {
                 gameMessagesDiv.textContent = 'Соединение с сервером потеряно. Попытка переподключения...';
-                gameMessagesDiv.className = 'alert alert-danger mt-2';
+                gameMessagesDiv.className = 'alert alert-danger mt-1';
                 gameMessagesDiv.style.display = 'block';
             }
         });
@@ -525,7 +545,7 @@
             const gameMessagesDiv = document.getElementById('game-messages');
             if (gameMessagesDiv && data.data) {
                  gameMessagesDiv.textContent = data.data;
-                 gameMessagesDiv.className = data.category ? `alert alert-${data.category} mt-2` : 'alert alert-info mt-2';
+                 gameMessagesDiv.className = data.category ? `alert alert-${data.category} mt-1` : 'alert alert-info mt-1';
                  gameMessagesDiv.style.display = 'block';
                  setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 5000);
             }
@@ -540,6 +560,10 @@
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
             const leaderDisplay = document.getElementById('current-leader-display');
+            // ИЗМЕНЕНИЕ: Элементы для следующего ведущего
+            const nextLeaderInfoContainer = document.getElementById('next-leader-info-container');
+            const nextLeaderDisplay = document.getElementById('next-leader-display');
+
 
             if (gameState.current_user_data) {
                 currentUserId = gameState.current_user_data.id;
@@ -595,6 +619,17 @@
                 }
             }
 
+            // ИЗМЕНЕНИЕ: Логика для отображения следующего ведущего
+            if (nextLeaderInfoContainer && nextLeaderDisplay) {
+                if (gameState.show_card_info && gameState.next_leader_name) {
+                    nextLeaderDisplay.textContent = gameState.next_leader_name;
+                    nextLeaderInfoContainer.style.display = 'block';
+                } else {
+                    nextLeaderInfoContainer.style.display = 'none';
+                }
+            }
+
+
             updatePlayerHand(gameState); 
             updateTableCards(gameState);
             updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
@@ -603,7 +638,7 @@
             if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
                 const firstMessage = gameState.flashed_messages[0];
                 gameMessagesDiv.textContent = firstMessage.message;
-                gameMessagesDiv.className = `alert alert-${firstMessage.category} mt-1`; // Убрал mt-2, т.к. общий alert теперь имеет margin-bottom
+                gameMessagesDiv.className = `alert alert-${firstMessage.category} mt-1`; 
                 gameMessagesDiv.style.display = 'block';
                 setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 7000);
             } else if (gameMessagesDiv && gameMessagesDiv.textContent === 'Соединение с сервером потеряно. Попытка переподключения...') {
@@ -647,7 +682,8 @@
 
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1'; 
+                // ИЗМЕНЕНИЕ: Классы колонок для увеличения превью карт
+                cardDiv.className = 'col-lg-6 col-md-6 col-sm-12 col-12 p-1'; 
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
@@ -720,7 +756,8 @@
 
             (table_images || []).forEach(card => { 
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1';
+                 // ИЗМЕНЕНИЕ: Классы колонок для увеличения превью карт
+                cardDiv.className = 'col-lg-6 col-md-6 col-sm-12 col-12 p-1';
                 
                 if (show_card_info && card.owner_id === currentUserId) {
                     cardDiv.classList.add('my-owned-card-revealed');
