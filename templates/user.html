@@ -2,27 +2,55 @@
 <html lang="ru" data-bs-theme="light">
 
 {# === Макросы === #}
-{% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_for_guessing_macro, current_user_data_macro, get_user_name_func_macro) %}
+{% macro render_table_card(table_image, g, db_current_leader_id_macro, all_users_for_guessing_macro, current_user_data_macro, get_user_name_func_macro, num_active_players_to_template_macro, num_cards_on_table_to_template_macro) %}
+    {# Новые параметры: num_active_players_to_template_macro, num_cards_on_table_to_template_macro #}
     <div class="card">
+        {# Вычисляем, все ли карты выложены, для Этапа 2 #}
+        {% set all_cards_now_placed_for_guessing = (g.game_in_progress and num_active_players_to_template_macro > 0 and num_cards_on_table_to_template_macro >= num_active_players_to_template_macro) %}
+
+        {# Блок 1: Отображение владельца карты (только если админ открыл карты - Этап 3) #}
         {% if g.show_card_info %}
-        <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
-            <h6 class="card-subtitle text-muted text-center mb-1 card-owner-text">
-                <span class="card-text-bigger">Чья:</span>
-                <strong>{{ get_user_name_func_macro(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
-                {% if db_current_leader_id_macro == table_image.owner_id %}
-                    <span class="badge bg-success ms-1 card-custom-badge" title="Карта ведущего этого раунда"><i class="bi bi-star-fill"></i></span>
-                {% endif %}
-            </h6>
-        </div>
+            <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
+                <h6 class="card-subtitle text-muted text-center mb-1 card-owner-text">
+                    <span class="card-text-bigger">Чья:</span>
+                    <strong>{{ get_user_name_func_macro(table_image.owner_id) or 'ID ' + table_image.owner_id|string }}</strong>
+                    {% if db_current_leader_id_macro == table_image.owner_id %}
+                        <span class="badge bg-success ms-1 card-custom-badge" title="Карта ведущего этого раунда"><i class="bi bi-star-fill"></i></span>
+                    {% endif %}
+                </h6>
+            </div>
         {% endif %}
-        <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
-             class="card-img-top" 
-             alt="Карта {{ table_image.id }}" loading="lazy"
-             style="margin-top: 0.25rem;"> 
+
+        {# Блок 2: Отображение изображения карты (реальное или заглушка) #}
+        {% if g.show_card_info or all_cards_now_placed_for_guessing %}
+            {# Показываем реальную карту, ЕСЛИ:
+                1. Админ открыл карты (g.show_card_info == True) - Этап 3
+                ИЛИ
+                2. Игра идет И все активные игроки выложили свои карты (all_cards_now_placed_for_guessing == True) - Этап 2
+            #}
+            <img src="{{ url_for('static', filename='images/' + table_image.subfolder + '/' + table_image.image) }}"
+                 class="card-img-top" 
+                 alt="Карта {{ table_image.id if g.show_card_info else 'Карта игрока' }}" loading="lazy"
+                 style="margin-top: 0.25rem;">
+        {% elif g.game_in_progress %}
+            {# Показываем заглушку, если игра идет, но НЕ все карты выложены (Этап 1) #}
+            <img src="{{ url_for('static', filename='images/a.jpg') }}"
+                 class="card-img-top" 
+                 alt="Карта скрыта" loading="lazy"
+                 style="margin-top: 0.25rem;">
+        {% else %}
+             {# Если игра не идет - можно тоже заглушку или специальный плейсхолдер, если стол пуст #}
+             <img src="{{ url_for('static', filename='images/a.jpg') }}"
+                 class="card-img-top" 
+                 alt="Карта не активна" loading="lazy"
+                 style="margin-top: 0.25rem;">
+        {% endif %}
+        
+        {# Блок 3: Тело карточки (информация о голосовании или форма для голосования) #}
         <div class="card-body pt-1"> 
             {% if g.show_card_info %}
-                {# ... (код для отображения результатов голосования, без изменений) ... #}
-                 <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
+                {# ЭТАП 3: Карты открыты админом - показываем результаты голосования #}
+                <p class="card-text mb-1 card-label-text card-text-bigger"><small>Предположения:</small></p>
                 <ul class="list-unstyled mb-2 card-guess-list"> 
                     {% for guesser_id_str, guessed_user_id_loop in table_image.guesses.items() %}
                         <li><small>
@@ -48,44 +76,47 @@
                          <span class="text-muted">(Наблюдатель)</span>
                     {% endif %}
                 </small></p>
-            {% elif g.game_in_progress %} {# Карты не открыты, ИГРА ИДЕТ #}
-                {% if current_user_data_macro.status == 'active' %} {# Только активные игроки могут угадывать #}
-                    {# --- ИЗМЕНЕНИЕ ЗДЕСЬ --- #}
-                    {# Убираем условие elif current_user_data_macro.id == db_current_leader_id_macro #}
-                    {# Теперь форма голосования показывается всем активным игрокам, если это не их карта #}
+            {% elif g.game_in_progress and all_cards_now_placed_for_guessing %}
+                {# ЭТАП 2: Все карты выложены (показываются реальные изображения), но админ еще не открыл их. Показываем форму голосования. #}
+                {% if current_user_data_macro.status == 'active' %}
                     {% if table_image.owner_id == current_user_data_macro.id %} 
                         <p class="card-text text-center mb-1 card-info-text"><span class="badge bg-primary card-custom-badge">Это ваша карта</span></p> 
-                    {% else %} {# Любой активный игрок (включая ведущего) может голосовать за чужую карту #}
+                    {% else %} {# Чужая карта, можно угадывать #}
                         {% if not g.game_over %}
                             <form method="post" action="{{ url_for('guess_image', code=current_user_data_macro.code, image_id=table_image.id) }}">
                                 <label for="guess-{{ table_image.id }}" class="form-label form-label-sm mb-1 card-form-label card-text-bigger">Чья это карта?</label> 
                                 <select name="guessed_user_id" id="guess-{{ table_image.id }}" class="form-select form-select-sm mb-1 card-form-select" required> 
                                     <option value="">-- Выберите игрока --</option>
+                                    {# all_users_for_guessing_macro должен содержать других активных игроков #}
                                     {% for user_loop_var in all_users_for_guessing_macro %}
-                                            {# all_users_for_guessing_macro уже не содержит текущего пользователя #}
-                                            {% set current_guess_target_id = table_image.guesses.get(current_user_data_macro.id|string) %}
-                                            <option value="{{ user_loop_var.id }}" {% if current_guess_target_id == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
+                                        {# table_image.my_guess_for_this_card_value - это значение вашего текущего голоса за эту карту, если оно было передано из app.py #}
+                                        {# В вашем app.py (функция user) table_image сейчас содержит 'my_guess_for_this_card_value' #}
+                                        <option value="{{ user_loop_var.id }}" {% if table_image.my_guess_for_this_card_value == user_loop_var.id %}selected{% endif %}>{{ user_loop_var.name }}</option>
                                     {% endfor %}
                                 </select>
                                 <button type="submit" class="btn btn-outline-primary btn-sm w-100 card-form-button card-button-bigger"> 
-                                    {% if table_image.guesses and current_user_data_macro.id|string in table_image.guesses %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
+                                    {% if table_image.my_guess_for_this_card_value is not none %}<i class="bi bi-pencil-square"></i> Изменить{% else %}<i class="bi bi-question-circle"></i> Угадать{% endif %}
                                 </button>
                             </form>
-                            {% if table_image.guesses and current_user_data_macro.id|string in table_image.guesses %}
-                                <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func_macro(table_image.guesses[current_user_data_macro.id|string]) }}</small></p> 
+                            {% if table_image.my_guess_for_this_card_value is not none %}
+                                <p class="mt-1 mb-0 text-center card-info-text card-text-bigger"><small>Ваш выбор: {{ get_user_name_func_macro(table_image.my_guess_for_this_card_value) }}</small></p> 
                             {% endif %}
-                        {% else %}
+                        {% else %} {# g.game_over == True #}
                             <p class="text-center text-muted mb-0 card-info-text"><small>Игра окончена!</small></p> 
                         {% endif %}
                     {% endif %}
-                    {# --- КОНЕЦ ИЗМЕНЕНИЯ --- #}
-                {% else %} {# Пользователь - наблюдатель #}
+                {% elif current_user_data_macro.status == 'pending' and g.game_in_progress %}
                      <p class="text-center text-muted mb-0 card-info-text card-text-bigger"><small>(Наблюдатель)</small></p>
                 {% endif %}
-            {% else %} {# Игра не идет #}
-                 <p class="text-center text-muted mb-0 card-info-text card-text-bigger"><small>Игра не активна</small></p>
+            {% elif g.game_in_progress %}
+                {# ЭТАП 1: Игра идет, но не все карты выложены (показывается заглушка). #}
+                <p class="text-center text-muted mb-0 card-info-text card-text-bigger" style="min-height: 50px; display:flex; align-items:center; justify-content:center;"><small>Карта выложена</small></p>
+            {% else %} 
+                 {# Игра не активна #}
+                 <p class="text-center text-muted mb-0 card-info-text card-text-bigger" style="min-height: 50px; display:flex; align-items:center; justify-content:center;"><small>Игра не активна</small></p>
             {% endif %}
         </div>
+        {# --- КОНЕЦ ИЗМЕНЕНИЙ В МАКРОСЕ --- #}
     </div>
 {% endmacro %}
 
@@ -169,7 +200,7 @@
         .card-text-bigger { font-size: 1.25em !important; }
         .card-button-bigger { font-size: 1.15em !important; }
         .card-custom-badge { font-size: 1em !important; padding: 0.3em 0.5em; }
-        .desktop-card-row { display: flex; flex-direction: row; overflow-x: auto; gap: 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .desktop-card-row { display: flex; flex-direction: row; overflow-x: auto; gap: 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; min-height: 200px; /* Для пустого состояния */ }
         .desktop-card-row-empty-placeholder { width: 100%; text-align: center; padding: 2rem 0; color: #6c757d; display: flex; align-items: center; justify-content: center; }
         .theme-toggle-button { position: fixed; top: 1rem; right: 1rem; z-index: 1050; }
         h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
@@ -279,14 +310,44 @@
         <h2 class="h2-like-bigger">Общий стол</h2> 
         <div class="border p-1 p-sm-2 mb-3 rounded">
             <div class="desktop-card-row">
-                {% if table_images %}
+                {% if table_images %} {# Если есть хоть какие-то карты на столе #}
                     {% for table_image in table_images %}
-                        {{ render_table_card(table_image, g, db_current_leader_id, all_users_for_guessing, user_data, get_user_name) }}
+                        {# Передаем новые параметры в макрос #}
+                        {{ render_table_card(table_image, g, db_current_leader_id, all_users_for_guessing, user_data, get_user_name, num_active_players_to_template, num_cards_on_table_to_template) }}
                     {% endfor %}
-                {% else %}
-                     <p class="desktop-card-row-empty-placeholder">
-                        {% if g.game_in_progress %}На столе пока нет карточек.{% else %}Игра не начата.{% endif %}
-                     </p>
+                {% else %} {# Если стол абсолютно пуст #}
+                    <p class="desktop-card-row-empty-placeholder">
+                        {% if g.game_in_progress %}
+                            {# Если пиктограмма ведущего должна отображаться (логика из app.py) #}
+                            {% if is_current_user_the_db_leader and not on_table and leader_pole_pictogram_path and not all_cards_placed_for_guessing_phase_to_template %}
+                                <div class="card" style="min-width: 220px; max-width: 275px; border-style: dashed; border-color: var(--bs-primary);">
+                                    <div class="card-header bg-transparent border-bottom-0 pb-0 pt-2">
+                                        <h6 class="card-subtitle text-primary text-center mb-1 card-owner-text">
+                                            {% if leader_pictogram_rating_display and leader_pictogram_rating_display > 0 %}
+                                                <span class="card-text-bigger">Ваша ассоциация для поля №{{ leader_pictogram_rating_display }}</span>
+                                            {% else %}
+                                                <span class="card-text-bigger">Ваша ассоциация</span>
+                                            {% endif %}
+                                        </h6>
+                                    </div>
+                                    <img src="{{ leader_pole_pictogram_path }}"
+                                         class="card-img-top"
+                                         alt="Пиктограмма поля для ассоциации (Поле №{{ leader_pictogram_rating_display if leader_pictogram_rating_display and leader_pictogram_rating_display > 0 else '?' }})" loading="lazy"
+                                         style="margin-top: 0.25rem; opacity: 0.7;">
+                                    <div class="card-body pt-1 text-center">
+                                        <small class="text-muted card-info-text card-text-bigger">Выберите карту из руки, соответствующую этой ассоциации, и выложите её.</small>
+                                    </div>
+                                </div>
+                            {% else %}
+                                На столе пока нет карточек.
+                                {% if is_current_user_the_db_leader %} Ожидание вашего хода... {% else %} Ожидание хода ведущего... {% endif %}
+                            {% endif %}
+                        {% elif g.game_over %}
+                            Игра окончена.
+                        {% else %}
+                            Игра не начата.
+                        {% endif %}
+                    </p>
                 {% endif %}
             </div>
         </div>
@@ -317,7 +378,6 @@
             </div>
         </div>
 
-        {# #}
         <div class="mt-4 pt-3 border-top">
             <h2 class="h2-like-bigger">Правила игры</h2>
             <p><a href="{{ url_for('index') }}">Ссылка на голосование</a> (выбор колоды перед началом новой игры)</p>
@@ -341,7 +401,6 @@
                 <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid" style="max-width: 100%; height: auto; border: 1px solid #dee2e6; border-radius: .25rem;">
             </div>
         </div>
-        {# #}
 
     </div>
 
