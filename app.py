@@ -611,22 +611,28 @@ def before_request_func():
 
     if g.user_id:
         db = get_db()
-        # --- ВАЖНОЕ ИСПРАВЛЕНИЕ: SQL-запрос теперь выбирает 'rating' ---
         user_data_from_db = db.execute(
             'SELECT id, name, code, status, rating FROM users WHERE id = ?', (g.user_id,)
         ).fetchone()
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         if user_data_from_db:
-            g.user = user_data_from_db # g.user теперь будет содержать 'rating'
-            # Отладочный print для проверки содержимого g.user
-            rating_val = "NOT_FOUND_IN_G.USER"
-            rating_type = "N/A"
-            if 'rating' in g.user: # Проверяем, есть ли ключ 'rating'
-                rating_val = g.user['rating'] # Получаем фактическое значение
-                rating_type = type(rating_val).__name__
+            g.user = user_data_from_db # g.user это sqlite3.Row
             
-            print(f"--- before_request_func: g.user set. User: {g.user['name']}, ID: {g.user['id']}, Status: {g.user['status']}, RATING_VALUE: {rating_val} (Type: {rating_type}) ---", flush=True)
+            # Безопасный отладочный вывод
+            user_name_debug = g.user['name'] if g.user and 'name' in g.user else "N/A (name key missing or g.user is None)"
+            user_id_debug = g.user['id'] if g.user and 'id' in g.user else "N/A (id key missing or g.user is None)"
+            user_status_debug = g.user['status'] if g.user and 'status' in g.user else "N/A (status key missing or g.user is None)"
+            rating_val_debug = "N/A (rating key missing or g.user is None)"
+            rating_type_debug = "N/A"
+
+            if g.user and 'rating' in g.user:
+                rating_val_debug = g.user['rating']
+                rating_type_debug = type(rating_val_debug).__name__
+            
+            print(f"--- before_request_func: g.user IS SET. User: {user_name_debug}, ID: {user_id_debug}, Status: {user_status_debug}, RATING_VALUE: {rating_val_debug} (Type: {rating_type_debug}) ---", flush=True)
+            if g.user:
+                 print(f"--- before_request_func: g.user.keys(): {list(g.user.keys())}", flush=True)
+
         else:
             print(f"--- before_request_func: User with ID {g.user_id} not found in DB. Clearing session.", flush=True)
             session.pop('user_id', None)
