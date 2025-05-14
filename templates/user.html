@@ -9,7 +9,8 @@
     <style>
         body {
             font-size: 1rem; 
-            transition: background-color 0.3s, color 0.3s; /* Плавный переход для темы */
+            transition: background-color 0.3s, color 0.3s;
+            padding-top: 60px; 
         }
         .game-board {
             display: flex;
@@ -57,22 +58,36 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        #user-greeting {
-            font-size: 1.75rem; 
-            margin-bottom: 0.25rem; 
+        #user-greeting-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.1rem; /* УМЕНЬШЕН отступ для контейнера приветствия */
         }
-        #user-greeting .badge {
-            font-size: 0.8rem; 
+        #user-greeting-text {
+            font-size: 1.75rem; 
+            margin-right: 0.5rem; 
+        }
+        #user-status-badge-container .badge {
+            font-size: 0.9rem; 
             vertical-align: middle; 
-            padding: .25em .5em;
+            padding: .3em .6em;
+        }
+        
+        /* Стили для минимизации отступов */
+        p:has(> #user-rating-display) { /* Более точный селектор для строки рейтинга */
+            margin-bottom: 0.1rem !important; /* Минимальный отступ */
         }
         #game-status-info p {
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.1rem; /* Минимальный отступ для строк в #game-status-info */
         }
-        #user-rating-display { 
-             font-size: 0.9rem;
-             margin-bottom: 0.5rem; 
+        #game-status-info p:last-child { /* Убираем отступ у последнего элемента, если нужно */
+             margin-bottom: 0;
         }
+        #user-rating-display { /* Для самого strong элемента, если нужно (но лучше через родительский <p>) */
+             /* font-size: 0.9rem; - уже есть */
+             /* margin-bottom: 0.5rem; - этот отступ теперь у родительского <p> */
+        }
+
         .user-hand .card, .table-cards .card {
             margin-bottom: 10px; 
             height: 100%; 
@@ -103,17 +118,40 @@
         .card-body .small, .card-body p.small { 
             font-size: 0.8rem; 
         }
-        .modal-dialog.modal-lg {
-            max-width: 90%; 
+        
+        .modal-dialog.modal-fullscreen-viewer {
+            max-width: none;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
         }
-        .modal-body img#modalImage {
-            max-width: 100%;    
-            max-height: 88vh;   
-            display: block;
-            margin: auto; 
-            object-fit: contain; 
-            border-radius: 0.3rem;
+        .modal-fullscreen-viewer .modal-content {
+            height: 100vh;
+            border-radius: 0;
+            border: none;
+            display: flex; 
+            flex-direction: column;
         }
+        .modal-fullscreen-viewer .modal-header {
+            flex-shrink: 0; 
+        }
+        .modal-fullscreen-viewer .modal-body {
+            overflow: hidden; /* Убираем auto, т.к. картинка должна вписываться */
+            padding: 2px;     /* Минимальнейший padding, чтобы края не прилипали к границам модалки */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-grow: 1; 
+        }
+        .modal-fullscreen-viewer .modal-body img#modalImage {
+            max-width: 100%;    /* Максимальная ширина ТЕЛА модалки (body padding учтен) */
+            max-height: 100%;   /* Максимальная высота ТЕЛА модалки (body padding учтен) */
+                                /* Высота modal-body уже учитывает шапку за счет flex-grow:1 */
+            object-fit: contain;
+            border-radius: 0.15rem; /* Чуть меньше радиус для максимального размера */
+        }
+
         .pending-message { 
             background-color: #fff3cd;
             border-color: #ffeeba;
@@ -146,112 +184,92 @@
             margin-bottom: 0.15rem;
         }
 
+        #theme-icon-container {
+            position: fixed;
+            top: 10px;
+            right: 15px;
+            z-index: 1050; 
+        }
+        #theme-toggle-icon-button {
+            width: 38px; 
+            height: 38px;
+            line-height: 1; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ccc; 
+            background-color: #f8f9fa; 
+            color: #212529; 
+            padding: 0; 
+        }
+        #theme-toggle-icon-button svg {
+             width: 20px; 
+             height: 20px;
+        }
+
         /* Стили для темной темы */
         body.dark-theme {
-            background-color: #1a1a1d; /* Темно-серый, почти черный фон */
-            color: #c7c7c7; /* Светло-серый текст */
+            background-color: #1a1a1d; 
+            color: #c7c7c7; 
         }
-        body.dark-theme .container {
-            /* Можно добавить специфичные стили для контейнера в темной теме, если нужно */
+        body.dark-theme #theme-toggle-icon-button {
+            background-color: #3a3f44;
+            border-color: #565e64;
+            color: #f8f9fa; 
         }
-        body.dark-theme hr {
-            border-top-color: #33373a; /* Темнее разделители */
-        }
-        body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p {
+        body.dark-theme .container {}
+        body.dark-theme hr { border-top-color: #33373a; }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
+        body.dark-theme #user-greeting-text {
             color: #e0e0e0;
         }
         body.dark-theme .card {
-            background-color: #2c2f33; /* Темно-серый для карт */
+            background-color: #2c2f33; 
             border-color: #42464d;
             color: #c7c7c7;
         }
-        body.dark-theme .card-img-top {
-            border-bottom-color: #42464d;
-        }
-        body.dark-theme .text-muted {
-            color: #8a8d90 !important; /* Bootstrap может переопределять, поэтому !important */
-        }
+        body.dark-theme .card-img-top { border-bottom-color: #42464d; }
+        body.dark-theme .text-muted { color: #8a8d90 !important; }
         body.dark-theme #current-leader-display[style*="color: #007bff;"] {
-             color: #58a6ff !important; /* Светло-синий для темной темы, если был инлайн стиль */
+             color: #58a6ff !important; 
         }
         body.dark-theme .btn-secondary {
-            background-color: #4f545c;
-            border-color: #4f545c;
-            color: #fff;
+            background-color: #4f545c; border-color: #4f545c; color: #fff;
         }
         body.dark-theme .btn-secondary:hover {
-            background-color: #42464d;
-            border-color: #3b3f44;
+            background-color: #42464d; border-color: #3b3f44;
         }
         body.dark-theme .btn-outline-secondary {
-            color: #adb5bd;
-            border-color: #4f545c;
+            color: #adb5bd; border-color: #4f545c;
         }
         body.dark-theme .btn-outline-secondary:hover {
-            color: #fff;
-            background-color: #4f545c;
-            border-color: #4f545c;
+            color: #fff; background-color: #4f545c; border-color: #4f545c;
         }
         body.dark-theme .modal-content {
-            background-color: #2c2f33;
-            color: #c7c7c7;
-            border-color: #42464d;
+            background-color: #2c2f33; color: #c7c7c7; border-color: #42464d;
         }
-        body.dark-theme .modal-header {
-            border-bottom-color: #42464d;
-        }
-        body.dark-theme .modal-footer {
-            border-top-color: #42464d;
-        }
-        body.dark-theme .close {
-            color: #c7c7c7;
-            text-shadow: none;
-        }
-        body.dark-theme .close:hover {
-            color: #fff;
-        }
-        body.dark-theme .alert-info {
-            background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;
-        }
-        body.dark-theme .alert-warning {
-             background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;
-        }
-         body.dark-theme .alert-success {
-             background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;
-        }
-        body.dark-theme .alert-danger {
-             background-color: #3e1f23; border-color: #5c2e35; color: #ffb8c0;
-        }
-        body.dark-theme .game-board-cell {
-            border-color: #42464d;
-        }
+        body.dark-theme .modal-header { border-bottom-color: #42464d; }
+        body.dark-theme .modal-footer { border-top-color: #42464d; }
+        body.dark-theme .close { color: #c7c7c7; text-shadow: none; }
+        body.dark-theme .close:hover { color: #fff; }
+        body.dark-theme .alert-info { background-color: #1c2e3f; border-color: #2c4660; color: #a6d2ff;}
+        body.dark-theme .alert-warning { background-color: #3e3017; border-color: #5c4823; color: #ffd8a1;}
+        body.dark-theme .alert-success { background-color: #1a3525; border-color: #2a543a; color: #a8e0b9;}
+        body.dark-theme .alert-danger { background-color: #3e1f23; border-color: #5c2e35; color: #ffb8c0;}
+        body.dark-theme .game-board-cell { border-color: #42464d; }
         body.dark-theme #rules-block {
-            background-color: #23272a; /* Чуть светлее фона для выделения */
-            border: 1px solid #3a3e42;
+            background-color: #23272a; border: 1px solid #3a3e42;
         }
-        body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li {
-            color: #c0c0c0;
-        }
-        body.dark-theme #rules-block a {
-            color: #6c9cff; /* Светлее синий для ссылок */
-        }
+        body.dark-theme #rules-block h4, body.dark-theme #rules-block h5, body.dark-theme #rules-block p, body.dark-theme #rules-block li { color: #c0c0c0; }
+        body.dark-theme #rules-block a { color: #6c9cff; }
         body.dark-theme .form-control {
-            background-color: #3a3e42;
-            color: #e0e0e0;
-            border-color: #55595e;
+            background-color: #3a3e42; color: #e0e0e0; border-color: #55595e;
         }
-        body.dark-theme .form-control::placeholder {
-            color: #888c91;
-        }
+        body.dark-theme .form-control::placeholder { color: #888c91; }
         body.dark-theme .form-control:focus {
-            background-color: #42464a;
-            border-color: #007bff; 
-            color: #e0e0e0;
+            background-color: #42464a; border-color: #007bff; color: #e0e0e0;
         }
-        body.dark-theme .badge-dark {
-            background-color: #55595e;
-            color: #e0e0e0;
-        }
+        body.dark-theme .badge-dark { background-color: #55595e; color: #e0e0e0; }
         body.dark-theme .badge-primary { background-color: #2a65a0; color: #fff; }
         body.dark-theme .badge-success { background-color: #2e7d32; color: #fff; }
         body.dark-theme .badge-warning { background-color: #b26a00; color: #fff; }
@@ -259,8 +277,13 @@
 
 
         @media (max-width: 767.98px) {
-            #user-greeting { font-size: 1.5rem; }
-            #user-greeting .badge { font-size: 0.75rem; }
+            body { padding-top: 55px; } 
+            #theme-icon-container { top: 8px; right: 8px; }
+            #theme-toggle-icon-button { width: 32px; height: 32px; }
+            #theme-toggle-icon-button svg { width: 16px; height: 16px; }
+
+            #user-greeting-text { font-size: 1.5rem; }
+            #user-status-badge-container .badge { font-size: 0.8rem; }
             .card-body .small, .card-body p.small, #user-rating-display { font-size: 0.85rem; }
             .game-board-cell { min-height: 80px; }
             .player-chip { font-size: 0.65em; }
@@ -269,12 +292,22 @@
         @media (max-width: 575.98px) {
             .game-board { gap: 2px; }
             .game-board-cell { margin: 1px; }
-            .modal-dialog.modal-lg { max-width: 95%; }
-            .modal-body img#modalImage { max-height: 85vh; }
         }
     </style>
 </head>
 <body>
+    <div id="theme-icon-container">
+        <button id="theme-toggle-icon-button" class="btn btn-sm rounded-circle" title="Сменить тему">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon-stars-fill" viewBox="0 0 16 16" id="icon-moon">
+              <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+              <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brightness-high-fill" viewBox="0 0 16 16" id="icon-sun" style="display:none;">
+              <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/>
+            </svg>
+        </button>
+    </div>
+
     <div class="container mt-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -289,13 +322,15 @@
             {% endif %}
         {% endwith %}
 
-        <h1 id="user-greeting">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
-        <p style="margin-bottom: 0.5rem;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
+        <div id="user-greeting-container">
+            <h1 id="user-greeting-text">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
+            <span id="user-status-badge-container" class="ml-2"></span>
+        </div>
+        <p style="margin-bottom: 0.1rem;">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
         <hr class="my-2">
 
         <div id="game-messages" class="alert alert-info" role="alert" style="display: none;"></div>
         <div id="game-status-info">
-            <p id="game-progress-status-container">Статус игры: <strong id="game-progress-status">Загрузка...</strong></p>
             <p>Ведущий: <strong id="current-leader-display" style="font-weight: bold; color: #007bff;">Загрузка...</strong></p>
             <p id="pending-player-message" class="pending-message" style="display: none;">
                 Вы присоединились как наблюдатель. Ваше участие начнется со следующей НОВОЙ игры. Пока вы можете следить за процессом.
@@ -304,8 +339,7 @@
         <hr class="my-2">
 
         <h2 id="table-cards-header">Общий стол (<span id="cards-on-table-count">0</span>/<span id="active-players-count">0</span>):</h2>
-        <div id="table-cards" class="row table-cards">
-        </div>
+        <div id="table-cards" class="row table-cards"></div>
         <div id="table-placeholder" class="text-center" style="display: none;">
             <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
             <p id="leader-empty-table-rating" style="display: none;"></p>
@@ -315,14 +349,12 @@
 
         <div id="player-hand-section" style="display: none;">
             <h2 id="player-hand-header">Мои карты:</h2>
-            <div id="player-hand" class="row user-hand">
-            </div>
+            <div id="player-hand" class="row user-hand"></div>
         </div>
         <hr class="my-2">
 
         <h2>Игровое поле:</h2>
-        <div id="game-board" class="game-board"> 
-        </div>
+        <div id="game-board" class="game-board"></div>
         <hr class="my-2">
 
         <div id="rules-block" class="mb-3">
@@ -345,18 +377,13 @@
         </div>
         <hr class="my-2">
 
-        <div class="my-3">
-             <button id="theme-toggle-button" class="btn btn-outline-secondary btn-sm">Сменить тему</button>
-        </div>
-
-        <p><a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">Вернуться на главную</a></p>
         {% if session.get('is_admin') %}
             <p><a href="{{ url_for('admin') }}" class="btn btn-info btn-sm">Перейти в Админ панель</a></p>
         {% endif %}
     </div>
 
     <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-fullscreen-viewer" role="document"> 
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="imageModalLabel"></h5> 
@@ -377,6 +404,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <script>
+        // Полный JavaScript код из предыдущего ответа, включая все функции update...
+        // и логику для темы, должен быть здесь. Я привожу его снова, чтобы
+        // убедиться, что он полный и включает изменения для приветствия.
+
         const currentUserCode = "{{ user_data_for_init.code if user_data_for_init else '' }}";
         let currentUserId = parseInt("{{ user_data_for_init.id if user_data_for_init else 0 }}") || null;
         let currentUserName = "{{ user_data_for_init.name if user_data_for_init else 'Игрок' }}";
@@ -386,7 +417,6 @@
         socket.on('connect', () => {
             console.log('Socket.IO: Connected to server! SID:', socket.id);
         });
-
         socket.on('disconnect', () => {
             console.log('Socket.IO: Disconnected from server.');
             const gameMessagesDiv = document.getElementById('game-messages');
@@ -396,7 +426,6 @@
                 gameMessagesDiv.style.display = 'block';
             }
         });
-
         socket.on('message', (data) => {
             console.log('Socket.IO: Message from server:', data);
             const gameMessagesDiv = document.getElementById('game-messages');
@@ -411,33 +440,28 @@
         socket.on('game_update', (gameState) => {
             console.log('Socket.IO: Received game_update:', gameState);
 
+            const greetingTextEl = document.getElementById('user-greeting-text');
+            const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
+            const userRatingDisplay = document.getElementById('user-rating-display');
+            const playerHandSectionDiv = document.getElementById('player-hand-section');
+            const pendingPlayerMessage = document.getElementById('pending-player-message');
+
             if (gameState.current_user_data) {
                 currentUserId = gameState.current_user_data.id;
                 currentUserName = gameState.current_user_data.name;
                 
-                const userGreetingH1 = document.getElementById('user-greeting');
-                let statusText = ""; 
-                let statusBadgeHTML = ""; 
-
-                if (gameState.current_user_data.status === 'active') {
-                    statusText = "Активен";
-                    statusBadgeHTML = `<span class="badge badge-success ml-1">${statusText}</span>`;
-                } else if (gameState.current_user_data.status === 'pending') {
-                    statusText = "Ожидание";
-                    statusBadgeHTML = `<span class="badge badge-warning ml-1">${statusText}</span>`;
-                }
-
-                if (userGreetingH1) {
-                    userGreetingH1.innerHTML = `Добро пожаловать, ${currentUserName}${statusBadgeHTML}!`;
-                }
-
-                const userRatingDisplay = document.getElementById('user-rating-display');
-                if (userRatingDisplay) {
-                    userRatingDisplay.textContent = gameState.current_user_data.rating;
-                }
+                if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, ${currentUserName}!`;
                 
-                const pendingPlayerMessage = document.getElementById('pending-player-message');
-                const playerHandSectionDiv = document.getElementById('player-hand-section');
+                let statusBadgeHTML = ""; 
+                if (gameState.current_user_data.status === 'active') {
+                    statusBadgeHTML = `<span class="badge badge-success">${"Активен"}</span>`;
+                } else if (gameState.current_user_data.status === 'pending') {
+                    statusBadgeHTML = `<span class="badge badge-warning">${"Ожидание"}</span>`;
+                }
+                if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = statusBadgeHTML;
+
+                if (userRatingDisplay) userRatingDisplay.textContent = gameState.current_user_data.rating;
+                
                 if (gameState.current_user_data.status === 'pending') {
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
                     if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
@@ -446,16 +470,10 @@
                     if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'block';
                 }
             } else { 
-                 const playerHandSectionDiv = document.getElementById('player-hand-section');
                  if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
-                 const userGreetingH1 = document.getElementById('user-greeting');
-                 if (userGreetingH1) {
-                    userGreetingH1.innerHTML = `Добро пожаловать, Гость!`;
-                 }
-                 const userRatingDisplay = document.getElementById('user-rating-display');
-                 if (userRatingDisplay) {
-                    userRatingDisplay.textContent = "0";
-                 }
+                 if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, Гость!`;
+                 if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '';
+                 if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
             updateGameStatusInfo(gameState);
@@ -477,13 +495,10 @@
 
         function showImageModal(imageSrc) {
             const modalImage = document.getElementById('modalImage');
-            const modalTitle = document.getElementById('imageModalLabel'); // Получаем элемент заголовка
-
+            const modalTitle = document.getElementById('imageModalLabel');
             if (modalImage) {
                  modalImage.src = imageSrc;
-                 if (modalTitle) {
-                    modalTitle.textContent = ''; // Очищаем текст заголовка
-                 }
+                 if (modalTitle) modalTitle.textContent = '';
                  $('#imageModal').modal('show'); 
             } else {
                 console.error("Modal image element not found");
@@ -491,19 +506,6 @@
         }
 
         function updateGameStatusInfo(gameState) {
-            const statusContainer = document.getElementById('game-progress-status-container');
-            if (!statusContainer) return; 
-
-            if (!gameState.game_in_progress && !gameState.game_over) {
-                statusContainer.style.display = 'block';
-                document.getElementById('game-progress-status').textContent = 'Игра не начата / Ожидание игроков';
-            } else if (gameState.game_in_progress && !gameState.game_over) {
-                statusContainer.style.display = 'none'; 
-            } else if (gameState.game_over) {
-                statusContainer.style.display = 'block'; 
-                document.getElementById('game-progress-status').textContent = 'Игра окончена!';
-            }
-            
             let leaderName = 'Не определен';
             let isCurrentUserLeader = false; 
             if (gameState.db_current_leader_id) { 
@@ -722,7 +724,7 @@
 
                 cardDiv.innerHTML = `
                     <div class="card h-100">
-                        <img src="${cardImageSrc}" class="card-img-top" alt="${cardAltText}" onclick="showImageModal('${imagePathForModal}')">
+                        <img src="${imagePathForModal}" class="card-img-top" alt="${cardAltText}" onclick="showImageModal('${imagePathForModal}')">
                         <div class="card-body"> 
                             ${cardBodyContent}
                         </div>
@@ -766,28 +768,26 @@
             });
         }
 
-        // --- JavaScript для смены темы ---
-        const themeToggleButton = document.getElementById('theme-toggle-button');
-        const preferDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
-
+        const themeToggleButton = document.getElementById('theme-toggle-icon-button');
+        const iconMoon = document.getElementById('icon-moon');
+        const iconSun = document.getElementById('icon-sun');
+        
         function applyTheme(theme) {
             if (theme === 'dark') {
                 document.body.classList.add('dark-theme');
-                if (themeToggleButton) themeToggleButton.textContent = 'Светлая тема';
+                if (iconMoon) iconMoon.style.display = 'none';
+                if (iconSun) iconSun.style.display = 'inline-block';
             } else {
                 document.body.classList.remove('dark-theme');
-                if (themeToggleButton) themeToggleButton.textContent = 'Темная тема';
+                if (iconMoon) iconMoon.style.display = 'inline-block';
+                if (iconSun) iconSun.style.display = 'none';
             }
         }
 
-        // Загружаем сохраненную тему или используем системную/светлую по умолчанию
         let savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
             applyTheme(savedTheme);
         } else {
-            // Если нет сохраненной темы, можно проверить системные настройки
-            // applyTheme(preferDarkScheme.matches ? 'dark' : 'light'); 
-            // Или просто по умолчанию светлая
             applyTheme('light'); 
         }
         
@@ -798,15 +798,6 @@
                 applyTheme(newTheme);
             });
         }
-        // Слушатель на изменение системных настроек (опционально, если не хотим перезаписывать явный выбор пользователя)
-        /*
-        preferDarkScheme.addEventListener('change', (e) => {
-            if (!localStorage.getItem('theme')) { // Если пользователь не выбрал тему явно
-                applyTheme(e.matches ? 'dark' : 'light');
-            }
-        });
-        */
-
     </script>
 </body>
 </html>
