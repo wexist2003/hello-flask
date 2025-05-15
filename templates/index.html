@@ -23,7 +23,7 @@
             flex-direction: column;
             padding: 0;
             /* Adjusted padding bottom to prevent footer overlap */
-            padding-bottom: 85px; /* Increased padding for mobile/default footer (60px + 25px) */
+            padding-bottom: 150px; /* Increased padding for mobile/default footer */
         }
 
         .main-content-area {
@@ -46,7 +46,7 @@
             box-sizing: border-box;
             padding: 1rem; /* Adjusted padding */
             /* Position from middle: Use margin-top to push down from the vertical center */
-            margin-top: 36vh; /* Adjusted: 30vh + 20% */
+            margin-top: 25vh; /* Adjusted margin-top */
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -169,12 +169,12 @@
         /* Media queries for PC */
         @media (min-width: 768px) {
             body {
-                padding-bottom: 105px; /* Adjusted padding for PC footer height (80px + 25px) */
+                padding-bottom: 180px; /* Adjusted padding for PC footer height */
             }
             .content-wrapper {
                 width: 90%; /* Use 90% of parent width */
-                max-width: 550px; /* Adjusted max-width for PC */
-                margin-top: 24vh; /* Adjusted: 20vh + 20% */
+                max-width: 400px; /* Further reduced max-width for PC */
+                margin-top: 18vh; /* Adjusted margin-top */
                 padding: 1.5rem; /* Adjusted padding */
                  margin-bottom: auto;
                  background-color: rgba(var(--bs-body-bg-rgb), 0.25); /* Adjusted transparency for PC */
@@ -185,7 +185,7 @@
              }
              .footer-links {
                  width: 90%; /* Match content-wrapper width */
-                 max-width: 550px; /* Adjusted max-width for PC */
+                 max-width: 400px; /* Further reduced max-width for PC */
                  margin: 0 auto;
              }
              .title-block {
@@ -198,10 +198,10 @@
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
              body {
-                  padding-bottom: 85px; /* Mobile body padding */
+                  padding-bottom: 150px; /* Mobile body padding */
              }
             .content-wrapper {
-                margin-top: 36vh; /* Adjusted: 30vh + 20% */
+                margin-top: 25vh; /* Adjusted margin-top */
                 margin-bottom: auto;
                 width: 90vw; /* Rely on 90vw for mobile */
                 max-width: none; /* No max-width on mobile */
