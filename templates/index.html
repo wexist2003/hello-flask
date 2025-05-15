@@ -38,7 +38,7 @@
         }
 
         .content-wrapper {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Added semi-transparent background */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile/default */
             border-radius: 0.5rem;
             max-width: 500px; /* Максимальная ширина по умолчанию для более узких экранов */
             width: 100%; /* Занимаем всю доступную ширину до max-width */
@@ -171,20 +171,20 @@
                 padding-bottom: 80px; /* Adjust padding for PC footer height */
             }
             .content-wrapper {
-                width: 90%;
-                max-width: 800px;
+                width: 90%; /* Changed: Removed max-width, rely on 90% */
+                max-width: none; /* Changed: Removed max-width */
                 margin-top: 24vh; /* Adjusted: 20vh + 20% */
                 padding: 2rem;
                  margin-bottom: auto;
-                 background-color: rgba(var(--bs-body-bg-rgb), 0.5); /* Added semi-transparent background for PC */
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.25); /* Adjusted transparency for PC */
             }
              .footer-container {
                  height: 80px; /* Adjust PC footer height */
                  background-color: rgba(var(--bs-body-bg-rgb), 0.9);
              }
              .footer-links {
-                 width: 90%;
-                 max-width: 800px;
+                 width: 90%; /* Match content-wrapper width */
+                 max-width: none; /* Changed: Removed max-width */
                  margin: 0 auto;
              }
              .title-block {
@@ -202,17 +202,17 @@
             .content-wrapper {
                 margin-top: 36vh; /* Adjusted: 30vh + 20% */
                 margin-bottom: auto;
-                width: 90vw;
-                max-width: none;
+                width: 90vw; /* Rely on 90vw for mobile */
+                max-width: none; /* No max-width on mobile */
                 padding: 1rem;
-                background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Added semi-transparent background for mobile */
+                background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile */
             }
              .footer-container {
                  height: 60px; /* Mobile footer height */
                  background-color: rgba(var(--bs-body-bg-rgb), 0.9);
              }
              .footer-links {
-                 width: 90vw;
+                 width: 90vw; /* Match content-wrapper width */
                   max-width: none;
                  margin: 0 auto;
                  padding: 0.5rem 0;
