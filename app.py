@@ -38,7 +38,7 @@ _default_board_config = [
 _current_game_board_pole_image_config = _default_board_config # Use default if not initialized otherwise
 
 DEFAULT_NUM_BOARD_CELLS = 40 # This should ideally match the max_rating of the last board visual cell
-_current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+_current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Initial global declaration
 
 
 connected_users_socketio = {}  # {sid: user_code}
@@ -163,6 +163,7 @@ def init_database():
 
 # --- Automatic Database Initialization and Board Visuals Loading on App Load ---
 # This code runs when the app module is imported by Gunicorn or run directly
+# It needs to be within app_context to perform DB operations
 with app.app_context():
     init_database()
 
@@ -171,24 +172,29 @@ with app.app_context():
     db = get_db()
     cursor = db.cursor()
     try:
+         global _current_game_board_num_cells # <<< ИСПРАВЛЕНИЕ: Перемещено сюда
+
          cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
          board_config_rows = cursor.fetchall()
          if board_config_rows:
               _current_game_board_pole_image_config = [dict(row) for row in board_config_rows]
-              global _current_game_board_num_cells # Ensure global is updated
-              _current_game_board_num_cells = _current_game_board_pole_image_config[-1]['max_rating']
+              _current_game_board_num_cells = board_config_rows[-1]['max_rating']
               print("Loaded game board visuals from DB.", file=sys.stderr)
          else:
               # Should not happen if init_database ran and added defaults, but as a fallback
               print("WARNING: Game board visuals table is empty after initialization. Using default config.", file=sys.stderr)
               _current_game_board_pole_image_config = _default_board_config
-              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Assignment here is fine after global
+
+
     except sqlite3.OperationalError as e:
          print(f"WARNING: Could not load game board visuals from DB on startup: {e}. Table might be missing despite init_database attempt.", file=sys.stderr)
+         # Assign using default config if DB error
          _current_game_board_pole_image_config = _default_board_config
          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
     except Exception as e:
          print(f"Error loading game board visuals on startup: {e}\n{traceback.format_exc()}", file=sys.stderr)
+         # Assign using default config on other errors
          _current_game_board_pole_image_config = _default_board_config
          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
 # --- End of Automatic Initialization Block ---
@@ -386,7 +392,8 @@ def state_to_json(user_code_for_state=None):
     if board_config_rows:
          game_board_visual_config = [dict(row) for row in board_config_rows]
          # Ensure global is updated, but be careful if this runs multiple times
-         global _current_game_board_num_cells
+         # global _current_game_board_num_cells # Already declared global at the top of this block
+
          _current_game_board_num_cells = game_board_visual_config[-1]['max_rating'] # Update global based on DB
 
          if current_leader_id is not None and (game_in_progress or game_over):
