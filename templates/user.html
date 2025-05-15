@@ -124,17 +124,16 @@
         }
 
 
+        /* ИЗМЕНЕНИЕ: Убраны min/max-width с карточки, reliance на колонку */
         .user-hand .card, .table-cards .card {
             margin-bottom: 0;
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
             display: flex;
             flex-direction: column;
             border: 1px solid #ddd;
-            /* Стили ширины из старого кода с !important */
-            min-width: 220px !important;
-            max-width: 275px !important;
-            width: auto !important; /* Позволяем колонке управлять базовой шириной */
-            max-width: 100% !important; /* Гарантируем, что не вылезет за колонку при очень узких экранах */
+            /* REMOVED: min-width and max-width */
+            width: auto; /* or remove entirely */
+            max-width: 100% !important; /* Ensure it doesn't overflow column */
         }
         .card-owner-info {
             font-size: var(--standard-font-size);
@@ -244,9 +243,9 @@
             height: 100%;
         }
         .modal-fullscreen-viewer .modal-body img#modalImage {
-            /* ИЗМЕНЕНИЕ: Масштабирование в модальном окне 100% */
-            width: 100%;
-            height: 100%;
+            /* ИЗМЕНЕНИЕ: Масштабирование в модальном окне 90% */
+            width: 90%;
+            height: 90%;
             object-fit: contain; /* Сохраняем пропорции и не обрезаем контент изображения */
             border-radius: 0;
             cursor: zoom-out;
@@ -321,7 +320,7 @@
         }
         body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
         body.dark-theme #user-greeting-text, #current-leader-display, #next-leader-display, /* Удален #user-rating-display */
-        body.dark-theme .card-owner-info,
+        body.dark-theme .card-owner_info,
         body.dark-theme .my-choice-text, body.dark-theme ul.guesses-list li,
         body.dark-theme #table-placeholder p {
             color: #e0e0e0;
@@ -419,20 +418,11 @@
 
 
         /* === Медиа-запросы (адаптивность) === */
-        /* Стили размеров карточек и изображений */
-        .card { min-width: 220px !important; max-width: 275px !important; }
-        /* ИЗМЕНЕНИЕ: Размер увеличен в 1.1 раза, margin 1px auto */
-        .card-img-top { width: 238px !important; height: auto; object-fit: contain; margin: 1px auto !important; } /* 216 * 1.1 */
-
-        @media (max-width: 768px) {
+        @media (max-width: 767.98px) {
             :root {
                 --standard-font-size: var(--standard-font-size-mobile);
                 --header-unified-font-size: var(--header-unified-font-size-mobile);
             }
-            /* Стили размеров карточек и изображений для мобильных */
-            .card { min-width: 200px !important; max-width: 250px !important; }
-            /* ИЗМЕНЕНИЕ: Размер увеличен в 1.1 раза, margin 1px auto */
-            .card-img-top { width: 211px !important; margin: 1px auto !important; } /* 192 * 1.1 */
 
             .page-header-custom { margin-bottom: 0.25rem;
                 padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -464,13 +454,6 @@
             /* #user-rating-display { font-size: var(--standard-font-size-mobile); } */
             #table-placeholder p { font-size: var(--standard-font-size-mobile);
             }
-
-            /* Стили размеров карточек и изображений для маленьких мобильных (<576px) */
-             @media (max-width: 576px) {
-                 .card { min-width: 180px !important; max-width: 220px !important; margin-bottom: 0.75rem !important; }
-                 /* ИЗМЕНЕНИЕ: Размер увеличен в 1.1 раза, margin 1px auto */
-                 .card-img-top { width: 172px !important; margin: 1px auto !important; } /* 156 * 1.1 */
-             }
 
 
             .card-body { font-size: var(--standard-font-size-mobile); padding: 0.15rem;
@@ -799,7 +782,7 @@
             const canPlaceCard = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template && !on_table_status;
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // Убираем классы отступов, оставляем только классы колонок
+                // ИЗМЕНЕНИЕ: Убираем класс p-1 из колонки
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
                 let buttonHtml = '';
                 if (canPlaceCard) {
@@ -874,7 +857,7 @@
 
             (table_images || []).forEach(card => {
                 const cardDiv = document.createElement('div');
-                // Убираем классы отступов, оставляем только классы колонок
+                // ИЗМЕНЕНИЕ: Убираем класс p-1 из колонки
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 if (show_card_info && card.owner_id === currentUserId) {
