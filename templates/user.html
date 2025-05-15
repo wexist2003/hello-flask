@@ -155,8 +155,8 @@
             line-height: 1.3;
         }
         .card-img-top {
-            /* Размер увеличен в 1.1 раза (для не-мобильных), margin 1px auto для центрирования */
-            width: 238px !important; /* 216 * 1.1 */
+            /* Размер увеличен в 1.05 раза (для не-мобильных), margin 1px auto для центрирования */
+            width: 250px !important; /* 238 * 1.05, округлено */
             height: auto; /* Высота подстраивается пропорционально ширине */
             object-fit: contain; /* Сохраняем пропорции, не обрезаем */
             cursor: zoom-in;
@@ -451,8 +451,8 @@
                 font-size: calc(var(--standard-font-size-mobile) * 1.2); /* 120% от стандартного мобильного */
             }
 
-            /* ИЗМЕНЕНИЕ: Размер карточек на мобильных (<768px) - 90% от предыдущего размера (211px) */
-            .card-img-top { width: 190px !important; margin: 1px auto !important; } /* 211 * 0.9, округлено */
+            /* ИЗМЕНЕНИЕ: Размер карточек на мобильных (<768px) - 1.05x от текущего (190px * 1.05) */
+            .card-img-top { width: 200px !important; margin: 1px auto !important; } /* 190 * 1.05, округлено */
 
 
             .page-header-custom { margin-bottom: 0.25rem;
@@ -511,9 +511,8 @@
                 font-size: calc(var(--standard-font-size-mobile-small) * 1.2); /* 120% от стандартного маленького мобильного */
             }
 
-            /* ИЗМЕНЕНИЕ: Размер карточек на маленьких мобильных (<576px) - 90% от предыдущего размера (172px) */
-             .card-img-top { width: 155px !important; margin: 1px auto !important; } /* 172 * 0.9, округлено */
-
+            /* ИЗМЕНЕНИЕ: Размер карточек на маленьких мобильных (<576px) - 1.05x от текущего (155px * 1.05) */
+             .card-img-top { width: 163px !important; margin: 1px auto !important; } /* 155 * 1.05, округлено */
 
             .game-board-cell {
                 flex-basis: calc(100% / 6 - 2px) !important;
@@ -695,6 +694,10 @@
         });
         socket.on('game_update', (gameState) => {
             console.log('Socket.IO: Received game_update:', gameState);
+            // ИЗМЕНЕНИЕ: Добавлены логи для диагностики отображения следующего ведущего
+            console.log('gameState.show_card_info:', gameState.show_card_info);
+            console.log('gameState.next_leader_name:', gameState.next_leader_name);
+
 
             const greetingTextEl = document.getElementById('user-greeting-text');
             const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
@@ -711,6 +714,9 @@
             const currentLeaderDisplay = document.getElementById('current-leader-display');
             const nextLeaderDisplayContainer = document.getElementById('next-leader-display-container');
             const nextLeaderDisplay = document.getElementById('next-leader-display');
+
+            // ИЗМЕНЕНИЕ: Логи для проверки элементов DOM
+            console.log('nextLeaderDisplayContainer element:', nextLeaderDisplayContainer);
 
 
             if (gameState.current_user_data) {
@@ -771,24 +777,14 @@
             // Логика для следующего ведущего
             if (nextLeaderDisplayContainer && nextLeaderDisplay) {
                 if (gameState.show_card_info && gameState.next_leader_name) {
+                    console.log("Attempting to show next leader:", gameState.next_leader_name); // Лог
                     nextLeaderDisplay.textContent = gameState.next_leader_name;
                     nextLeaderDisplayContainer.style.display = 'block'; // Показываем контейнер следующего ведущего
                 } else {
+                    console.log("Conditions not met to show next leader. show_card_info:", gameState.show_card_info, "next_leader_name:", gameState.next_leader_name); // Лог
                     nextLeaderDisplayContainer.style.display = 'none'; // Скрываем контейнер следующего ведущего
                 }
             }
-
-            // Удален старый блок обработки nextLeaderInfoContainer
-            /*
-            if (nextLeaderInfoContainer && nextLeaderDisplay) {
-                if (gameState.show_card_info && gameState.next_leader_name) {
-                    nextLeaderDisplay.textContent = gameState.next_leader_name;
-                    nextLeaderInfoContainer.style.display = 'block';
-                } else {
-                    nextLeaderInfoContainer.style.display = 'none';
-                }
-            }
-            */
 
 
             updatePlayerHand(gameState);
