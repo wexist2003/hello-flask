@@ -162,7 +162,7 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
 def get_full_game_state_data(user_code_for_state=None):
     """
     Собирает полное текущее состояние игры, включая информацию для конкретного пользователя.
-    Добавлена логика определения и включения имени следующего ведущего.
+    Включает логику определения и добавления имени следующего ведущего.
     """
     db = get_db()
     game_state = {}
@@ -176,49 +176,49 @@ def get_full_game_state_data(user_code_for_state=None):
         game_state['current_round_association'] = get_setting("current_round_association")
         game_state['all_cards_placed_for_guessing_phase_to_template'] = get_setting("all_cards_placed_for_guessing_phase_to_template") == "true"
 
-
         # Информация о текущем ведущем
-        current_leader_id = game_state['current_round_leader_id']
-        if current_leader_id:
-            # Получаем имя текущего ведущего (это уже было в вашем коде)
-            current_leader_user = get_user_by_id(int(current_leader_id)) # Убедитесь, что ID преобразуется в int
-            game_state['db_current_leader_id'] = int(current_leader_id) # Дублируем ID для удобства
+        current_leader_id_str = game_state.get('current_round_leader_id')
+        current_leader_id = int(current_leader_id_str) if current_leader_id_str else None
+
+        if current_leader_id is not None:
+            current_leader_user = get_user_by_id(current_leader_id)
+            game_state['db_current_leader_id'] = current_leader_id
             game_state['current_leader_name'] = current_leader_user['name'] if current_leader_user else "Неизвестный ведущий"
         else:
              game_state['db_current_leader_id'] = None
              game_state['current_leader_name'] = "Ожидание ведущего"
 
-
         # --- ИЗМЕНЕНИЕ: Определение и добавление имени следующего ведущего ---
         game_state['next_leader_name'] = None # Инициализируем значение по умолчанию
-        # Определяем следующего ведущего, только если игра в процессе или результаты показаны
-        if game_state['game_in_progress'] or game_state['show_card_info']:
-             if current_leader_id is not None:
-                try:
-                    # Предполагаем, что determine_new_leader возвращает ID следующего пользователя
-                    next_leader_id = determine_new_leader(int(current_leader_id)) # Убедитесь, что ID преобразуется в int
-                    if next_leader_id is not None:
-                        next_leader_user = get_user_by_id(int(next_leader_id)) # Убедитесь, что ID преобразуется в int
-                        game_state['next_leader_name'] = next_leader_user['name'] if next_leader_user else "Неизвестный игрок"
-                    else:
-                         game_state['next_leader_name'] = "Будет определен" # Или другое сообщение, если следующего определить нельзя (например, конец игры)
-                except Exception as e:
-                    # Логирование ошибки определения следующего ведущего
-                    print(f"Ошибка при определении имени следующего ведущего: {e}\n{traceback.format_exc()}", file=sys.stderr)
-                    game_state['next_leader_name'] = "Ошибка" # Информируем об ошибке на клиенте
-        # ---------------------------------------------------------------------
+        # Определяем следующего ведущего, только если игра в процессе ИЛИ результаты показаны (show_card_info)
+        # и есть текущий ведущий, чтобы определить следующего
+        if (game_state['game_in_progress'] or game_state['show_card_info']) and current_leader_id is not None:
+            try:
+                # Предполагаем, что determine_new_leader возвращает ID следующего пользователя
+                next_leader_id = determine_new_leader(current_leader_id)
+                if next_leader_id is not None:
+                    next_leader_user = get_user_by_id(next_leader_id)
+                    game_state['next_leader_name'] = next_leader_user['name'] if next_leader_user else "Неизвестный игрок"
+                # else: # Можно добавить сообщение, если определить следующего не удалось (например, игра закончилась)
+                    # game_state['next_leader_name'] = "Будет определен"
 
+            except Exception as e:
+                # Логирование ошибки определения следующего ведущего
+                print(f"Ошибка при определении имени следующего ведущего: {e}\n{traceback.format_exc()}", file=sys.stderr)
+                game_state['next_leader_name'] = "Ошибка определения" # Информируем об ошибке на клиенте
+        # ---------------------------------------------------------------------
 
         # Данные об игроках (для угадывания и отображения на поле)
         all_users = get_active_users() # Или функция, получающая всех пользователей, которые могут участвовать/отгадывать
+        # Убедитесь, что get_active_users() возвращает список словарей с ключами 'id', 'name', 'rating', 'status'
         game_state['all_users_for_guessing'] = [{'id': user['id'], 'name': user['name']} for user in all_users] # Упрощенный список для клиента
-        game_state['users_full_list'] = [{'id': user['id'], 'name': user['name'], 'rating': user['rating']} for user in all_users] # Полный список пользователей
+        game_state['users_full_list'] = [{'id': user['id'], 'name': user['name'], 'rating': user['rating'], 'status': user['status']} for user in all_users] # Полный список пользователей для поля
 
 
         # Информация для конкретного пользователя
         user_data = None
         if user_code_for_state:
-            user_data = get_user_by_code(user_code_for_state) # Убедитесь, что у вас есть такая функция
+            user_data = get_user_by_code(user_code_for_state) # Убедитесь, что у вас есть такая функция и она возвращает словарь с данными пользователя
             if user_data:
                 game_state['current_user_data'] = {
                     'id': user_data['id'],
@@ -228,7 +228,7 @@ def get_full_game_state_data(user_code_for_state=None):
                     # ... другие необходимые данные пользователя
                 }
                 # Карты в руке пользователя
-                user_cards = get_user_cards(user_data['id']) # Убедитесь, что у вас есть такая функция
+                user_cards = get_user_cards(user_data['id']) # Убедитесь, что у вас есть такая функция и она возвращает список словарей карт
                 game_state['user_cards'] = [{'id': card['id'], 'image': card['image'], 'subfolder': card['subfolder']} for card in user_cards]
 
                 # Статус его карты на столе (если выложена)
@@ -237,7 +237,7 @@ def get_full_game_state_data(user_code_for_state=None):
 
 
         # Карты на столе
-        table_cards = get_table_cards() # Убедитесь, что у вас есть такая функция
+        table_cards = get_table_cards() # Убедитесь, что у вас есть такая функция и она возвращает список словарей карт на столе
         formatted_table_cards = []
         # Собираем информацию о картах на столе, включая владельцев и голоса
         for card in table_cards:
@@ -248,7 +248,8 @@ def get_full_game_state_data(user_code_for_state=None):
                 'subfolder': card['subfolder'],
                 'owner_id': card['owner_id'],
                 'owner_name': card_owner['name'] if card_owner else 'Неизв.' ,
-                'votes': card.get('votes', []), # Убедитесь, что votes есть в данных карты
+                # votes здесь может быть не нужен на клиенте, если голоса считаются на сервере
+                # 'votes': card.get('votes', []),
                 'guesses': {} # Будет заполняться ниже
              }
 
@@ -269,33 +270,69 @@ def get_full_game_state_data(user_code_for_state=None):
 
 
         # Информация для игрового поля
-        game_board_config = get_game_board_config() # Убедитесь, что у вас есть эта функция и она возвращает структуру поля
-        game_state['game_board'] = game_board_config['cells']
-        game_state['current_num_board_cells'] = game_board_config['total_cells']
-        game_state['leader_pole_pictogram_path'] = game_board_config.get('leader_pole_pictogram_path', '') # Путь к пиктограмме ведущего
-        # Рейтинг для пиктограммы ведущего - берем текущий рейтинг пользователя
-        game_state['leader_pictogram_rating_display'] = user_data['rating'] if user_data else 0
+        game_board_config = get_game_board_config() # Убедитесь, что у вас есть эта функция и она возвращает структуру поля {'cells': [...], 'total_cells': N, 'leader_pole_pictogram_path': '...'}
+        # Проверяем, что game_board_config корректен
+        if game_board_config and 'cells' in game_board_config and 'total_cells' in game_board_config:
+            game_state['game_board'] = game_board_config['cells']
+            game_state['current_num_board_cells'] = game_board_config['total_cells']
+            game_state['leader_pole_pictogram_path'] = game_board_config.get('leader_pole_pictogram_path', '') # Путь к пиктограмме ведущего
+
+            # Находим пользователя на поле, чтобы отобразить рейтинг на пиктограмме ведущего
+            user_on_board = next((user for user in game_state.get('users_full_list', []) if user.get('id') == user_data['id']), None) if user_data else None
+            game_state['leader_pictogram_rating_display'] = user_on_board['rating'] if user_on_board else (user_data['rating'] if user_data else 0) # Если нет на поле, берем общий рейтинг или 0
+        else:
+             # Если конфиг поля не загружен, отправляем пустые данные, чтобы избежать ошибок на клиенте
+             game_state['game_board'] = []
+             game_state['current_num_board_cells'] = 0
+             game_state['leader_pole_pictogram_path'] = ''
+             game_state['leader_pictogram_rating_display'] = user_data['rating'] if user_data else 0
 
 
         # Список флеш-сообщений (если есть)
-        # Предполагаем, что вы сохраняете флеш-сообщения в сессии или другом доступном месте
-        # и можете их получить здесь для включения в game_state
-        game_state['flashed_messages'] = session.pop('_flashed_messages', []) if '_flashed_messages' in session else []
-        # Преобразуем сообщения в нужный формат, если они хранятся с категориями
-        game_state['flashed_messages'] = [{'message': msg[1], 'category': msg[0]} for msg in game_state['flashed_messages']]
+        # Предполагаем, что вы сохраняете флеш-сообщения в сессии под ключом '_flashed_messages'
+        # и они имеют формат списка кортежей [(category, message), ...]
+        flashed_messages = session.pop('_flashed_messages', []) if '_flashed_messages' in session else []
+        game_state['flashed_messages'] = [{'message': msg[1], 'category': msg[0]} for msg in flashed_messages]
 
 
     except Exception as e:
         # Логирование ошибок при сборе game_state
         print(f"Ошибка при сборе game_state: {e}\n{traceback.format_exc()}", file=sys.stderr)
-        # В случае ошибки отправляем минимальное состояние, чтобы клиент не завис
-        game_state = {'error': f'Ошибка сервера: {e}', 'game_in_progress': False, 'game_over': True}
+        # В случае ошибки отправляем минимальное состояние, чтобы клиент не завис и показал ошибку
+        game_state = {
+            'error': f'Ошибка сервера при обновлении состояния: {e}',
+            'game_in_progress': False,
+            'game_over': True,
+            'show_card_info': False,
+            'current_round_leader_id': None,
+            'current_round_association': None,
+            'all_cards_placed_for_guessing_phase_to_template': False,
+            'db_current_leader_id': None,
+            'current_leader_name': 'Ошибка загрузки',
+            'next_leader_name': 'Ошибка загрузки',
+            'all_users_for_guessing': [],
+            'users_full_list': [],
+            'user_cards': [],
+            'on_table_status': False,
+            'table_images': [],
+            'game_board': [],
+            'current_num_board_cells': 0,
+            'leader_pole_pictogram_path': '',
+            'leader_pictogram_rating_display': 0,
+            'flashed_messages': [{'message': f'Ошибка загрузки данных: {e}', 'category': 'danger'}]
+        }
+        # Пытаемся хотя бы получить данные текущего пользователя, если есть код
         if user_code_for_state:
-            user_data = get_user_by_code(user_code_for_state)
-            game_state['current_user_data'] = {'id': user_data['id'], 'name': user_data['name'], 'rating': user_data['rating'], 'status': user_data['status']} if user_data else None
+            try:
+                user_data = get_user_by_code(user_code_for_state)
+                if user_data:
+                    game_state['current_user_data'] = {'id': user_data['id'], 'name': user_data['name'], 'rating': user_data['rating'], 'status': user_data['status']}
+            except Exception as user_e:
+                 print(f"Ошибка при загрузке данных пользователя во время общей ошибки: {user_e}", file=sys.stderr)
+                 game_state['current_user_data'] = None
 
 
-    return game_state # Или emit('game_update', game_state, room=...) если вы делаете это прямо здесь
+    return game_state
 
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
