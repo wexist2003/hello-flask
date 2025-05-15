@@ -452,7 +452,7 @@
             }
 
             /* ИЗМЕНЕНИЕ: Размер карточек на мобильных (<768px) - 1.05x от текущего (190px * 1.05) */
-            .card-img-top { width: 200px !important; margin: 1px auto !important; } /* 190 * 1.05, округлено */
+            .card-img-top { width: 200px !important; margin: 1px auto !important; } /* 190 * 1.05, round up */
 
 
             .page-header-custom { margin-bottom: 0.25rem;
@@ -579,7 +579,6 @@
                     </div>
                 {% endfor %}
             {% endif %}
-        {# ИЗМЕНЕНИЕ: Исправлена синтаксическая ошибка в endwith #}
         {% endwith %}
 
         <div class="rating-leader-info-wrapper">
@@ -608,12 +607,12 @@
             <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
             <p id="leader-empty-table-rating"
  style="display: none;"></p>
-            <p>На столе пока нет карточек...</p> {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+            <p>На столе пока нет карточек...</p>
         </div>
         <hr class="my-2">
 
         <div id="player-hand-section" style="display: none;">
-            <h2 id="player-hand-header">Мои карточки:</h2> {# ИЗМЕНЕНИЕ: "Мои карты" -> "Мои карточки" #}
+            <h2 id="player-hand-header">Мои карточки:</h2>
             <div id="player-hand" class="row user-hand no-gutters">
             </div>
         </div>
@@ -655,7 +654,7 @@
         <div class="modal-dialog modal-fullscreen-viewer" role="document">
             <div class="modal-content">
                 <div class="modal-body text-center">
-                    <img src="" id="modalImage" alt="Увеличенное изображение карточки"> {# ИЗМЕНЕНИЕ: "изображение карты" -> "изображение карточки" #}
+                    <img src="" id="modalImage" alt="Увеличенное изображение карточки">
                 </div>
             </div>
         </div>
@@ -696,19 +695,14 @@
             console.log('Socket.IO: Received game_update:', gameState);
             // ИЗМЕНЕНИЕ: Добавлены логи для диагностики отображения следующего ведущего
             console.log('gameState.show_card_info:', gameState.show_card_info);
-            console.log('gameState.next_leader_name:', gameState.next_leader_name);
+            console.log('gameState.next_leader_name:', gameState.next_leader_name); // Проверяем, приходит ли next_leader_name
 
 
             const greetingTextEl = document.getElementById('user-greeting-text');
             const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
-            // const userRatingDisplay = document.getElementById('user-rating-display'); // Удален элемент
 
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
-            // ИЗМЕНЕНИЕ: Используем новый элемент gameLeaderInfoDiv и его дочерние элементы
-            // const leaderDisplay = document.getElementById('current-leader-display'); // Теперь доступ через gameLeaderInfoDiv
-            // const nextLeaderInfoContainer = document.getElementById('next-leader-info-container'); // Удален
-            // const nextLeaderDisplay = document.getElementById('next-leader-display'); // Теперь доступ через gameLeaderInfoDiv
 
             const gameLeaderInfoDiv = document.getElementById('game-leader-info');
             const currentLeaderDisplay = document.getElementById('current-leader-display');
@@ -731,8 +725,6 @@
                     statusBadgeHTML = `<span class="badge badge-warning">${"Ожидание"}</span>`;
                 }
                 if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = statusBadgeHTML;
-                // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
-                // if (userRatingDisplay) userRatingDisplay.textContent = gameState.current_user_data.rating;
 
                 if (gameState.current_user_data.status === 'pending') {
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
@@ -745,8 +737,6 @@
                  if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
                  if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, Гость!`;
                  if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '';
-                 // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
-                 // if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
             // ИЗМЕНЕНИЕ: Логика отображения текущего и следующего ведущего
@@ -828,7 +818,7 @@
             playerHandSectionDiv.style.display = 'block';
 
             if (!user_cards || user_cards.length === 0) {
-                let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>';
                 if (game_over) message = '<div class="col-12"><p class="text-muted">Игра окончена.</p></div>';
                 else if (!game_in_progress) message = '<div class="col-12"><p class="text-muted">Ожидание начала игры.</p></div>';
                 playerHandDiv.innerHTML = message;
@@ -844,11 +834,11 @@
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
                 } else if (on_table_status) {
-                     buttonHtml = '<p class="text-muted small text-center my-1">(Ваша карточка на столе)</p>'; {# ИЗМЕНЕНИЕ: "Ваша карта" -> "Ваша карточка" #}
+                     buttonHtml = '<p class="text-muted small text-center my-1">(Ваша карточка на столе)</p>';
                 } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
                      buttonHtml = '<p class="text-muted small text-center my-1">(Идет угадывание)</p>';
                 } else if (show_card_info) {
-                     buttonHtml = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>'; {# ИЗМЕНЕНИЕ: "Карты открыты" -> "Карточки открыты" #}
+                     buttonHtml = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>';
                 } else if (game_over) {
                      buttonHtml = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
                 } else {
@@ -859,7 +849,7 @@
                 // Убираем h-100 с карточки
                 cardDiv.innerHTML = `
                     <div class="card">
-                        <img src="${imagePath}" class="card-img-top" alt="Карточка ${card.image}" onclick="showImageModal('${imagePath}')"> {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                        <img src="${imagePath}" class="card-img-top" alt="Карточка ${card.image}" onclick="showImageModal('${imagePath}')">
                         <div class="card-body">
                             ${buttonHtml}
                         </div>
@@ -887,16 +877,16 @@
                ) {
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
-                let placeholderText = 'На столе нет карточек для отображения.'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                let placeholderText = 'На столе нет карточек для отображения.';
                 if (!game_in_progress && !game_over) {
                     placeholderText = 'Игра еще не началась.';
                 } else if (game_over && !show_card_info && noCardsOnTable) {
-                     placeholderText = 'Игра завершена. На столе не было карточек.'; {# ИЗМЕНЕНИЕ: "не было карт" -> "не было карточек" #}
+                     placeholderText = 'Игра завершена. На столе не было карточек.';
                 } else if (game_in_progress && !game_over && noCardsOnTable) {
-                    placeholderText = 'На столе пока нет карточек. Ожидание игроков...'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                    placeholderText = 'На столе пока нет карточек. Ожидание игроков...';
                      if (leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status) {
                         if(leaderPictogramImg) { leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`; leaderPictogramImg.style.display = 'block'; }
-                        if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; {# ИЗМЕНЕНИЕ: "Выложите карту" -> "Выложите карточку" #} leaderPictogramRatingP.style.display = 'block'; }
+                        if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; leaderPictogramRatingP.style.display = 'block'; }
                         placeholderText = '';
                     } else {
                         if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
@@ -921,17 +911,17 @@
                 }
 
                 let cardImageSrc = "";
-                let cardAltText = "Карточка на столе"; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                let cardAltText = "Карточка на столе";
                 let cardBodyContent = '';
                 let ownerInfoAboveImage = '';
 
                 if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) {
                     cardImageSrc = "/static/images/a.jpg";
-                    cardAltText = "Карточка на столе (заглушка)"; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
-                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>'; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                    cardAltText = "Карточка на столе (заглушка)";
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>';
                 } else {
                     cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
-                    cardAltText = `Карточка ${card.image}`; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                    cardAltText = `Карточка ${card.image}`;
                 }
 
                 if (show_card_info) {
@@ -986,7 +976,7 @@
                         } else {
                             correctGuessIndicator = ` <span class="badge badge-danger">Мимо</span> (Владелец: ${card.owner_name || 'Неизв.'})`;
                         }
-                        cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`; {# ИЗМЕНЕНИЕ: "Мой голос за эту карту" -> "Мой голос за эту карточку" #}
+                        cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`;
                     }
 
                 } else if (all_cards_placed_for_guessing_phase_to_template && current_user_data && current_user_data.status === 'active' && game_in_progress && !game_over) {
@@ -1003,7 +993,7 @@
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
-                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label> {# ИЗМЕНЕНИЕ: "Чья карта?" -> "Чья карточка?" #}
+                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label>
                                     <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
                                         ${selectOptions}
                                     </select>
@@ -1022,7 +1012,7 @@
                             cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
                         }
                     } else {
-                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>'; {# ИЗМЕНЕНИЕ: "Это ваша карта" -> "Это ваша карточка" #}
+                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>';
                     }
                 } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
