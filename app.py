@@ -8,7 +8,7 @@ import traceback
 import re # Import re for regex operations
 from flask import Flask, render_template, request, redirect, url_for, g, flash, session
 from flask_socketio import SocketIO, emit
-import click # Import click for command line interface
+# import click # No longer needed if init command is removed
 
 app = Flask(__name__)
 # ВАЖНО: Убедитесь, что этот ключ ИДЕНТИЧЕН тому, что был в работающей версии
@@ -46,8 +46,13 @@ connected_users_socketio = {}  # {sid: user_code}
 
 def get_db():
     if 'db' not in g:
+        # Check if DB file exists, if not, it will be created on first connection
+        # For simplicity, ensure directory exists if using subdirectories for DB
+        # os.makedirs(os.path.dirname(DB_PATH), exist_ok=True) # If DB_PATH includes directories
         g.db = sqlite3.connect(DB_PATH, timeout=10)
         g.db.row_factory = sqlite3.Row
+        # Enable foreign key support (important for integrity)
+        g.db.execute("PRAGMA foreign_keys = ON;")
     return g.db
 
 @app.teardown_appcontext
@@ -56,23 +61,15 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-# Modified init_db_command to include schema directly
-@app.cli.command('init-db')
-def init_db_command():
-    """Clear existing data and create new tables."""
+# Renamed and modified for automatic initialization
+def init_database():
+    """Create database tables if they do not exist."""
     db = get_db()
     cursor = db.cursor()
 
-    # --- Database Schema Creation Directly in app.py ---
+    # --- Database Schema Creation Directly in app.py with IF NOT EXISTS ---
     cursor.executescript("""
-        DROP TABLE IF EXISTS users;
-        DROP TABLE IF EXISTS decks;
-        DROP TABLE IF EXISTS images;
-        DROP TABLE IF EXISTS game_state;
-        DROP TABLE IF EXISTS guesses;
-        DROP TABLE IF EXISTS game_board_visuals; -- Added table for board visuals
-
-        CREATE TABLE users (
+        CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
@@ -81,14 +78,14 @@ def init_db_command():
             status TEXT DEFAULT 'pending' -- 'pending', 'active', 'inactive'
         );
 
-        CREATE TABLE decks (
+        CREATE TABLE IF NOT EXISTS decks (
             subfolder TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
             votes INTEGER DEFAULT 0
         );
 
-        CREATE TABLE images (
+        CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
@@ -96,7 +93,7 @@ def init_db_command():
             FOREIGN KEY (subfolder) REFERENCES decks (subfolder)
         );
 
-        CREATE TABLE game_state (
+        CREATE TABLE IF NOT EXISTS game_state (
             id INTEGER PRIMARY KEY DEFAULT 1,
             game_in_progress BOOLEAN DEFAULT FALSE,
             game_over BOOLEAN DEFAULT FALSE,
@@ -104,7 +101,7 @@ def init_db_command():
             active_subfolder TEXT,
             on_table_status BOOLEAN DEFAULT FALSE, -- True when players place cards
             show_card_info BOOLEAN DEFAULT FALSE, -- True when cards are revealed
-            next_leader_id INTEGER, -- <<< Added next_leader_id column
+            next_leader_id INTEGER, -- Added next_leader_id column
             leader_pole_image_path TEXT, -- Added to store path of leader's board image
             leader_pictogram_rating INTEGER, -- Added to store leader's rating for pictogram
             current_num_board_cells INTEGER DEFAULT 40, -- Store num cells
@@ -113,7 +110,7 @@ def init_db_command():
             FOREIGN KEY (next_leader_id) REFERENCES users (id)
         );
 
-        CREATE TABLE guesses (
+        CREATE TABLE IF NOT EXISTS guesses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL, -- Who made the guess
             image_id INTEGER NOT NULL, -- The card the user voted on (image id from 'images' table)
@@ -124,7 +121,7 @@ def init_db_command():
         );
 
         -- Table to store game board visual configuration
-        CREATE TABLE game_board_visuals (
+        CREATE TABLE IF NOT EXISTS game_board_visuals (
              id INTEGER PRIMARY KEY, -- Corresponds to cell number/rating segment
              image TEXT NOT NULL, -- Image file name
              max_rating INTEGER NOT NULL -- Max rating for this segment
@@ -154,9 +151,14 @@ def init_db_command():
          db.commit()
 
 
-    click.echo('Initialized the database.')
+    print('Database initialized or already exists.', file=sys.stderr)
 
-app.cli.add_command(init_db_command) # Register the command
+# Removed the click command decorator
+# @app.cli.command('init-db')
+# def init_db_command():
+#     """Clear existing data and create new tables."""
+#     init_database() # Now calls the internal function
+#     click.echo('Initialized the database.')
 
 
 def broadcast_game_update(user_code=None):
@@ -164,7 +166,7 @@ def broadcast_game_update(user_code=None):
     # print(f"Broadcasting game update. Target user_code: {user_code}", file=sys.stderr)
     if user_code:
          # Send only to a specific user
-         for sid, code in connected_users_socketio.items():
+         for sid, code in list(connected_users_socketio.items()): # Use list to avoid issues if dict changes during iteration
              if code == user_code:
                  try:
                     state = state_to_json(user_code_for_state=user_code)
@@ -175,14 +177,10 @@ def broadcast_game_update(user_code=None):
 
     else:
         # Broadcast to all connected users
-        state_for_all = state_to_json() # Get state without user-specific data first
-
-        # Now, iterate through connected users to get user-specific state
-        for sid, code in connected_users_socketio.items():
+        # Iterate through connected users to get user-specific state
+        for sid, code in list(connected_users_socketio.items()): # Use list for safe iteration
              try:
                  user_specific_state = state_to_json(user_code_for_state=code)
-                 # Merge user-specific data into the general state if needed, or send user-specific state directly
-                 # Sending user-specific state directly is simpler if state_to_json handles it.
                  emit('game_update', user_specific_state, room=sid)
                  # print(f"Sent update to SID: {sid} ({code})", file=sys.stderr)
              except Exception as e:
@@ -208,7 +206,9 @@ def state_to_json(user_code_for_state=None):
     game_state = cursor.fetchone()
 
     if not game_state:
-        # If game_state row doesn't exist (should be created by init-db), return default
+        # If game_state row doesn't exist (should be created by init_database), return default
+        # This fallback might not be needed if init_database runs on startup
+         print("WARNING: game_state row (id=1) not found in DB!", file=sys.stderr)
          return {
             'game_in_progress': False,
             'game_over': False,
@@ -237,6 +237,9 @@ def state_to_json(user_code_for_state=None):
     show_card_info = bool(game_state['show_card_info'])
     # Fetch next_leader_id from game_state
     next_leader_id = game_state['next_leader_id']
+
+    # Fetch current_num_board_cells from game_state if available, fallback to global
+    current_num_board_cells = game_state['current_num_board_cells'] if 'current_num_board_cells' in game_state and game_state['current_num_board_cells'] is not None else _current_game_board_num_cells
 
 
     current_leader_name = get_user_name_by_id(current_leader_id) if current_leader_id else None
@@ -330,9 +333,9 @@ def state_to_json(user_code_for_state=None):
 
              # Also check if the leader has placed their card
              cursor.execute("SELECT COUNT(*) FROM images WHERE status = ? AND owner_id = ?", (f'На столе: {current_leader_id}', current_leader_id))
-             leader_card_placed = cursor.fetchone()[0] > 0
+             leader_card_is_on_table = cursor.fetchone()[0] > 0
 
-             if placed_cards_count_excluding_leader == active_players_count_excluding_leader and leader_card_placed:
+             if placed_cards_count_excluding_leader == active_players_count_excluding_leader and leader_card_is_on_table:
                  all_cards_placed_for_guessing_phase = True
          elif active_players_count_excluding_leader == 0 and current_leader_id is not None:
              # Case: Only leader is active. Leader placing a card transitions to guessing/scoring implicitly
@@ -366,8 +369,8 @@ def state_to_json(user_code_for_state=None):
                  if leader_pole_image_path is None and game_board_visual_config:
                       leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config[-1]['image'])
     else:
-         # Fallback if board visuals not in DB (should be initialized by init-db)
-         print("WARNING: Game board visuals not found in DB!", file=sys.stderr)
+         # Fallback if board visuals not in DB (should be initialized by init_database)
+         print("WARNING: Game board visuals table is empty in DB!", file=sys.stderr)
          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Use default fallback
 
 
@@ -391,7 +394,8 @@ def state_to_json(user_code_for_state=None):
                  'users_in_cell': []
              }
              # Find users in this cell based on rating range for this cell
-             min_rating = 0 if cell_config['id'] == 1 else game_board_visual_config[cell_config['id']-2]['max_rating'] + 1 # Rating threshold from previous cell
+             # Ensure indices are correct when using board_config_rows
+             min_rating = 0 if cell_config['id'] == 1 else board_config_rows[cell_config['id']-2]['max_rating'] + 1 # Rating threshold from previous cell
              max_rating = cell_config['max_rating']
 
              users_in_this_cell = [user for user in active_users_list if user['rating'] >= min_rating and user['rating'] <= max_rating]
@@ -415,7 +419,7 @@ def state_to_json(user_code_for_state=None):
         'current_user_data': current_user_data, # Data for the specific connected user
         'flashed_messages': flashed_messages,
         'game_board': game_board_state,
-        'current_num_board_cells': _current_game_board_num_cells, # Send the determined number of cells
+        'current_num_board_cells': current_num_board_cells, # Send the determined number of cells
         'leader_pole_pictogram_path': leader_pole_image_path, # Pass leader board image path
         'leader_pictogram_rating_display': leader_pictogram_rating_display, # Pass leader rating for pictogram
     }
@@ -423,27 +427,31 @@ def state_to_json(user_code_for_state=None):
 # Helper to broadcast update
 def broadcast_game_update(user_code=None):
     """Sends the current game state to all connected users or a specific user."""
+    # print(f"Broadcasting game update. Target user_code: {user_code}", file=sys.stderr)
     if user_code:
          # Send only to a specific user
-         for sid, code in connected_users_socketio.items():
+         for sid, code in list(connected_users_socketio.items()): # Use list to avoid issues if dict changes during iteration
              if code == user_code:
                  try:
                     state = state_to_json(user_code_for_state=user_code)
                     emit('game_update', state, room=sid)
+                    # print(f"Sent update to SID: {sid} ({user_code})", file=sys.stderr)
                  except Exception as e:
                      print(f"Error sending update to SID {sid} ({user_code}): {e}\n{traceback.format_exc()}", file=sys.stderr)
 
     else:
         # Broadcast to all connected users
-        for sid, code in connected_users_socketio.items():
+        # Iterate through connected users to get user-specific state
+        for sid, code in list(connected_users_socketio.items()): # Use list for safe iteration
              try:
                  user_specific_state = state_to_json(user_code_for_state=code)
                  emit('game_update', user_specific_state, room=sid)
+                 # print(f"Sent update to SID: {sid} ({code})", file=sys.stderr)
              except Exception as e:
                  print(f"Error sending update to SID {sid} ({code}): {e}\n{traceback.format_exc()}", file=sys.stderr)
 
 
-# ... (rest of your routes and functions before SocketIO events and cli commands) ...
+# ... (rest of your routes and functions before SocketIO events and __main__ block) ...
 
 @app.route('/')
 def index():
@@ -576,9 +584,11 @@ def place_card(user_code, card_id):
          if active_players_count_excluding_leader == 0:
               # Only leader is active, immediately transition to scoring (or end round)
               all_placed = True
+              flash("Вы выложили карточку как Ведущий.", "info") # Give feedback to leader
          else:
               # Leader placed, waiting for other players
-              pass # Don't set on_table_status yet
+              flash("Вы выложили карточку как Ведущий. Ожидайте карточки от игроков.", "info")
+
 
     else: # Player placed card
          cursor.execute("SELECT COUNT(DISTINCT owner_id) FROM images WHERE status LIKE 'На столе:%' AND owner_id != ?", (current_leader_id,))
@@ -589,20 +599,15 @@ def place_card(user_code, card_id):
 
          if placed_players_count_excluding_leader == active_players_count_excluding_leader and leader_card_is_on_table:
               all_placed = True
+              flash("Вы выложили карточку.", "info") # Give feedback to player
+         else:
+              flash("Вы выложили карточку. Ожидайте остальных игроков.", "info")
 
 
     if all_placed:
         # All cards are on the table, transition to guessing phase
         cursor.execute("UPDATE game_state SET on_table_status = 1, show_card_info = 0") # Set on_table_status = True
-        flash("Все карточки на столе! Начинайте угадывать.", "info")
-    else:
-         # Leader placed or player placed, but waiting for others
-         if user['id'] == current_leader_id:
-              flash("Вы выложили карточку как Ведущий. Ожидайте карточки от игроков.", "info")
-              # If leader placed, we should maybe indicate on_table_status just for leader?
-              # Or wait until first player places? Let's set on_table_status=1 once ALL cards are placed.
-         else:
-             flash("Вы выложили карточку. Ожидайте остальных игроков.", "info")
+        # flash("Все карточки на столе! Начинайте угадывать.", "info") # Flashed in end_round or show_results
 
 
     db.commit()
@@ -658,7 +663,7 @@ def guess_card(user_code, card_id):
          flash("Вы не можете угадывать свою карточку.", "warning")
          return redirect(url_for('user', user_code=user_code))
 
-    # User cannot guess the leader's card if they are the leader
+    # User cannot guess the leader's card if they are the leader (leader doesn't guess here)
     current_leader_id = game_state['current_leader_id']
     if user['id'] == current_leader_id:
          flash("Ведущий не угадывает карточки игроков на этом этапе.", "warning")
@@ -672,15 +677,16 @@ def guess_card(user_code, card_id):
         flash("Выбран неверный владелец карточки.", "warning")
         return redirect(url_for('user', user_code=user_code))
 
-    if guessed_user_id == user['id']:
-         flash("Вы не можете угадывать себя как владельца.", "warning")
-         return redirect(url_for('user', user_code=user_code))
-
-    # Check if the chosen owner actually has a card on the table
-    cursor.execute("SELECT COUNT(*) FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (guessed_user_id,))
-    if cursor.fetchone()[0] == 0:
-         flash("У выбранного игрока нет карточки на столе.", "warning")
-         return redirect(url_for('user', user_code=user_code))
+    # A player can guess another player's card and guess the leader is the owner,
+    # but cannot guess themselves as owner of another card.
+    # The rule "Вы не можете угадывать себя как владельца" is already covered by the check above
+    # against guessing their own card.
+    # The form allows selecting any active user *who has a card on the table*.
+    # Check if the chosen owner actually has a card on the table (this was already checked)
+    # cursor.execute("SELECT COUNT(*) FROM images WHERE owner_id = ? AND status LIKE 'На столе:%'", (guessed_user_id,))
+    # if cursor.fetchone()[0] == 0:
+    #      flash("У выбранного игрока нет карточки на столе.", "warning")
+    #      return redirect(url_for('user', user_code=user_code))
 
 
     # Record the guess (or update if already exists)
@@ -923,12 +929,19 @@ def end_round():
 
     # Check for game over condition (if a player reached the end of the board)
     game_over = False
-    cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active' AND rating >= ?", (_current_game_board_num_cells,)) # Assuming _current_game_board_num_cells is the target rating
+    # Fetch current_num_board_cells from game_state for accurate check
+    cursor.execute("SELECT current_num_board_cells FROM game_state WHERE id = 1")
+    game_state_cells_row = cursor.fetchone()
+    current_num_board_cells = game_state_cells_row['current_num_board_cells'] if game_state_cells_row else DEFAULT_NUM_BOARD_CELLS
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active' AND rating >= ?", (current_num_board_cells,)) # Use fetched cell count
     players_at_end = cursor.fetchone()[0]
     if players_at_end > 0:
         game_over = True
         flash("Игра окончена! Игрок достиг конца игрового поля.", "success")
-        cursor.execute("UPDATE game_state SET game_over = 1, game_in_progress = 0") # Set game_over and end game
+        # Ensure game state is updated correctly for game over
+        cursor.execute("UPDATE game_state SET game_over = 1, game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL") # Reset leaders on game over
+        db.commit()
 
 
     # Determine the next leader (user with the highest rating)
@@ -940,25 +953,13 @@ def end_round():
          next_leader_id = next_leader_row['id'] if next_leader_row else None # Set to None if no active users
 
 
-    # --- ADDITION START: Update game_state with next_leader_id and reset flags ---
-    # Reset on_table_status and show_card_info for the next round
-    # Store next_leader_id in the game_state table
-    cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 0, current_leader_id = ?, next_leader_id = ?", (next_leader_id, next_leader_id)) # Set the new current leader and the next leader for the round AFTER next (or just the next one if this field is always the *next* leader)
-    # Let's clarify the logic: after end_round, the *next* leader is determined. This player should be the leader for the *next* round (which starts after this round fully finishes, likely when a new_round or start_new_game is called).
-    # So, the determined next_leader_id here should probably become the current_leader_id for the *next* round.
-    # Let's set current_leader_id for the *next* round here, and clear next_leader_id until the end of *that* round.
-    # Alternative: next_leader_id always stores the ID of the leader for the *upcoming* round.
-    # Let's go with the simpler logic: Update current_leader_id to the next determined leader, and clear next_leader_id until the end of the round this new leader leads.
-    cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 0, current_leader_id = ?, next_leader_id = NULL", (next_leader_id,)) # Set the new current leader, clear next_leader_id
-    # Correction: The frontend wants to display the *next* leader while the current round's results are shown.
-    # So end_round should determine the leader for the *next* round and store it in `next_leader_id`.
-    # The `start_new_round` function should then move `next_leader_id` to `current_leader_id`.
-    # Let's revert the update in end_round: it should ONLY determine and store `next_leader_id`. `current_leader_id` should remain the leader of the round just ended until the next round starts.
+    # --- UPDATE game_state with next_leader_id and reset flags ---
+    # Keep show_card_info = 1 here so frontend shows results until next round starts
+    if not game_over: # Only update flags if game is not over
+         cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 1, next_leader_id = ? WHERE id = 1", (next_leader_id,))
+         db.commit()
+    # else: game_state is already updated for game_over above
 
-    # Reverting update in end_round - only set next_leader_id
-    cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 1, next_leader_id = ?", (next_leader_id,)) # Keep showing results, set next_leader_id
-
-    # --- ADDITION END ---
 
     # Reset image statuses from 'На столе' to 'Свободно'
     cursor.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,))
@@ -966,10 +967,12 @@ def end_round():
     # Delete all guesses
     cursor.execute("DELETE FROM guesses")
 
-    db.commit()
+    db.commit() # Commit remaining changes
+
 
     if not game_over:
-         flash("Раунд завершен! Подсчет очков выполнен. Определен следующий ведущий.", "success")
+         # Flash message set earlier
+         pass
     # If game_over, the game over flash message was already set.
     broadcast_game_update()
 
@@ -993,17 +996,22 @@ def start_new_round():
          flash("Игра окончена. Запустите новую игру через админ панель.", "warning")
          return redirect(url_for('index')) # Or redirect to admin panel
 
-    # --- ADDITION START: Transition from next_leader_id to current_leader_id ---
+    # --- Transition from next_leader_id to current_leader_id ---
+    # Fetch the determined next leader from the previous round
     next_leader_id = game_state['next_leader_id'] if game_state and 'next_leader_id' in game_state else None
     if next_leader_id is None:
-         # If no next leader is set (e.g., first round or after game over), determine initial leader
-         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY RANDOM() LIMIT 1") # Example: random first leader
+         # If no next leader is set (e.g., first round or after game over), determine initial leader randomly from active players
+         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY RANDOM() LIMIT 1")
          initial_leader_row = cursor.fetchone()
          current_leader_id = initial_leader_row['id'] if initial_leader_row else None
          if current_leader_id is None:
               flash("Недостаточно активных игроков для начала раунда.", "warning")
+              # Reset game state to ensure it's not stuck in a 'starting' state
+              cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
+              db.commit()
+              broadcast_game_update()
               return redirect(url_for('index')) # Or handle appropriately
-         # Clear next_leader_id as it's now the current leader
+         # Clear next_leader_id as the initial leader is now the current one
          cursor.execute("UPDATE game_state SET current_leader_id = ?, next_leader_id = NULL WHERE id = 1", (current_leader_id,))
 
     else:
@@ -1015,7 +1023,7 @@ def start_new_round():
 
     db.commit() # Commit leader update
 
-    # --- ADDITION END ---
+    # --- END Transition ---
 
 
     # Reset image statuses
@@ -1030,7 +1038,7 @@ def start_new_round():
     active_users = [row['id'] for row in cursor.fetchall()]
 
     if not active_users:
-        flash("Нет активных игроков для раздачи карточек.", "warning") # ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек"
+        flash("Нет активных игроков для раздачи карточек.", "warning")
         # Reset game state if no active players
         cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
         db.commit()
@@ -1049,9 +1057,9 @@ def start_new_round():
         cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
         db.commit()
         broadcast_game_update()
-        return redirect(url_for('index'))
+        return redirect(url_for('admin')) # Redirect to admin to choose deck
 
-
+    # Check if there are enough free cards in the active subfolder
     cursor.execute("SELECT id FROM images WHERE status = 'Свободно' AND subfolder = ?", (active_subfolder,))
     available_image_ids = [row['id'] for row in cursor.fetchall()]
 
@@ -1059,12 +1067,13 @@ def start_new_round():
     required_cards = len(active_users) * num_cards_per_player
 
     if len(available_image_ids) < required_cards:
-        flash(f"Недостаточно свободных карточек ({len(available_image_ids)}) в активной колоде '{active_subfolder}' для раздачи {required_cards} карточек.", "danger") # ИЗМЕНЕНИЕ: "карт" -> "карточек"
-        # Reset game state
-        cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
-        db.commit()
-        broadcast_game_update()
-        return redirect(url_for('index'))
+        flash(f"Недостаточно свободных карточек ({len(available_image_ids)}) в активной колоде '{active_subfolder}' для раздачи {required_cards} карточек. Выберите другую колоду или загрузите больше карточек.", "danger")
+        # Reset game state (or just prevent round start)
+        # For now, just prevent start and keep existing state
+        # cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
+        # db.commit()
+        broadcast_game_update() # Update clients that round didn't start
+        return redirect(url_for('admin')) # Redirect to admin to fix deck issue
 
 
     # Shuffle available image IDs
@@ -1090,7 +1099,7 @@ def start_new_round():
     cursor.execute("UPDATE game_state SET game_in_progress = 1, game_over = 0, on_table_status = 0, show_card_info = 0") # current_leader_id and next_leader_id handled above
     db.commit()
 
-    flash("Новый раунд начат! Карточки розданы.", "success") # ИЗМЕНЕНИЕ: "Карты" -> "Карточки"
+    flash("Новый раунд начат! Карточки розданы.", "success")
 
     # Broadcast game update to all connected users
     broadcast_game_update()
@@ -1099,6 +1108,7 @@ def start_new_round():
 
 
 # Route for admin to start a new game (resets ratings, status, etc.)
+# This should reset the game state to a fresh start, ready for admin setup
 @app.route('/admin/start_new_game', methods=['POST'])
 def start_new_game():
     db = get_db()
@@ -1114,29 +1124,20 @@ def start_new_game():
     cursor.execute("DELETE FROM guesses")
 
     # Reset game state to initial state
-    # Determine the very first leader randomly from users who are now 'pending' or will become 'active'
-    # A common approach is to select from all users, or from those who will become active.
-    # Let's assume we select from users who will be manually activated by admin later.
-    # Or, select a random user with rating > 0 if any exist from previous games, or just a random one.
-    # For simplicity, let's not set a leader here. The first round will determine the leader.
-    # Or, select a random user to be the very first leader of the first round.
-    cursor.execute("SELECT id FROM users ORDER BY RANDOM() LIMIT 1")
-    first_leader_row = cursor.fetchone()
-    initial_leader_id = first_leader_row['id'] if first_leader_row else None
-
-
-    # Reset game_state row
+    # No leader set at the very beginning, deck needs to be chosen
     cursor.execute("""
         UPDATE game_state SET
         game_in_progress = FALSE,
         game_over = FALSE,
-        current_leader_id = ?, -- Set the first leader
+        current_leader_id = NULL, -- No leader at the very start
         active_subfolder = NULL, -- Active deck needs to be chosen again
         on_table_status = FALSE,
         show_card_info = FALSE,
-        next_leader_id = NULL -- Ensure next_leader_id is NULL at the start of a new game
+        next_leader_id = NULL, -- Ensure next_leader_id is NULL at the start of a new game
+        leader_pole_image_path = NULL,
+        leader_pictogram_rating = NULL
         WHERE id = 1
-    """, (initial_leader_id,)) # Set the initial current leader
+    """)
 
     db.commit()
 
@@ -1189,72 +1190,143 @@ def handle_disconnect():
     print(f"SocketIO: Client disconnected: SID={sid}, User code: {user_code or 'N/A'}", file=sys.stderr)
 
 
-# Example SocketIO event for testing or specific actions (optional)
-# @socketio.on('request_game_state')
-# def handle_request_game_state(data):
-#     sid = request.sid
-#     user_code = connected_users_socketio.get(sid)
-#     if user_code:
-#         print(f"SocketIO: Received request_game_state from {user_code} (SID: {sid})", file=sys.stderr)
-#         broadcast_game_update(user_code=user_code) # Send update only to the requester
+# SocketIO event for admin to activate/deactivate user (needs user code and new status)
+@socketio.on('set_user_status')
+def handle_set_user_status(data):
+    sid = request.sid
+    admin_user_code = connected_users_socketio.get(sid)
+    if not admin_user_code:
+         print(f"SocketIO: Unauthorized status change attempt from SID: {sid}", file=sys.stderr)
+         emit('message', {'data': 'Вы не авторизованы как администратор.', 'category': 'danger'}, room=sid)
+         return
 
-
-# Command to initialize game board visuals from default config
-@app.cli.command('init-board-visuals')
-def init_board_visuals_command():
-    """Initializes game_board_visuals table with default data."""
     db = get_db()
     cursor = db.cursor()
+    cursor.execute("SELECT is_admin FROM users WHERE code = ?", (admin_user_code,))
+    admin_user = cursor.fetchone()
 
-    cursor.execute("SELECT COUNT(*) FROM game_board_visuals")
+    if not admin_user or not admin_user['is_admin']:
+         print(f"SocketIO: Unauthorized status change attempt from non-admin user: {admin_user_code} (SID: {sid})", file=sys.stderr)
+         emit('message', {'data': 'У вас нет прав администратора.', 'category': 'danger'}, room=sid)
+         return
+
+    target_user_code = data.get('user_code')
+    new_status = data.get('status') # 'pending' or 'active'
+
+    if not target_user_code or new_status not in ['pending', 'active', 'inactive']:
+         print(f"SocketIO: Invalid data for set_user_status: {data}", file=sys.stderr)
+         emit('message', {'data': 'Неверные данные для изменения статуса пользователя.', 'category': 'warning'}, room=sid)
+         return
+
+    cursor.execute("SELECT id, status FROM users WHERE code = ?", (target_user_code,))
+    target_user = cursor.fetchone()
+
+    if not target_user:
+         print(f"SocketIO: Attempt to set status for non-existent user: {target_user_code}", file=sys.stderr)
+         emit('message', {'data': f'Пользователь с кодом "{target_user_code}" не найден.', 'category': 'warning'}, room=sid)
+         return
+
+    old_status = target_user['status']
+
+    if old_status == new_status:
+         # No change needed
+         emit('message', {'data': f'Статус пользователя "{target_user_code}" уже "{new_status}".', 'category': 'info'}, room=sid)
+         return
+
+    cursor.execute("UPDATE users SET status = ? WHERE code = ?", (new_status, target_user_code))
+    db.commit()
+
+    print(f"SocketIO: Admin {admin_user_code} changed status of {target_user_code} from {old_status} to {new_status}", file=sys.stderr)
+    emit('message', {'data': f'Статус пользователя "{target_user_code}" изменен на "{new_status}".', 'category': 'success'}, room=sid)
+
+    # Broadcast game update to all connected users as user status affects game state (e.g., active players count)
+    broadcast_game_update()
+
+
+# SocketIO event for admin to select active deck
+@socketio.on('select_active_deck')
+def handle_select_active_deck(data):
+    sid = request.sid
+    admin_user_code = connected_users_socketio.get(sid)
+    if not admin_user_code:
+         emit('message', {'data': 'Вы не авторизованы как администратор.', 'category': 'danger'}, room=sid)
+         return
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT is_admin FROM users WHERE code = ?", (admin_user_code,))
+    admin_user = cursor.fetchone()
+
+    if not admin_user or not admin_user['is_admin']:
+         emit('message', {'data': 'У вас нет прав администратора.', 'category': 'danger'}, room=sid)
+         return
+
+    selected_subfolder = data.get('subfolder')
+
+    if not selected_subfolder:
+         emit('message', {'data': 'Не выбрана колода.', 'category': 'warning'}, room=sid)
+         return
+
+    # Check if the deck exists
+    cursor.execute("SELECT COUNT(*) FROM decks WHERE subfolder = ?", (selected_subfolder,))
     if cursor.fetchone()[0] == 0:
-        print("Initializing game board visuals from command...", file=sys.stderr)
-        if _default_board_config:
-             cursor.executemany("INSERT INTO game_board_visuals (id, image, max_rating) VALUES (?, ?, ?)",
-                               [(cell['id'], cell['image'], cell['max_rating']) for cell in _default_board_config])
-             db.commit()
-             print(f"Inserted {len(_default_board_config)} game board visual entries.", file=sys.stderr)
-        else:
-             print("WARNING: _default_board_config is empty. Cannot initialize game board visuals.", file=sys.stderr)
-    else:
-        print("Game board visuals table is already initialized.", file=sys.stderr)
+         emit('message', {'data': 'Выбранная колода не найдена.', 'category': 'danger'}, room=sid)
+         return
+
+    # Check if game is in progress
+    cursor.execute("SELECT game_in_progress FROM game_state WHERE id = 1")
+    game_state = cursor.fetchone()
+    if game_state and game_state['game_in_progress']:
+         emit('message', {'data': 'Нельзя сменить активную колоду во время игры.', 'category': 'warning'}, room=sid)
+         return
+
+    cursor.execute("UPDATE game_state SET active_subfolder = ? WHERE id = 1", (selected_subfolder,))
+    db.commit()
+
+    print(f"SocketIO: Admin {admin_user_code} selected active deck: {selected_subfolder}", file=sys.stderr)
+    emit('message', {'data': f'Активная колода изменена на "{selected_subfolder}".', 'category': 'success'}, room=sid)
+
+    # Broadcast game update (active subfolder is part of the state)
+    broadcast_game_update()
+
+# ... Other admin SocketIO events like load_deck_images etc. ...
 
 
+# This block ensures the Flask app runs when the script is executed directly
 if __name__ == "__main__":
-    # Moved initialization logic into init_db_command and init-board-visuals command
-    # Ensure init-db is run at least once before starting the app the first time
-    # Ensure init-board-visuals is run at least once if not part of init-db
+    # Initialize the database if it doesn't exist
+    with app.app_context():
+         init_database()
 
-    # If you need to run initial board visuals setup when the app starts *without*
-    # running init-db command, you can uncomment and adjust the logic below.
-    # However, it's cleaner to use the Flask commands.
-
-    # if not _current_game_board_pole_image_config:
-    #     print("Loading game board visuals from DB or using default...", file=sys.stderr)
-    #     try:
-    #          with app.app_context():
-    #               db = get_db()
-    #               cursor = db.cursor()
-    #               cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
-    #               board_config_rows = cursor.fetchall()
-    #               if board_config_rows:
-    #                    global _current_game_board_pole_image_config
-    #                    global _current_game_board_num_cells
-    #                    _current_game_board_pole_image_config = [dict(row) for row in board_config_rows]
-    #                    _current_game_board_num_cells = _current_game_board_pole_image_config[-1]['max_rating']
-    #                    print("Loaded game board visuals from DB.", file=sys.stderr)
-    #               else:
-    #                    # If DB is empty, use default and maybe print warning to run init command
-    #                    print("WARNING: Game board visuals table is empty. Using default config. Run 'flask init-board-visuals'.", file=sys.stderr)
-    #                    _current_game_board_pole_image_config = _default_board_config
-    #                    _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
-    #     except Exception as e:
-    #          print(f"Error loading game board visuals: {e}\n{traceback.format_exc()}", file=sys.stderr)
-    #          # Fallback to default if error occurs
-    #          _current_game_board_pole_image_config = _default_board_config
-    #          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+    # Load game board visuals into global variable _current_game_board_pole_image_config
+    # This should happen after init_database has potentially created the table
+    with app.app_context():
+         db = get_db()
+         cursor = db.cursor()
+         try:
+              cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
+              board_config_rows = cursor.fetchall()
+              if board_config_rows:
+                   _current_game_board_pole_image_config = [dict(row) for row in board_config_rows]
+                   global _current_game_board_num_cells # Ensure global is updated
+                   _current_game_board_num_cells = _current_game_board_pole_image_config[-1]['max_rating']
+                   print("Loaded game board visuals from DB.", file=sys.stderr)
+              else:
+                   # Should not happen if init_database ran, but as a fallback
+                   print("WARNING: Game board visuals table is empty after initialization. Using default config.", file=sys.stderr)
+                   _current_game_board_pole_image_config = _default_board_config
+                   _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+         except sqlite3.OperationalError as e:
+              print(f"WARNING: Could not load game board visuals from DB on startup: {e}. Table might be missing. Ensure init_database ran.", file=sys.stderr)
+              _current_game_board_pole_image_config = _default_board_config
+              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+         except Exception as e:
+              print(f"Error loading game board visuals on startup: {e}\n{traceback.format_exc()}", file=sys.stderr)
+              _current_game_board_pole_image_config = _default_board_config
+              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
 
 
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    # Ensure allow_unsafe_werkzeug=True is used only in development
     socketio.run(app, host="0.0.0.0", port=port, debug=debug, allow_unsafe_werkzeug=True)
