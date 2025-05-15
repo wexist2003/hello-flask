@@ -35,23 +35,17 @@
         }
 
         .content-wrapper {
-            background-color: transparent;
+            background-color: rgba(var(--bs-body-bg-rgb), 0.7); /* Добавил полупрозрачный фон для читаемости текста поверх картинки */
             border-radius: 0.5rem;
-            /* width: 70vw; */ /* Removed this line */
-            max-width: 500px;
+            max-width: 500px; /* Максимальная ширина по умолчанию для более узких экранов */
             margin-left: auto;
             margin-right: auto;
-            margin-top: 30vh;
-            width: 100%; /* Ensure it takes full width within parent */
+            margin-top: 30vh; /* Отступ сверху, чтобы центрировать ниже */
+            width: 100%; /* Занимаем всю доступную ширину до max-width */
             box-sizing: border-box; /* Include padding and border in the element's total width */
+            padding: 1.5rem; /* Добавил внутренний отступ для контента */
         }
 
-        .title-block {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.5);
-            padding: 1.5rem;
-            border-radius: 0.375rem;
-            margin-bottom: 1.5rem;
-        }
         .title-block h2 {
             font-size: 1.5rem;
             margin-bottom: 0;
@@ -114,7 +108,7 @@
 
         .footer-container {
              width: 100%;
-             max-width: 500px;
+             max-width: 500px; /* Максимальная ширина по умолчанию */
              margin-left: auto;
              margin-right: auto;
              padding: 0 1rem 1rem 1rem;
@@ -160,21 +154,37 @@
         @media (min-width: 768px) { /* Adjust breakpoint as needed for "PC version" */
             .content-wrapper,
             .footer-container {
-                width: 90%; /* Limit width to 90% */
-                max-width: 900px; /* Optional: set a max-width for very large screens */
+                width: 90%; /* Limit width to 90% of parent (.main-content-area or body) */
+                max-width: 800px; /* Уменьшил max-width, чтобы блок был заметно меньше фоновой картинки на очень широких экранах */
+                 margin-top: 20vh; /* Скорректировал отступ, чтобы было ближе к центру */
             }
+             .content-wrapper {
+                  padding: 2rem; /* Увеличил внутренний отступ на ПК */
+             }
+             .title-block { /* Убрал фон и отступы у title-block, так как фон есть у content-wrapper */
+                 background-color: transparent;
+                 padding: 0;
+                 margin-bottom: 1rem;
+             }
         }
 
         @media (max-width: 767.98px) {
             .content-wrapper {
-                margin-top: 25vh;
-                width: 90vw;
-                max-width: none;
+                margin-top: 25vh; /* Отступ сверху для мобильных */
+                width: 90vw; /* Ширина 90% от ширины вьюпорта */
+                max-width: none; /* Убрал max-width для мобильных */
+                padding: 1rem; /* Уменьшил внутренний отступ для мобильных */
             }
-            .footer-container {
+             .footer-container {
                  max-width: none;
+                 padding: 0 0.5rem 0.5rem 0.5rem; /* Уменьшил padding для мобильных */
+             }
+            .title-block {
+                 padding: 0; /* Убрал фон и отступы у title-block */
+                 background-color: transparent;
+                 margin-bottom: 0.5rem;
             }
-            .title-block h2, .title-block p { font-size: 1.2rem; } /* Adjusted font size */
+            .title-block h2, .title-block p { font-size: 1.3rem; } /* Adjusted font size */
             .deck-info span { font-size: 1.1rem; }
             .vote-count { font-size: 1rem; }
             .vote-form button { font-size: 0.9rem; }
@@ -192,7 +202,7 @@
         <div class="content-wrapper">
             <div class="title-block text-center">
                 <h2>Выберите колоду,</h2>
-                <p>которой хотели бы сыграть</p> </div>
+                <p>которой хотели бы играть</p> </div>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
