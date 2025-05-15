@@ -22,28 +22,33 @@
             display: flex;
             flex-direction: column;
             padding: 0;
+            /* Add padding bottom equal to footer height to prevent content going under */
+            padding-bottom: 60px; /* Approximate footer height */
         }
 
         .main-content-area {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: center; /* Center content-wrapper horizontally */
+            justify-content: center; /* Center content-wrapper vertically within available space */
             width: 100%;
             padding: 1rem;
+            /* No padding-bottom needed if body has padding-bottom */
         }
 
         .content-wrapper {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.7); /* Добавил полупрозрачный фон для читаемости текста поверх картинки */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Added semi-transparent background */
             border-radius: 0.5rem;
             max-width: 500px; /* Максимальная ширина по умолчанию для более узких экранов */
-            margin-left: auto;
-            margin-right: auto;
-            margin-top: 30vh; /* Отступ сверху, чтобы центрировать ниже */
             width: 100%; /* Занимаем всю доступную ширину до max-width */
-            box-sizing: border-box; /* Include padding and border in the element's total width */
+            box-sizing: border-box;
             padding: 1.5rem; /* Добавил внутренний отступ для контента */
+            /* Position from middle: Use margin-top to push down from the vertical center */
+            margin-top: 30vh; /* Adjust as needed */
+            margin-left: auto; /* Centering with max-width */
+            margin-right: auto;
+            margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
         }
 
         .title-block h2 {
@@ -107,21 +112,31 @@
         }
 
         .footer-container {
-             width: 100%;
-             max-width: 500px; /* Максимальная ширина по умолчанию */
-             margin-left: auto;
-             margin-right: auto;
-             padding: 0 1rem 1rem 1rem;
-             flex-shrink: 0;
-             box-sizing: border-box; /* Include padding in width */
+            position: fixed; /* Fixed at the bottom of the viewport */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background-color: var(--bs-body-bg); /* Solid background for fixed footer */
+            /* Center the content inside the fixed footer */
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Vertically center links inside footer */
+            padding: 0 1rem 1rem 1rem; /* Adjust padding */
+            box-sizing: border-box;
+            height: 60px; /* Define footer height */
         }
+
         .footer-links {
-             padding: 0.5rem 0;
-             display: flex;
-             justify-content: space-between;
-             align-items: center;
+            width: 100%; /* Take full width of parent (footer-container) */
+            max-width: 500px; /* Match content-wrapper max-width */
+            margin: 0 auto; /* Center the links block within the footer */
+            padding: 0.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .footer-links a {
+         .footer-links a {
              color: var(--bs-body-bg);
              background-color: rgba(var(--bs-emphasis-color-rgb), 0.6);
              padding: 0.3rem 0.8rem;
@@ -130,7 +145,7 @@
              font-weight: 500;
              display: inline-block;
         }
-         .footer-links a.admin-link { }
+
          .footer-links a:hover {
              background-color: rgba(var(--bs-emphasis-color-rgb), 0.8);
              text-decoration: none;
@@ -150,41 +165,65 @@
             border-color: var(--bs-success);
         }
 
-        /* Added media query for PC version (larger screens) */
-        @media (min-width: 768px) { /* Adjust breakpoint as needed for "PC version" */
-            .content-wrapper,
-            .footer-container {
-                width: 90%; /* Limit width to 90% of parent (.main-content-area or body) */
-                max-width: 800px; /* Уменьшил max-width, чтобы блок был заметно меньше фоновой картинки на очень широких экранах */
-                 margin-top: 20vh; /* Скорректировал отступ, чтобы было ближе к центру */
+        /* Media queries for PC */
+        @media (min-width: 768px) {
+            body {
+                padding-bottom: 80px; /* Adjust padding for PC footer height */
             }
-             .content-wrapper {
-                  padding: 2rem; /* Увеличил внутренний отступ на ПК */
+            .content-wrapper {
+                width: 90%;
+                max-width: 800px;
+                margin-top: 20vh;
+                padding: 2rem;
+                 margin-bottom: auto;
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.5); /* Added semi-transparent background for PC */
+            }
+             .footer-container {
+                 height: 80px; /* Adjust PC footer height */
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.9);
              }
-             .title-block { /* Убрал фон и отступы у title-block, так как фон есть у content-wrapper */
+             .footer-links {
+                 width: 90%;
+                 max-width: 800px;
+                 margin: 0 auto;
+             }
+             .title-block {
                  background-color: transparent;
                  padding: 0;
                  margin-bottom: 1rem;
              }
         }
 
+        /* Media queries for Mobile */
         @media (max-width: 767.98px) {
+             body {
+                  padding-bottom: 60px; /* Mobile body padding */
+             }
             .content-wrapper {
-                margin-top: 25vh; /* Отступ сверху для мобильных */
-                width: 90vw; /* Ширина 90% от ширины вьюпорта */
-                max-width: none; /* Убрал max-width для мобильных */
-                padding: 1rem; /* Уменьшил внутренний отступ для мобильных */
+                margin-top: 25vh;
+                margin-bottom: auto;
+                width: 90vw;
+                max-width: none;
+                padding: 1rem;
+                background-color: rgba(var(--bs-body-bg-rgb), 0.6); /* Added semi-transparent background for mobile */
             }
              .footer-container {
-                 max-width: none;
-                 padding: 0 0.5rem 0.5rem 0.5rem; /* Уменьшил padding для мобильных */
+                 height: 60px; /* Mobile footer height */
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.9);
              }
-            .title-block {
-                 padding: 0; /* Убрал фон и отступы у title-block */
-                 background-color: transparent;
-                 margin-bottom: 0.5rem;
-            }
-            .title-block h2, .title-block p { font-size: 1.3rem; } /* Adjusted font size */
+             .footer-links {
+                 width: 90vw;
+                  max-width: none;
+                 margin: 0 auto;
+                 padding: 0.5rem 0;
+             }
+             .title-block {
+                  padding: 0;
+                  background-color: transparent;
+                  margin-bottom: 0.5rem;
+             }
+            /* Adjusted font sizes for better mobile look */
+            .title-block h2, .title-block p { font-size: 1.3rem; }
             .deck-info span { font-size: 1.1rem; }
             .vote-count { font-size: 1rem; }
             .vote-form button { font-size: 0.9rem; }
