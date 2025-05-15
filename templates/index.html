@@ -40,13 +40,14 @@
         .content-wrapper {
             background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile/default */
             border-radius: 0.5rem;
-            max-width: 500px; /* Максимальная ширина по умолчанию для более узких экранов */
-            width: 100%; /* Занимаем всю доступную ширину до max-width */
+            /* Default width/max-width for smaller screens */
+            width: 90vw; /* Adjusted: 90vw for mobile/default */
+            max-width: none; /* No max-width by default */
             box-sizing: border-box;
             padding: 1.5rem; /* Добавил внутренний отступ для контента */
             /* Position from middle: Use margin-top to push down from the vertical center */
             margin-top: 36vh; /* Adjusted: 30vh + 20% */
-            margin-left: auto; /* Centering with max-width */
+            margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
         }
@@ -129,7 +130,7 @@
 
         .footer-links {
             width: 100%; /* Take full width of parent (footer-container) */
-            max-width: 500px; /* Match content-wrapper max-width */
+            max-width: 500px; /* Match content-wrapper max-width on mobile */
             margin: 0 auto; /* Center the links block within the footer */
             padding: 0.5rem 0;
             display: flex;
@@ -171,8 +172,8 @@
                 padding-bottom: 80px; /* Adjust padding for PC footer height */
             }
             .content-wrapper {
-                width: 90%; /* Changed: Removed max-width, rely on 90% */
-                max-width: none; /* Changed: Removed max-width */
+                width: 90%; /* Use 90% of parent width */
+                max-width: 600px; /* Reintroduced max-width for PC */
                 margin-top: 24vh; /* Adjusted: 20vh + 20% */
                 padding: 2rem;
                  margin-bottom: auto;
@@ -184,11 +185,11 @@
              }
              .footer-links {
                  width: 90%; /* Match content-wrapper width */
-                 max-width: none; /* Changed: Removed max-width */
+                 max-width: 600px; /* Reintroduced max-width for PC */
                  margin: 0 auto;
              }
              .title-block {
-                 background-color: transparent;
+                 background-color: transparent; /* No background on title block itself on PC */
                  padding: 0;
                  margin-bottom: 1rem;
              }
@@ -212,7 +213,7 @@
                  background-color: rgba(var(--bs-body-bg-rgb), 0.9);
              }
              .footer-links {
-                 width: 90vw; /* Match content-wrapper width */
+                 width: 90vw;
                   max-width: none;
                  margin: 0 auto;
                  padding: 0.5rem 0;
