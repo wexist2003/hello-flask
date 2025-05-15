@@ -152,7 +152,9 @@
             cursor: zoom-in;
             transition: border-color 0.3s;
             display: block; /* Изображение как блочный элемент */
-            margin: 0.5rem auto !important; /* Центрирование из старого кода */
+            /* margin: 0.5rem auto !important; /* Centering from old code */ */
+            /* ИЗМЕНЕНИЕ: Устанавливаем margin 1px со всех сторон */
+            margin: 1px !important;
             /* Убрана минимальная высота */
             /* min-height: 150px; */
         }
@@ -244,9 +246,9 @@
             height: 100%;
         }
         .modal-fullscreen-viewer .modal-body img#modalImage {
-            /* Увеличиваем размеры для более агрессивного масштабирования в модальном окне */
-            width: 120%;
-            height: 120%;
+            /* ИЗМЕНЕНИЕ: Увеличиваем размеры для более агрессивного масштабирования в модальном окне (было 120%, стало 110%) */
+            width: 110%;
+            height: 110%;
             object-fit: contain; /* Сохраняем пропорции и не обрезаем контент изображения */
             border-radius: 0;
             cursor: zoom-out;
@@ -422,7 +424,8 @@
         /* === Медиа-запросы (адаптивность) === */
         /* Стили размеров карточек и изображений из старого кода с !important */
         .card { min-width: 220px !important; max-width: 275px !important; }
-        .card-img-top { width: 216px !important; height: auto; object-fit: contain; margin: 0.5rem auto !important; }
+        /* ИЗМЕНЕНИЕ: margin 1px */
+        .card-img-top { width: 216px !important; height: auto; object-fit: contain; margin: 1px !important; }
 
         @media (max-width: 768px) {
             :root {
@@ -431,7 +434,8 @@
             }
             /* Стили размеров карточек и изображений из старого кода для мобильных с !important */
             .card { min-width: 200px !important; max-width: 250px !important; }
-            .card-img-top { width: 192px !important; margin: 0.2rem auto !important; }
+            /* ИЗМЕНЕНИЕ: margin 1px */
+            .card-img-top { width: 192px !important; margin: 1px !important; }
 
             .page-header-custom { margin-bottom: 0.25rem;
                 padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -467,7 +471,8 @@
             /* Стили размеров карточек и изображений из старого кода для маленьких мобильных (<576px) с !important */
              @media (max-width: 576px) {
                  .card { min-width: 180px !important; max-width: 220px !important; margin-bottom: 0.75rem !important; }
-                 .card-img-top { width: 156px !important; margin: 0.2rem auto !important; }
+                 /* ИЗМЕНЕНИЕ: margin 1px */
+                 .card-img-top { width: 156px !important; margin: 1px !important; }
              }
 
 
@@ -559,7 +564,8 @@
 
         <div class="rating-leader-info-wrapper">
             <div id="current-game-info">
-                <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p>
+                {# ИЗМЕНЕНИЕ: Удален вывод рейтинга #}
+                {# <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p> #}
                 <p class="mb-0">Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
             </div>
             <div id="next-leader-info-container" style="display: none;">
@@ -672,7 +678,8 @@
 
             const greetingTextEl = document.getElementById('user-greeting-text');
             const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
-            const userRatingDisplay = document.getElementById('user-rating-display');
+            // const userRatingDisplay = document.getElementById('user-rating-display'); // Удален элемент
+
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
             const leaderDisplay = document.getElementById('current-leader-display');
@@ -692,7 +699,8 @@
                     statusBadgeHTML = `<span class="badge badge-warning">${"Ожидание"}</span>`;
                 }
                 if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = statusBadgeHTML;
-                if (userRatingDisplay) userRatingDisplay.textContent = gameState.current_user_data.rating;
+                // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
+                // if (userRatingDisplay) userRatingDisplay.textContent = gameState.current_user_data.rating;
 
                 if (gameState.current_user_data.status === 'pending') {
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
@@ -705,7 +713,8 @@
                  if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
                  if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, Гость!`;
                  if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '';
-                 if (userRatingDisplay) userRatingDisplay.textContent = "0";
+                 // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
+                 // if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
             let leaderName = 'Не определен';
@@ -793,8 +802,8 @@
             const canPlaceCard = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template && !on_table_status;
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Возвращаем классы колонок к предыдущим значениям
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6'; // Убираем p-1 здесь тоже
+                // Убираем классы отступов, оставляем только классы колонок
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
@@ -868,8 +877,8 @@
 
             (table_images || []).forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Возвращаем классы колонок к предыдущим значениям
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6'; // Убираем p-1 здесь тоже
+                // Убираем классы отступов, оставляем только классы колонок
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 if (show_card_info && card.owner_id === currentUserId) {
                     cardDiv.classList.add('my-owned-card-revealed');
