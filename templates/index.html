@@ -118,7 +118,8 @@
             left: 0;
             width: 100%;
             z-index: 1000;
-            background-color: var(--bs-body-bg); /* Solid background for fixed footer */
+            /* Adjusted background-color to match content-wrapper */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.3);
             /* Center the content inside the fixed footer */
             display: flex;
             justify-content: center;
@@ -181,7 +182,8 @@
             }
              .footer-container {
                  height: 80px; /* Adjust PC footer height */
-                 background-color: rgba(var(--bs-body-bg-rgb), 0.9);
+                 /* Adjusted background-color to match content-wrapper */
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
              }
              .footer-links {
                  width: 90%; /* Match content-wrapper width */
@@ -210,7 +212,8 @@
             }
              .footer-container {
                  height: 60px; /* Mobile footer height */
-                 background-color: rgba(var(--bs-body-bg-rgb), 0.9);
+                 /* Adjusted background-color to match content-wrapper */
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.3);
              }
              .footer-links {
                  width: 90vw;
@@ -225,133 +228,3 @@
              }
             /* Adjusted font sizes for better mobile look */
             .title-block h2, .title-block p { font-size: 1.3rem; }
-            .deck-info span { font-size: 1.1rem; }
-            .vote-count { font-size: 1rem; }
-            .vote-form button { font-size: 0.9rem; }
-            .footer-links a { font-size: 0.9rem; padding: 0.25rem 0.6rem;}
-        }
-    </style>
-</head>
-
-<body>
-    <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
-        <i class="bi bi-circle-half"></i>
-    </button>
-
-    <div class="main-content-area">
-        <div class="content-wrapper">
-            <div class="title-block text-center">
-                <h2>Выберите колоду,</h2>
-                <p>которой хотели бы играть</p> </div>
-
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
-                        {% for category, message in messages %}
-                          <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                          </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-            <div class="deck-list">
-                {% if deck_votes %}
-                    {% set current_vote = session.get('voted_for_deck') %}
-                    {% for deck in deck_votes %}
-                        <div class="deck-vote-item {% if deck.subfolder == current_vote %}voted-for{% endif %}">
-                            <div class="deck-info">
-                                <span>{{ deck.subfolder }}</span>
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <span class="vote-count" title="Текущее количество голосов">
-                                    <i class="bi bi-hand-thumbs-up-fill"></i> {{ deck.votes }}
-                                </span>
-                                <form class="vote-form d-inline-block" action="{{ url_for('vote_deck') }}" method="post" style="margin-bottom: 0;">
-                                    <input type="hidden" name="subfolder" value="{{ deck.subfolder }}">
-                                    <button type="submit" class="btn btn-sm {% if deck.subfolder == current_vote %}btn-success{% else %}btn-outline-success{% endif %}">
-                                        {% if deck.subfolder == current_vote %}
-                                            <i class="bi bi-check-lg"></i> Выбрано
-                                        {% else %}
-                                            Голосовать
-                                        {% endif %}
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-center text-muted bg-light p-3 rounded">Доступные колоды не найдены или не удалось загрузить данные.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="footer-container">
-        <div class="footer-links">
-            <a href="{{ url_for('login_player') }}">Войти как игрок</a>
-            <a href="{{ url_for('login') }}" class="admin-link text-end">Войти как администратор</a>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    {# --- ИСПРАВЛЕННЫЙ СКРИПТ СМЕНЫ ТЕМЫ --- #}
-    <script>
-        (function() {
-            const themeToggleBtn = document.getElementById('theme-toggle-btn');
-            const htmlElement = document.documentElement;
-            // Используем общий ключ, чтобы тема была одинаковой на всех страницах (index, user, admin)
-            // Если хотите разные темы, используйте разные ключи, например 'indexThemePreference'
-            const storageKey = 'globalThemePreference';
-
-            const applyTheme = (theme) => {
-                htmlElement.setAttribute('data-bs-theme', theme);
-                if (themeToggleBtn) {
-                   themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
-                   // Опционально: можно менять иконку кнопки
-                   // const icon = themeToggleBtn.querySelector('i');
-                   // if (icon) {
-                   //    icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill'; // или bi-circle-half
-                   // }
-                }
-            };
-
-            const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light'; // По умолчанию светлая
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-                try {
-                    localStorage.setItem(storageKey, newTheme);
-                } catch (e) {
-                    console.error('Не удалось сохранить предпочтение темы:', e);
-                }
-            };
-
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', toggleTheme);
-            }
-
-            // Применить начальную тему
-            let defaultThemeInitial = 'light'; // По умолчанию светлая
-            try {
-                const savedTheme = localStorage.getItem(storageKey);
-                if (savedTheme) {
-                    defaultThemeInitial = savedTheme;
-                } else {
-                    // Если нет сохраненной темы, проверяем системные настройки
-                    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                        defaultThemeInitial = 'dark';
-                    }
-                }
-            } catch (e) {
-                console.error('Не удалось загрузить предпочтение темы:', e);
-                // Оставляем defaultThemeInitial как 'light'
-            }
-            applyTheme(defaultThemeInitial);
-        })();
-    </script>
-</body>
-</html>
