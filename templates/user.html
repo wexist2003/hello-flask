@@ -152,8 +152,8 @@
             line-height: 1.3;
         }
         .card-img-top {
-            /* Размер увеличен в 1.05 раза от предыдущего (238px * 1.05 = 250px) */
-            width: 250px !important;
+            /* Размер увеличен в 1.05 раза от предыдущего (250px * 1.05 = 263px) */
+            width: 263px !important;
             height: auto; /* Высота подстраивается пропорционально ширине */
             object-fit: contain; /* Сохраняем пропорции, не обрезаем */
             cursor: zoom-in;
@@ -435,8 +435,8 @@
                 font-size: calc(var(--standard-font-size-mobile) * 1.2);
             }
 
-            /* Размер карточек на мобильных (<768px) - увеличен в 1.05 раза от предыдущего (190px * 1.05 = 200px) */
-            .card-img-top { width: 200px !important; margin: 1px auto !important; }
+            /* Размер карточек на мобильных (<768px) - увеличен в 1.05 раза от предыдущего (200px * 1.05 = 210px) */
+            .card-img-top { width: 210px !important; margin: 1px auto !important; }
 
 
             .page-header-custom { margin-bottom: 0.25rem;
@@ -493,8 +493,8 @@
                 font-size: calc(var(--standard-font-size-mobile-small) * 1.2);
             }
 
-            /* Размер карточек на маленьких мобильных (<576px) - увеличен в 1.05 раза от предыдущего (155px * 1.05 = 163px) */
-             .card-img-top { width: 163px !important; margin: 1px auto !important; }
+            /* Размер карточек на маленьких мобильных (<576px) - увеличен в 1.05 раза от предыдущего (163px * 1.05 = 171px) */
+             .card-img-top { width: 171px !important; margin: 1px auto !important; }
 
 
             .game-board-cell {
@@ -562,13 +562,10 @@
                     </div>
                 {% endfor %}
             {% endif %}
-        {# ИЗМЕНЕНИЕ: Исправлена синтаксическая ошибка в endwith #}
         {% endwith %}
 
         <div class="rating-leader-info-wrapper">
             <div id="current-game-info">
-                {# ИЗМЕНЕНИЕ: Удален вывод рейтинга #}
-                {# <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p> #}
                 <p class="mb-0">Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
             </div>
             <div id="next-leader-info-container" style="display: none;">
@@ -592,12 +589,12 @@
             <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
             <p id="leader-empty-table-rating"
  style="display: none;"></p>
-            <p>На столе пока нет карточек...</p> {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+            <p>На столе пока нет карточек...</p>
         </div>
         <hr class="my-2">
 
         <div id="player-hand-section" style="display: none;">
-            <h2 id="player-hand-header">Мои карточки:</h2> {# ИЗМЕНЕНИЕ: "Мои карты" -> "Мои карточки" #}
+            <h2 id="player-hand-header">Мои карточки:</h2>
             <div id="player-hand" class="row user-hand no-gutters">
             </div>
         </div>
@@ -639,7 +636,7 @@
         <div class="modal-dialog modal-fullscreen-viewer" role="document">
             <div class="modal-content">
                 <div class="modal-body text-center">
-                    <img src="" id="modalImage" alt="Увеличенное изображение карточки"> {# ИЗМЕНЕНИЕ: "изображение карты" -> "изображение карточки" #}
+                    <img src="" id="modalImage" alt="Увеличенное изображение карточки">
                 </div>
             </div>
         </div>
@@ -681,7 +678,6 @@
 
             const greetingTextEl = document.getElementById('user-greeting-text');
             const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
-            // const userRatingDisplay = document.getElementById('user-rating-display'); // Удален элемент
 
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
@@ -702,8 +698,6 @@
                     statusBadgeHTML = `<span class="badge badge-warning">${"Ожидание"}</span>`;
                 }
                 if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = statusBadgeHTML;
-                // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
-                // if (userRatingDisplay) userRatingDisplay.textContent = gameState.current_user_data.rating;
 
                 if (gameState.current_user_data.status === 'pending') {
                     if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
@@ -716,8 +710,6 @@
                  if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
                  if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, Гость!`;
                  if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '';
-                 // ИЗМЕНЕНИЕ: Удалено обновление рейтинга
-                 // if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
             let leaderName = 'Не определен';
@@ -795,7 +787,7 @@
             playerHandSectionDiv.style.display = 'block';
 
             if (!user_cards || user_cards.length === 0) {
-                let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>';
                 if (game_over) message = '<div class="col-12"><p class="text-muted">Игра окончена.</p></div>';
                 else if (!game_in_progress) message = '<div class="col-12"><p class="text-muted">Ожидание начала игры.</p></div>';
                 playerHandDiv.innerHTML = message;
@@ -805,17 +797,16 @@
             const canPlaceCard = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template && !on_table_status;
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Убираем класс p-1 из колонки для лучшего мобильного расположения
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
                 } else if (on_table_status) {
-                     buttonHtml = '<p class="text-muted small text-center my-1">(Ваша карточка на столе)</p>'; {# ИЗМЕНЕНИЕ: "Ваша карта" -> "Ваша карточка" #}
+                     buttonHtml = '<p class="text-muted small text-center my-1">(Ваша карточка на столе)</p>';
                 } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
                      buttonHtml = '<p class="text-muted small text-center my-1">(Идет угадывание)</p>';
                 } else if (show_card_info) {
-                     buttonHtml = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>'; {# ИЗМЕНЕНИЕ: "Карты открыты" -> "Карточки открыты" #}
+                     buttonHtml = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>';
                 } else if (game_over) {
                      buttonHtml = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
                 } else {
@@ -823,10 +814,9 @@
                 }
 
                 const imagePath = `/static/images/${card.subfolder}/${card.image}`;
-                // Убираем h-100 с карточки
                 cardDiv.innerHTML = `
                     <div class="card">
-                        <img src="${imagePath}" class="card-img-top" alt="Карточка ${card.image}" onclick="showImageModal('${imagePath}')"> {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                        <img src="${imagePath}" class="card-img-top" alt="Карточка ${card.image}" onclick="showImageModal('${imagePath}')">
                         <div class="card-body">
                             ${buttonHtml}
                         </div>
@@ -854,16 +844,16 @@
                ) {
                 tablePlaceholderDiv.style.display = 'block';
                 tableCardsDiv.style.display = 'none';
-                let placeholderText = 'На столе нет карточек для отображения.'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                let placeholderText = 'На столе нет карточек для отображения.';
                 if (!game_in_progress && !game_over) {
                     placeholderText = 'Игра еще не началась.';
                 } else if (game_over && !show_card_info && noCardsOnTable) {
-                     placeholderText = 'Игра завершена. На столе не было карточек.'; {# ИЗМЕНЕНИЕ: "не было карт" -> "не было карточек" #}
+                     placeholderText = 'Игра завершена. На столе не было карточек.';
                 } else if (game_in_progress && !game_over && noCardsOnTable) {
-                    placeholderText = 'На столе пока нет карточек. Ожидание игроков...'; {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+                    placeholderText = 'На столе пока нет карточек. Ожидание игроков...';
                      if (leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status) {
                         if(leaderPictogramImg) { leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`; leaderPictogramImg.style.display = 'block'; }
-                        if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; {# ИЗМЕНЕНИЕ: "Выложите карту" -> "Выложите карточку" #} leaderPictogramRatingP.style.display = 'block'; }
+                        if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; leaderPictogramRatingP.style.display = 'block'; }
                         placeholderText = '';
                     } else {
                         if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
@@ -880,7 +870,6 @@
 
             (table_images || []).forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Убираем класс p-1 из колонки для лучшего мобильного расположения
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 if (show_card_info && card.owner_id === currentUserId) {
@@ -888,17 +877,17 @@
                 }
 
                 let cardImageSrc = "";
-                let cardAltText = "Карточка на столе"; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                let cardAltText = "Карточка на столе";
                 let cardBodyContent = '';
                 let ownerInfoAboveImage = '';
 
                 if (!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) {
                     cardImageSrc = "/static/images/a.jpg";
-                    cardAltText = "Карточка на столе (заглушка)"; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
-                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>'; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                    cardAltText = "Карточка на столе (заглушка)";
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>';
                 } else {
                     cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
-                    cardAltText = `Карточка ${card.image}`; {# ИЗМЕНЕНИЕ: "Карта" -> "Карточка" #}
+                    cardAltText = `Карточка ${card.image}`;
                 }
 
                 if (show_card_info) {
@@ -953,7 +942,7 @@
                         } else {
                             correctGuessIndicator = ` <span class="badge badge-danger">Мимо</span> (Владелец: ${card.owner_name || 'Неизв.'})`;
                         }
-                        cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`; {# ИЗМЕНЕНИЕ: "Мой голос за эту карту" -> "Мой голос за эту карточку" #}
+                        cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`;
                     }
 
                 } else if (all_cards_placed_for_guessing_phase_to_template && current_user_data && current_user_data.status === 'active' && game_in_progress && !game_over) {
@@ -970,7 +959,7 @@
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
-                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label> {# ИЗМЕНЕНИЕ: "Чья карта?" -> "Чья карточка?" #}
+                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label>
                                     <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
                                         ${selectOptions}
                                     </select>
@@ -989,7 +978,7 @@
                             cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
                         }
                     } else {
-                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>'; {# ИЗМЕНЕНИЕ: "Это ваша карта" -> "Это ваша карточка" #}
+                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>';
                     }
                 } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
@@ -1000,7 +989,6 @@
                 }
 
                 const imagePathForModal = (cardImageSrc === "/static/images/a.jpg") ? cardImageSrc : `/static/images/${card.subfolder}/${card.image}`;
-                // Убираем h-100 с карточки
                 cardDiv.innerHTML = `
                     <div class="card">
                         ${ownerInfoAboveImage}
