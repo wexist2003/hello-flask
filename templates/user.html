@@ -93,22 +93,25 @@
         .rating-leader-info-wrapper {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
+            /* justify-content: space-between; /* Удаляем space-between здесь */
             align-items: baseline;
             font-size: var(--standard-font-size); /* Base font size */
             margin-bottom: 0.25rem;
         }
-        .rating-leader-info-wrapper p { margin-bottom: 0;
+         /* ИЗМЕНЕНИЕ: Контейнер для текущего и следующего ведущего с flexbox */
+        #game-leader-info {
+            display: flex;
+            justify-content: space-between; /* Распределяем элементы по краям */
+            width: 100%;
+            align-items: baseline; /* Выравниваем по нижнему краю текста */
         }
-        #current-game-info {}
-        #next-leader-info-container {}
+        #game-leader-info p { margin-bottom: 0;
+        }
 
-        #user-rating-display, #current-leader-display, #next-leader-display { font-weight: bold;
-        }
 
         /* ИЗМЕНЕНИЕ: Увеличенный шрифт для "Ведущий", "Следующий ведущий" и "Чья карточка?" */
-        #current-game-info p,
-        #next-leader-info-container p,
+        /* Селекторы обновлены, чтобы включить #game-leader-info p */
+        #game-leader-info p,
         .card-body label {
             font-size: calc(var(--standard-font-size) * 1.2); /* 120% от стандартного */
         }
@@ -337,7 +340,8 @@
             color: #e0e0e0;
         }
          /* Отдельно для элементов с увеличенным шрифтом в темной теме */
-        body.dark-theme #user-greeting-text, body.dark-theme #current-leader-display, body.dark-theme #next-leader-display {
+        body.dark-theme #user-greeting-text, body.dark-theme #current-leader-display, body.dark-theme #next-leader-display,
+        body.dark-theme #game-leader-info p { /* Добавлен новый селектор */
              color: #e0e0e0; /* Или желаемый цвет для темной темы */
         }
 
@@ -442,8 +446,7 @@
             }
 
             /* ИЗМЕНЕНИЕ: Увеличенный шрифт для мобильных (<768px) */
-            #current-game-info p,
-            #next-leader-info-container p,
+            #game-leader-info p, /* Обновлен селектор */
             .card-body label {
                 font-size: calc(var(--standard-font-size-mobile) * 1.2); /* 120% от стандартного мобильного */
             }
@@ -503,8 +506,7 @@
             }
 
             /* ИЗМЕНЕНИЕ: Увеличенный шрифт для маленьких мобильных (<576px) */
-             #current-game-info p,
-            #next-leader-info-container p,
+             #game-leader-info p, /* Обновлен селектор */
             .card-body label {
                 font-size: calc(var(--standard-font-size-mobile-small) * 1.2); /* 120% от стандартного маленького мобильного */
             }
@@ -535,8 +537,8 @@
             .rating-leader-info-wrapper #current-game-info p.mr-md-3,
             .rating-leader-info-wrapper #current-game-info p.mr-2 { margin-right: 0 !important;
             }
-             #next-leader-info-container { margin-top: 0.2rem;
-            }
+             /* Удален контейнер next-leader-info-container, теперь используется #game-leader-info */
+             /* #next-leader-info-container { margin-top: 0.2rem; } */
         }
          /* Медиа-запросы для игрового поля из старого кода */
         @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
@@ -582,15 +584,14 @@
         {% endwith %}
 
         <div class="rating-leader-info-wrapper">
-            <div id="current-game-info">
-                {# ИЗМЕНЕНИЕ: Удален вывод рейтинга #}
-                {# <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p> #}
+            {# ИЗМЕНЕНИЕ: Объединенный блок для Ведущего и Следующего ведущего с flexbox #}
+            <div id="game-leader-info" class="d-flex justify-content-between w-100">
                 <p class="mb-0">Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
-            </div>
-            <div id="next-leader-info-container" style="display: none;">
-                 <p class="mb-0">Следующий ведущий: <strong id="next-leader-display"></strong></p>
+                {# Placeholder for next leader, initially hidden, aligned right #}
+                <p id="next-leader-display-container" class="mb-0 text-right" style="display: none;">Следующий: <strong id="next-leader-display"></strong></p>
             </div>
         </div>
+
 
         <div id="game-messages" class="alert alert-info mt-1" role="alert" style="display: none;"></div>
         <div id="game-status-info" class="mt-1">
@@ -701,8 +702,14 @@
 
             const playerHandSectionDiv = document.getElementById('player-hand-section');
             const pendingPlayerMessage = document.getElementById('pending-player-message');
-            const leaderDisplay = document.getElementById('current-leader-display');
-            const nextLeaderInfoContainer = document.getElementById('next-leader-info-container');
+            // ИЗМЕНЕНИЕ: Используем новый элемент gameLeaderInfoDiv и его дочерние элементы
+            // const leaderDisplay = document.getElementById('current-leader-display'); // Теперь доступ через gameLeaderInfoDiv
+            // const nextLeaderInfoContainer = document.getElementById('next-leader-info-container'); // Удален
+            // const nextLeaderDisplay = document.getElementById('next-leader-display'); // Теперь доступ через gameLeaderInfoDiv
+
+            const gameLeaderInfoDiv = document.getElementById('game-leader-info');
+            const currentLeaderDisplay = document.getElementById('current-leader-display');
+            const nextLeaderDisplayContainer = document.getElementById('next-leader-display-container');
             const nextLeaderDisplay = document.getElementById('next-leader-display');
 
 
@@ -736,6 +743,7 @@
                  // if (userRatingDisplay) userRatingDisplay.textContent = "0";
             }
 
+            // ИЗМЕНЕНИЕ: Логика отображения текущего и следующего ведущего
             let leaderName = 'Не определен';
             let isCurrentUserLeader = false;
             if (gameState.db_current_leader_id) {
@@ -753,13 +761,25 @@
                      leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
                 }
             }
-            if(leaderDisplay) {
-                leaderDisplay.innerHTML = leaderName;
+            if(currentLeaderDisplay) {
+                currentLeaderDisplay.innerHTML = leaderName;
                 if (isCurrentUserLeader && gameState.game_in_progress && !gameState.game_over) {
-                    leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
+                    currentLeaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
                 }
             }
 
+            // Логика для следующего ведущего
+            if (nextLeaderDisplayContainer && nextLeaderDisplay) {
+                if (gameState.show_card_info && gameState.next_leader_name) {
+                    nextLeaderDisplay.textContent = gameState.next_leader_name;
+                    nextLeaderDisplayContainer.style.display = 'block'; // Показываем контейнер следующего ведущего
+                } else {
+                    nextLeaderDisplayContainer.style.display = 'none'; // Скрываем контейнер следующего ведущего
+                }
+            }
+
+            // Удален старый блок обработки nextLeaderInfoContainer
+            /*
             if (nextLeaderInfoContainer && nextLeaderDisplay) {
                 if (gameState.show_card_info && gameState.next_leader_name) {
                     nextLeaderDisplay.textContent = gameState.next_leader_name;
@@ -768,6 +788,7 @@
                     nextLeaderInfoContainer.style.display = 'none';
                 }
             }
+            */
 
 
             updatePlayerHand(gameState);
@@ -960,7 +981,7 @@
                             myGuessedUserName = myVotedForCardOwner.owner_name || `Игрок ID ${card.my_guess_for_this_card_value}`;
                         } else {
                              const targetUserInList = gameState.all_users_for_guessing?.find(u => u.id === card.my_guess_for_this_card_value);
-                             if(targetUserInList) myGuessedUserName = targetUserInList.name;
+                                 if(targetUserInList) myGuessedUserName = targetUserInList.name;
                         }
 
                         let correctGuessIndicator = "";
