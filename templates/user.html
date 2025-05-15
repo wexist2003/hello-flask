@@ -117,14 +117,16 @@
         }
 
         .user-hand .card, .table-cards .card {
-            margin-bottom: 0;
-            /* height: 100%;  Убрано h-100, чтобы высота определялась контентом */
+            margin-bottom: 0; /* Убрано margin-bottom 1rem из старого кода, т.к. колонки имеют свой gap */
             transition: background-color 0.3s, border-color 0.3s, color 0.3s;
             display: flex;
             flex-direction: column;
             border: 1px solid #ddd;
-            /* ИЗМЕНЕНИЕ: Явно задаем ширину 100% для карточки */
-            width: 100%;
+            /* Стили ширины из старого кода */
+            min-width: 220px;
+            max-width: 275px;
+            width: auto; /* Позволяем колонке управлять базовой шириной */
+            max-width: 100%; /* Гарантируем, что не вылезет за колонку при очень узких экранах */
         }
         .card-owner-info {
             font-size: var(--standard-font-size);
@@ -135,22 +137,24 @@
             line-height: 1.3;
         }
         .card-img-top {
-            width: 100%;
+            /* Стили из старого кода для размера изображения */
+            width: 216px;
             height: auto; /* Высота подстраивается пропорционально ширине */
             object-fit: contain; /* Сохраняем пропорции, не обрезаем */
             cursor: zoom-in;
             transition: border-color 0.3s;
             display: block; /* Изображение как блочный элемент */
+            margin: 0.5rem auto; /* Центрирование из старого кода */
             /* Убрана минимальная высота */
             /* min-height: 150px; */
         }
         .card-body {
-            padding: 0.2rem;
+            padding: 0.2rem; /* Уменьшен padding из старого кода 0.75rem */
             font-size: var(--standard-font-size);
             line-height: 1.4;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between; /* Изменено с center на space-between, как в старом коде */
             flex-grow: 1;
             text-align: center;
         }
@@ -408,11 +412,18 @@
 
 
         /* === Медиа-запросы (адаптивность) === */
-        @media (max-width: 767.98px) {
+        /* Стили размеров карточек и изображений из старого кода */
+        .card { min-width: 220px; max-width: 275px; }
+        .card-img-top { width: 216px; margin: 0.5rem auto; }
+
+        @media (max-width: 768px) {
             :root {
                 --standard-font-size: var(--standard-font-size-mobile);
                 --header-unified-font-size: var(--header-unified-font-size-mobile);
             }
+            /* Стили размеров карточек и изображений из старого кода для мобильных */
+            .card { min-width: 200px; max-width: 250px; }
+            .card-img-top { width: 192px; margin: 0.2rem auto; }
 
             .page-header-custom { margin-bottom: 0.25rem;
                 padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -444,6 +455,12 @@
             }
             #table-placeholder p { font-size: var(--standard-font-size-mobile);
             }
+
+            /* Стили размеров карточек и изображений из старого кода для маленьких мобильных (<576px) */
+             @media (max-width: 576px) {
+                 .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; }
+                 .card-img-top { width: 156px; margin: 0.2rem auto; }
+             }
 
 
             .card-body { font-size: var(--standard-font-size-mobile); padding: 0.15rem;
@@ -489,6 +506,9 @@
              #next-leader-info-container { margin-top: 0.2rem;
             }
         }
+         /* Медиа-запросы для игрового поля из старого кода */
+        @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
+        @media (min-width: 992px) { .game-board-pictogram { width: 72px; height: 72px; } .game-board-player-names-area { width: 72px; } .player-avatar-on-board { font-size: 1.45em; } .game-board-cell-number { font-size: 0.65em; } }
     </style>
 </head>
 <body>
@@ -765,7 +785,7 @@
             const canPlaceCard = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template && !on_table_status;
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Убираем класс p-1
+                // ИЗМЕНЕНИЕ: Убираем класс p-1 (уже было в предыдущей попытке)
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
                 let buttonHtml = '';
                 if (canPlaceCard) {
@@ -840,7 +860,7 @@
 
             (table_images || []).forEach(card => {
                 const cardDiv = document.createElement('div');
-                // ИЗМЕНЕНИЕ: Убираем класс p-1
+                // ИЗМЕНЕНИЕ: Убираем класс p-1 (уже было в предыдущей попытке)
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 if (show_card_info && card.owner_id === currentUserId) {
