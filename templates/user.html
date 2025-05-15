@@ -122,11 +122,11 @@
             display: flex;
             flex-direction: column;
             border: 1px solid #ddd;
-            /* Стили ширины из старого кода */
-            min-width: 220px;
-            max-width: 275px;
-            width: auto; /* Позволяем колонке управлять базовой шириной */
-            max-width: 100%; /* Гарантируем, что не вылезет за колонку при очень узких экранах */
+            /* Стили ширины из старого кода с !important */
+            min-width: 220px !important;
+            max-width: 275px !important;
+            width: auto !important; /* Позволяем колонке управлять базовой шириной */
+            max-width: 100% !important; /* Гарантируем, что не вылезет за колонку при очень узких экранах */
         }
         .card-owner-info {
             font-size: var(--standard-font-size);
@@ -137,14 +137,14 @@
             line-height: 1.3;
         }
         .card-img-top {
-            /* Стили из старого кода для размера изображения */
-            width: 216px;
+            /* Стили из старого кода для размера изображения с !important */
+            width: 216px !important;
             height: auto; /* Высота подстраивается пропорционально ширине */
             object-fit: contain; /* Сохраняем пропорции, не обрезаем */
             cursor: zoom-in;
             transition: border-color 0.3s;
             display: block; /* Изображение как блочный элемент */
-            margin: 0.5rem auto; /* Центрирование из старого кода */
+            margin: 0.5rem auto !important; /* Центрирование из старого кода */
             /* Убрана минимальная высота */
             /* min-height: 150px; */
         }
@@ -412,18 +412,18 @@
 
 
         /* === Медиа-запросы (адаптивность) === */
-        /* Стили размеров карточек и изображений из старого кода */
-        .card { min-width: 220px; max-width: 275px; }
-        .card-img-top { width: 216px; margin: 0.5rem auto; }
+        /* Стили размеров карточек и изображений из старого кода с !important */
+        .card { min-width: 220px !important; max-width: 275px !important; }
+        .card-img-top { width: 216px !important; margin: 0.5rem auto !important; }
 
         @media (max-width: 768px) {
             :root {
                 --standard-font-size: var(--standard-font-size-mobile);
                 --header-unified-font-size: var(--header-unified-font-size-mobile);
             }
-            /* Стили размеров карточек и изображений из старого кода для мобильных */
-            .card { min-width: 200px; max-width: 250px; }
-            .card-img-top { width: 192px; margin: 0.2rem auto; }
+            /* Стили размеров карточек и изображений из старого кода для мобильных с !important */
+            .card { min-width: 200px !important; max-width: 250px !important; }
+            .card-img-top { width: 192px !important; margin: 0.2rem auto !important; }
 
             .page-header-custom { margin-bottom: 0.25rem;
                 padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -456,10 +456,10 @@
             #table-placeholder p { font-size: var(--standard-font-size-mobile);
             }
 
-            /* Стили размеров карточек и изображений из старого кода для маленьких мобильных (<576px) */
+            /* Стили размеров карточек и изображений из старого кода для маленьких мобильных (<576px) с !important */
              @media (max-width: 576px) {
-                 .card { min-width: 180px; max-width: 220px; margin-bottom: 0.75rem; }
-                 .card-img-top { width: 156px; margin: 0.2rem auto; }
+                 .card { min-width: 180px !important; max-width: 220px !important; margin-bottom: 0.75rem !important; }
+                 .card-img-top { width: 156px !important; margin: 0.2rem auto !important; }
              }
 
 
