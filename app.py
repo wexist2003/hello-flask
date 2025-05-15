@@ -923,14 +923,14 @@ def handle_set_user_status(data):
 
     if old_status == new_status:
          # No change needed
-         emit('message', {'data': f'Статус пользователя "{target_user_code}" уже "{new_status}".', 'category': 'info'}, room=sid)
+         emit('message', {'data': 'Статус пользователя "{}" уже "{}".'.format(target_user_code, new_status), 'category': 'info'}, room=sid) # Use .format for safety
          return
 
     cursor.execute("UPDATE users SET status = ? WHERE code = ?", (new_status, target_user_code))
     db.commit()
 
     print(f"SocketIO: Admin {admin_user_code} changed status of {target_user_code} from {old_status} to {new_status}", file=sys.stderr)
-    emit('message', {'data': f'Статус пользователя "{target_user_code}" изменен на "{new_status}".', 'category': 'success'}, room=sid)
+    emit('message', {'data': 'Статус пользователя "{}" изменен на "{}".'.format(target_user_code, new_status), 'category': 'success'}, room=sid) # Use .format
 
     # Broadcast game update to all connected users as user status affects game state (e.g., active players count)
     broadcast_game_update()
