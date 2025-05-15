@@ -139,7 +139,7 @@
             cursor: zoom-in;
             transition: border-color 0.3s;
             display: block; /* Изображение как блочный элемент */
-            /* Убрана минимальная высота, т.к. не решила проблему ширины и может исказить пропорции */
+            /* Убрана минимальная высота */
             /* min-height: 150px; */
         }
         .card-body {
@@ -763,8 +763,8 @@
             const canPlaceCard = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template && !on_table_status;
             user_cards.forEach(card => {
                 const cardDiv = document.createElement('div');
-                // Возвращаем классы колонок к предыдущим значениям (по 3/2 карты в ряду)
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1';
+                // ИЗМЕНЕНИЕ: Убираем класс p-1
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
                 let buttonHtml = '';
                 if (canPlaceCard) {
                     buttonHtml = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
@@ -838,8 +838,8 @@
 
             (table_images || []).forEach(card => {
                 const cardDiv = document.createElement('div');
-                // Возвращаем классы колонок к предыдущим значениям (по 3/2 карты в ряду)
-                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6 p-1';
+                // ИЗМЕНЕНИЕ: Убираем класс p-1
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 if (show_card_info && card.owner_id === currentUserId) {
                     cardDiv.classList.add('my-owned-card-revealed');
