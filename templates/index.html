@@ -22,8 +22,8 @@
             display: flex;
             flex-direction: column;
             padding: 0;
-            /* Add padding bottom equal to footer height to prevent content going under */
-            padding-bottom: 60px; /* Approximate footer height */
+            /* Adjusted padding bottom to prevent footer overlap */
+            padding-bottom: 85px; /* Increased padding for mobile/default footer (60px + 25px) */
         }
 
         .main-content-area {
@@ -169,11 +169,11 @@
         /* Media queries for PC */
         @media (min-width: 768px) {
             body {
-                padding-bottom: 80px; /* Adjust padding for PC footer height */
+                padding-bottom: 105px; /* Adjusted padding for PC footer height (80px + 25px) */
             }
             .content-wrapper {
                 width: 90%; /* Use 90% of parent width */
-                max-width: 600px; /* Reintroduced max-width for PC */
+                max-width: 550px; /* Adjusted max-width for PC */
                 margin-top: 24vh; /* Adjusted: 20vh + 20% */
                 padding: 1.5rem; /* Adjusted padding */
                  margin-bottom: auto;
@@ -185,7 +185,7 @@
              }
              .footer-links {
                  width: 90%; /* Match content-wrapper width */
-                 max-width: 600px; /* Reintroduced max-width for PC */
+                 max-width: 550px; /* Adjusted max-width for PC */
                  margin: 0 auto;
              }
              .title-block {
@@ -198,7 +198,7 @@
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
              body {
-                  padding-bottom: 60px; /* Mobile body padding */
+                  padding-bottom: 85px; /* Mobile body padding */
              }
             .content-wrapper {
                 margin-top: 36vh; /* Adjusted: 30vh + 20% */
