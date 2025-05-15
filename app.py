@@ -158,59 +158,145 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
             if user_rating == cell_number: users_in_this_cell.append({'id': user_data_item_board['id'], 'name': user_data_item_board['name'], 'rating': user_rating})
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
-def get_full_game_state_data(user_code_for_state=None): # Без изменений
-    db = get_db(); current_g_user_dict = None
-    if user_code_for_state:
-        user_row = db.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (user_code_for_state,)).fetchone()
-        if user_row: current_g_user_dict = dict(user_row)
-    active_subfolder_val = get_setting('active_subfolder')
-    game_state = {
-        'game_in_progress': is_game_in_progress(), 'game_over': is_game_over(),
-        'show_card_info': get_setting("show_card_info") == "true",
-        'active_subfolder': active_subfolder_val, 'db_current_leader_id': get_leading_user_id(),
-        'num_active_players': get_active_players_count(db),
-        'table_images': [], 'user_cards': [], 'all_users_for_guessing': [],
-        'on_table_status': False, 'is_current_user_the_db_leader': False,
-        'leader_pole_pictogram_path': None, 'leader_pictogram_rating_display': None,
-        'game_board': [], 'current_num_board_cells': _current_game_board_num_cells,
-        'current_user_data': current_g_user_dict, 'num_cards_on_table': 0,
-        'all_cards_placed_for_guessing_phase_to_template': False, 'flashed_messages': []
-    }
-    raw_table_cards = db.execute("SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses FROM images i LEFT JOIN users u ON i.owner_id = u.id WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' AND (u.status = 'active' OR u.status IS NULL)", (active_subfolder_val,)).fetchall() if active_subfolder_val else []
-    game_state['num_cards_on_table'] = len(raw_table_cards)
-    if game_state['game_in_progress'] and not game_state['game_over']:
-        game_state['all_cards_placed_for_guessing_phase_to_template'] = (game_state['num_active_players'] > 0 and game_state['num_cards_on_table'] >= game_state['num_active_players'])
-        for card_row in raw_table_cards:
-            guesses_data = json.loads(card_row['guesses'] or '{}'); my_guess_val = None
-            if current_g_user_dict and current_g_user_dict['status'] == 'active' and \
-               game_state['all_cards_placed_for_guessing_phase_to_template'] and \
-               not game_state['show_card_info'] and card_row['owner_id'] != current_g_user_dict['id']:
-                my_guess_val = guesses_data.get(str(current_g_user_dict['id']))
-            game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': my_guess_val})
-        if current_g_user_dict and current_g_user_dict['status'] == 'active' and active_subfolder_val:
-            user_cards_db = db.execute("SELECT id, image, subfolder FROM images WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'", (current_g_user_dict['id'], active_subfolder_val)).fetchall()
-            game_state['user_cards'] = [{'id': r['id'], 'image': r['image'], 'subfolder': r['subfolder']} for r in user_cards_db]
-            if any(tc['owner_id'] == current_g_user_dict['id'] for tc in game_state['table_images']): game_state['on_table_status'] = True
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall()
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-            if game_state['db_current_leader_id'] is not None: game_state['is_current_user_the_db_leader'] = (current_g_user_dict['id'] == game_state['db_current_leader_id'])
-            if game_state['is_current_user_the_db_leader'] and not game_state['on_table_status'] and \
-               not game_state['show_card_info'] and not game_state['all_cards_placed_for_guessing_phase_to_template']:
-                leader_rating = int(current_g_user_dict.get('rating', 0))
-                game_state['leader_pictogram_rating_display'] = leader_rating
-                if leader_rating > 0 and _current_game_board_pole_image_config and leader_rating <= _current_game_board_num_cells and (leader_rating - 1) < len(_current_game_board_pole_image_config):
-                    game_state['leader_pole_pictogram_path'] = _current_game_board_pole_image_config[leader_rating - 1]
-    elif game_state['show_card_info']: 
-        for card_row in raw_table_cards: 
-             guesses_data = json.loads(card_row['guesses'] or '{}')
-             game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': None})
-        if current_g_user_dict:
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall() 
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-    all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
-    game_state['game_board'] = generate_game_board_data_for_display(all_active_users_for_board)
-    game_state['current_num_board_cells'] = _current_game_board_num_cells
-    return game_state
+
+def get_full_game_state_data(user_code_for_state=None):
+    """
+    Собирает полное текущее состояние игры, включая информацию для конкретного пользователя.
+    Добавлена логика определения и включения имени следующего ведущего.
+    """
+    db = get_db()
+    game_state = {}
+
+    try:
+        # Общие настройки игры
+        game_state['game_in_progress'] = get_setting("game_in_progress") == "true"
+        game_state['game_over'] = get_setting("game_over") == "true"
+        game_state['show_card_info'] = get_setting("show_card_info") == "true"
+        game_state['current_round_leader_id'] = get_setting("leading_user_id")
+        game_state['current_round_association'] = get_setting("current_round_association")
+        game_state['all_cards_placed_for_guessing_phase_to_template'] = get_setting("all_cards_placed_for_guessing_phase_to_template") == "true"
+
+
+        # Информация о текущем ведущем
+        current_leader_id = game_state['current_round_leader_id']
+        if current_leader_id:
+            # Получаем имя текущего ведущего (это уже было в вашем коде)
+            current_leader_user = get_user_by_id(int(current_leader_id)) # Убедитесь, что ID преобразуется в int
+            game_state['db_current_leader_id'] = int(current_leader_id) # Дублируем ID для удобства
+            game_state['current_leader_name'] = current_leader_user['name'] if current_leader_user else "Неизвестный ведущий"
+        else:
+             game_state['db_current_leader_id'] = None
+             game_state['current_leader_name'] = "Ожидание ведущего"
+
+
+        # --- ИЗМЕНЕНИЕ: Определение и добавление имени следующего ведущего ---
+        game_state['next_leader_name'] = None # Инициализируем значение по умолчанию
+        # Определяем следующего ведущего, только если игра в процессе или результаты показаны
+        if game_state['game_in_progress'] or game_state['show_card_info']:
+             if current_leader_id is not None:
+                try:
+                    # Предполагаем, что determine_new_leader возвращает ID следующего пользователя
+                    next_leader_id = determine_new_leader(int(current_leader_id)) # Убедитесь, что ID преобразуется в int
+                    if next_leader_id is not None:
+                        next_leader_user = get_user_by_id(int(next_leader_id)) # Убедитесь, что ID преобразуется в int
+                        game_state['next_leader_name'] = next_leader_user['name'] if next_leader_user else "Неизвестный игрок"
+                    else:
+                         game_state['next_leader_name'] = "Будет определен" # Или другое сообщение, если следующего определить нельзя (например, конец игры)
+                except Exception as e:
+                    # Логирование ошибки определения следующего ведущего
+                    print(f"Ошибка при определении имени следующего ведущего: {e}\n{traceback.format_exc()}", file=sys.stderr)
+                    game_state['next_leader_name'] = "Ошибка" # Информируем об ошибке на клиенте
+        # ---------------------------------------------------------------------
+
+
+        # Данные об игроках (для угадывания и отображения на поле)
+        all_users = get_active_users() # Или функция, получающая всех пользователей, которые могут участвовать/отгадывать
+        game_state['all_users_for_guessing'] = [{'id': user['id'], 'name': user['name']} for user in all_users] # Упрощенный список для клиента
+        game_state['users_full_list'] = [{'id': user['id'], 'name': user['name'], 'rating': user['rating']} for user in all_users] # Полный список пользователей
+
+
+        # Информация для конкретного пользователя
+        user_data = None
+        if user_code_for_state:
+            user_data = get_user_by_code(user_code_for_state) # Убедитесь, что у вас есть такая функция
+            if user_data:
+                game_state['current_user_data'] = {
+                    'id': user_data['id'],
+                    'name': user_data['name'],
+                    'rating': user_data['rating'],
+                    'status': user_data['status']
+                    # ... другие необходимые данные пользователя
+                }
+                # Карты в руке пользователя
+                user_cards = get_user_cards(user_data['id']) # Убедитесь, что у вас есть такая функция
+                game_state['user_cards'] = [{'id': card['id'], 'image': card['image'], 'subfolder': card['subfolder']} for card in user_cards]
+
+                # Статус его карты на столе (если выложена)
+                user_placed_card = get_table_card_by_owner(user_data['id']) # Убедитесь, что у вас есть такая функция
+                game_state['on_table_status'] = user_placed_card is not None
+
+
+        # Карты на столе
+        table_cards = get_table_cards() # Убедитесь, что у вас есть такая функция
+        formatted_table_cards = []
+        # Собираем информацию о картах на столе, включая владельцев и голоса
+        for card in table_cards:
+             card_owner = get_user_by_id(card['owner_id'])
+             card_info = {
+                'id': card['id'],
+                'image': card['image'],
+                'subfolder': card['subfolder'],
+                'owner_id': card['owner_id'],
+                'owner_name': card_owner['name'] if card_owner else 'Неизв.' ,
+                'votes': card.get('votes', []), # Убедитесь, что votes есть в данных карты
+                'guesses': {} # Будет заполняться ниже
+             }
+
+             # Добавляем информацию о том, как текущий пользователь (если есть) проголосовал за эту карту
+             if user_data and game_state['all_cards_placed_for_guessing_phase_to_template'] and not game_state['show_card_info']:
+                 # Находим голос текущего пользователя за эту карту
+                 user_guess_for_this_card = get_user_guess_for_card(user_data['id'], card['id']) # Нужна функция для получения голоса пользователя за конкретную карту
+                 card_info['my_guess_for_this_card_value'] = user_guess_for_this_card['guessed_user_id'] if user_guess_for_this_card else None
+
+             # Собираем информацию о том, кто как проголосовал за эту карту (после подсчета баллов)
+             if game_state['show_card_info']:
+                 card_info['guesses'] = get_guesses_for_card(card['id']) # Нужна функция, возвращающая словарь голосов {user_id: voted_for_user_id} за эту карту
+
+
+             formatted_table_cards.append(card_info)
+
+        game_state['table_images'] = formatted_table_cards
+
+
+        # Информация для игрового поля
+        game_board_config = get_game_board_config() # Убедитесь, что у вас есть эта функция и она возвращает структуру поля
+        game_state['game_board'] = game_board_config['cells']
+        game_state['current_num_board_cells'] = game_board_config['total_cells']
+        game_state['leader_pole_pictogram_path'] = game_board_config.get('leader_pole_pictogram_path', '') # Путь к пиктограмме ведущего
+        # Рейтинг для пиктограммы ведущего - берем текущий рейтинг пользователя
+        game_state['leader_pictogram_rating_display'] = user_data['rating'] if user_data else 0
+
+
+        # Список флеш-сообщений (если есть)
+        # Предполагаем, что вы сохраняете флеш-сообщения в сессии или другом доступном месте
+        # и можете их получить здесь для включения в game_state
+        game_state['flashed_messages'] = session.pop('_flashed_messages', []) if '_flashed_messages' in session else []
+        # Преобразуем сообщения в нужный формат, если они хранятся с категориями
+        game_state['flashed_messages'] = [{'message': msg[1], 'category': msg[0]} for msg in game_state['flashed_messages']]
+
+
+    except Exception as e:
+        # Логирование ошибок при сборе game_state
+        print(f"Ошибка при сборе game_state: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        # В случае ошибки отправляем минимальное состояние, чтобы клиент не завис
+        game_state = {'error': f'Ошибка сервера: {e}', 'game_in_progress': False, 'game_over': True}
+        if user_code_for_state:
+            user_data = get_user_by_code(user_code_for_state)
+            game_state['current_user_data'] = {'id': user_data['id'], 'name': user_data['name'], 'rating': user_data['rating'], 'status': user_data['status']} if user_data else None
+
+
+    return game_state # Или emit('game_update', game_state, room=...) если вы делаете это прямо здесь
+
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
     active_sids = list(connected_users_socketio.keys())
