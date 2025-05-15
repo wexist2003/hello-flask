@@ -452,7 +452,7 @@
             }
 
             /* ИЗМЕНЕНИЕ: Размер карточек на мобильных (<768px) - 1.05x от текущего (190px * 1.05) */
-            .card-img-top { width: 200px !important; margin: 1px auto !important; } /* 190 * 1.05, round up */
+            .card-img-top { width: 200px !important; margin: 1px auto !important; } /* 190 * 1.05, округлено */
 
 
             .page-header-custom { margin-bottom: 0.25rem;
@@ -693,9 +693,10 @@
         });
         socket.on('game_update', (gameState) => {
             console.log('Socket.IO: Received game_update:', gameState);
-            // ИЗМЕНЕНИЕ: Добавлены логи для диагностики отображения следующего ведущего
+            // ИЗМЕНЕНИЕ: Добавлены логи для диагностики
+            console.log('gameState.error:', gameState.error); // Проверяем на ошибки с сервера
             console.log('gameState.show_card_info:', gameState.show_card_info);
-            console.log('gameState.next_leader_name:', gameState.next_leader_name); // Проверяем, приходит ли next_leader_name
+            console.log('gameState.next_leader_name:', gameState.next_leader_name);
 
 
             const greetingTextEl = document.getElementById('user-greeting-text');
@@ -743,16 +744,20 @@
             let leaderName = 'Не определен';
             let isCurrentUserLeader = false;
             if (gameState.db_current_leader_id) {
+                // Проверяем, существует ли пользователь в users_full_list перед поиском по ID
+                const currentLeaderUser = gameState.users_full_list ? gameState.users_full_list.find(u => u.id === gameState.db_current_leader_id) : null;
+
                 if (gameState.current_user_data && gameState.db_current_leader_id === gameState.current_user_data.id) {
                     isCurrentUserLeader = true;
                     leaderName = gameState.current_user_data.name;
+                } else if (currentLeaderUser) {
+                    leaderName = currentLeaderUser.name;
                 } else if (gameState.all_users_for_guessing) {
-                    const leaderUser = gameState.all_users_for_guessing.find(u => u.id === gameState.db_current_leader_id);
-                    if (leaderUser) {
-                        leaderName = leaderUser.name;
-                    } else {
-                        leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
-                    }
+                    // Если нет в users_full_list, ищем в старом all_users_for_guessing (резервный вариант)
+                     const leaderUserLegacy = gameState.all_users_for_guessing.find(u => u.id === gameState.db_current_leader_id);
+                     if(leaderUserLegacy) leaderName = leaderUserLegacy.name;
+                     else leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
+
                 } else {
                      leaderName = `Игрок ID ${gameState.db_current_leader_id}`;
                 }
@@ -779,10 +784,18 @@
 
             updatePlayerHand(gameState);
             updateTableCards(gameState);
-            updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
+            // Передаем users_full_list в updateGameBoard для отображения игроков на поле
+            updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells, gameState.users_full_list || []);
 
             const gameMessagesDiv = document.getElementById('game-messages');
-            if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
+            // ИЗМЕНЕНИЕ: Отображаем ошибку с сервера, если она есть
+            if (gameState.error) {
+                 gameMessagesDiv.textContent = `Ошибка сервера: ${gameState.error}`;
+                 gameMessagesDiv.className = 'alert alert-danger mt-1';
+                 gameMessagesDiv.style.display = 'block';
+                 // Не скрываем автоматически, чтобы ошибку было видно
+                 // setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 7000);
+            } else if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
                 const firstMessage = gameState.flashed_messages[0];
                 gameMessagesDiv.textContent = firstMessage.message;
                 gameMessagesDiv.className = `alert alert-${firstMessage.category} mt-1`;
@@ -1037,7 +1050,8 @@
             });
         }
 
-        function updateGameBoard(boardCells, totalCells) {
+        // ИЗМЕНЕНИЕ: Добавлен параметр users_full_list для отображения игроков на поле
+        function updateGameBoard(boardCells, totalCells, usersFullList) {
             const gameBoardDiv = document.getElementById('game-board');
             if (!gameBoardDiv) return;
             gameBoardDiv.innerHTML = '';
@@ -1076,11 +1090,16 @@
                 cellDiv.title = `Ячейка ${cell.cell_number}`;
 
                 let cellHtml = `<div class="cell-number-badge badge badge-dark">${cell.cell_number}</div>`;
-                if (cell.users_in_cell && cell.users_in_cell.length > 0) {
+
+                // Отображение игроков на поле
+                if (cell.user_ids_in_cell && cell.user_ids_in_cell.length > 0 && usersFullList) {
                     cellHtml += '<div class="player-chips-container mt-auto mb-1">';
-                    cell.users_in_cell.forEach(user => {
-                        const isCurrentUserOnCell = currentUserId && user.id === currentUserId;
-                        cellHtml += `<span class="player-chip badge ${isCurrentUserOnCell ? 'badge-success' : 'badge-primary'}" title="${user.name} (Рейтинг: ${user.rating})">${user.name.substring(0,3)}</span>`;
+                    cell.user_ids_in_cell.forEach(userId => {
+                         const user = usersFullList.find(u => u.id === userId); // Находим полную информацию о пользователе
+                         if (user) {
+                            const isCurrentUserOnCell = currentUserId && user.id === currentUserId;
+                            cellHtml += `<span class="player-chip badge ${isCurrentUserOnCell ? 'badge-success' : 'badge-primary'}" title="${user.name} (Рейтинг: ${user.rating})">${user.name.substring(0,3)}</span>`; // Используем имя и рейтинг
+                         }
                     });
                     cellHtml += '</div>';
                 }
@@ -1088,6 +1107,7 @@
                 gameBoardDiv.appendChild(cellDiv);
             });
         }
+
 
         const themeToggleButton = document.getElementById('theme-toggle-icon-button');
         const iconMoon = document.getElementById('icon-moon');
