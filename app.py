@@ -136,10 +136,19 @@ def init_database():
         print("Initializing game board visuals...", file=sys.stderr)
         # Assuming _default_board_config is defined globally or loaded
         if _default_board_config:
-             cursor.executemany("INSERT INTO game_board_visuals (id, image, max_rating) VALUES (?, ?, ?)",
-                               [(cell['id'], cell['image'], cell['max_rating']) for cell in _default_board_config])
+             cursor.executescript("""
+                 INSERT INTO game_board_visuals (id, image, max_rating) VALUES
+                 (1, 'p1.jpg', 5),
+                 (2, 'p2.jpg', 10),
+                 (3, 'p3.jpg', 15),
+                 (4, 'p4.jpg', 20),
+                 (5, 'p5.jpg', 25),
+                 (6, 'p6.jpg', 30),
+                 (7, 'p7.jpg', 35),
+                 (8, 'p8.jpg', 40);
+             """)
              db.commit()
-             print(f"Inserted {len(_default_board_config)} game board visual entries.", file=sys.stderr)
+             print("Inserted default game board visual entries.", file=sys.stderr)
         else:
              print("WARNING: _default_board_config is empty. Cannot initialize game board visuals.", file=sys.stderr)
 
@@ -172,7 +181,8 @@ with app.app_context():
     db = get_db()
     cursor = db.cursor()
     try:
-         global _current_game_board_num_cells # <<< ИСПРАВЛЕНИЕ: Перемещено сюда
+         global _current_game_board_pole_image_config # Declare global before use/assignment
+         global _current_game_board_num_cells # Declare global before use/assignment
 
          cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
          board_config_rows = cursor.fetchall()
@@ -184,7 +194,7 @@ with app.app_context():
               # Should not happen if init_database ran and added defaults, but as a fallback
               print("WARNING: Game board visuals table is empty after initialization. Using default config.", file=sys.stderr)
               _current_game_board_pole_image_config = _default_board_config
-              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Assignment here is fine after global
+              _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
 
 
     except sqlite3.OperationalError as e:
@@ -320,7 +330,7 @@ def state_to_json(user_code_for_state=None):
              cursor.execute("SELECT user_id, guessed_user_id, image_id FROM guesses WHERE image_id IN ({})".format(','.join('?' * len(table_images_raw))), tuple(img['id'] for img in table_images_raw))
              all_guesses_raw = cursor.fetchall()
              # Group guesses by the card that was guessed ABOUT (image_id)
-             all_guesses_by_card = {} # {image_id: [(user_id, guessed_user_id)]}
+             all_guesses_by_card = {} # {image_id: [(user_id, guessed_owner_id)]}
              for guess in all_guesses_raw:
                  card_guessed_about_id = guess['image_id']
                  if card_guessed_about_id not in all_guesses_by_card:
