@@ -978,6 +978,7 @@ def place_card(code, image_id):
         # Transition to guessing phase
         c.execute("UPDATE game_state SET on_table_status = 1 WHERE id = 1")
         # --- НОВОЕ ИЗМЕНЕНИЕ: Очистить предположения при переходе в фазу угадывания ---
+        # Это добавлено как дополнительная мера предосторожности
         c.execute("DELETE FROM guesses")
         # --- КОНЕЦ НОВОГО ИЗМЕНЕНИЯ ---
         db.commit()
@@ -1152,6 +1153,19 @@ def guess_card(code, card_id):
                  # print(f"Uniqueness check failed for user ID {user_id}", file=sys.stderr)
                  break # No need to check other users if one failed
 
+    # --- ДОБАВЛЕНИЕ ОТЛАДОЧНЫХ ВЫВОДОВ ---
+    print("--- Проверка автоперехода ---", file=sys.stderr)
+    print(f"Активных игроков: {num_active_players}", file=sys.stderr)
+    print(f"Карточек на столе: {num_cards_on_table}", file=sys.stderr)
+    print(f"Всего требуется предположений: {total_required_guesses}", file=sys.stderr)
+    print(f"Фактически сделано предположений: {actual_guesses_count}", file=sys.stderr)
+    print(f"Проверка уникальности пройдена: {uniqueness_check_passed}", file=sys.stderr)
+    print(f"Состояние игры: on_table_status={game_state['on_table_status']}, show_card_info={game_state['show_card_info']}", file=sys.stderr)
+    if num_active_players == 1 and active_player_ids:
+         print(f"Единственный активный игрок ID: {active_player_ids[0]}, Ведущий ID: {game_state['current_leader_id']}", file=sys.stderr)
+    print("-----------------------------", file=sys.stderr)
+    # --- КОНЕЦ ДОБАВЛЕНИЯ ОТЛАДОЧНЫХ ВЫВОДОВ ---
+
 
     # Trigger the reveal and scoring if:
     # 1. There are active players (more than 0)
@@ -1167,8 +1181,8 @@ def guess_card(code, card_id):
     if num_active_players > 1: # Only check for auto-trigger if there's more than just the leader
          if actual_guesses_count == total_required_guesses and uniqueness_check_passed and game_state['on_table_status'] and not game_state['show_card_info']:
               should_auto_trigger = True
-              flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
-              print("Автоматический переход к подсчету очков: Все игроки сделали необходимые и уникальные предположения.", file=sys.stderr)
+              # Flash message is added inside the if block below if should_auto_trigger is True
+
 
     elif num_active_players == 1 and game_state['on_table_status'] and not game_state['show_card_info']:
          # Edge case: Only one active player (the leader).
@@ -1180,11 +1194,15 @@ def guess_card(code, card_id):
          # Ensure that the single active player *is* the leader to be safe.
          if active_player_ids and active_player_ids[0] == game_state['current_leader_id']:
               should_auto_trigger = True
-              flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
-              print("Автоматический переход к подсчету очков: Нет других игроков.", file=sys.stderr)
+              # Flash message is added inside the if block below if should_auto_trigger is True
 
 
     if should_auto_trigger:
+        if num_active_players > 1:
+             flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
+        elif num_active_players == 1: # Leader-only case
+             flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
+
         c.execute("UPDATE game_state SET show_card_info = 1 WHERE id = 1")
         db.commit()
         # Broadcast game update to show revealed cards
@@ -1200,9 +1218,7 @@ def guess_card(code, card_id):
 
     # 7. Broadcast game update (already handled inside the auto-trigger block if it fires)
     # If auto-trigger didn't fire, we still need to broadcast to show the user's guess.
-    auto_triggered = (num_active_players > 1 and actual_guesses_count == total_required_guesses and uniqueness_check_passed and game_state['on_table_status'] and not game_state['show_card_info']) or \
-                     (num_active_players == 1 and game_state['on_table_status'] and not game_state['show_card_info'] and active_player_ids and active_player_ids[0] == game_state['current_leader_id']) # Check the specific leader-only case that triggers
-    if not auto_triggered:
+    if not should_auto_trigger:
         broadcast_game_update(user_code_trigger=code)
 
 
