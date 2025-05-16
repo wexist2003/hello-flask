@@ -1293,7 +1293,7 @@ def admin_delete_deck(subfolder):
 
 @app.route('/admin/upload_images/<subfolder>', methods=['POST'])
 def admin_upload_images(subfolder):
-     if not session.get('is_admin'):
+    if not session.get('is_admin'):
          flash("Недостаточно прав.", "danger")
          return redirect(url_for('index'))
 
@@ -1359,7 +1359,7 @@ def admin_upload_images(subfolder):
 
 @app.route('/admin/delete_image/<int:image_id>', methods=['POST'])
 def admin_delete_image(image_id):
-     if not session.get('is_admin'):
+    if not session.get('is_admin'):
          flash("Недостаточно прав.", "danger")
          return redirect(url_for('index'))
 
