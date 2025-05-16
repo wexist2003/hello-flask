@@ -1073,7 +1073,6 @@ def admin():
                     else:
                          print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating in admin panel.", file=sys.stderr)
 
-
                 max_rating = cell_config['max_rating']
 
                 users_in_this_cell = [user for user in active_users_list_admin if user['rating'] >= min_rating and user['rating'] <= max_rating]
@@ -1248,12 +1247,15 @@ def admin_create_deck():
     return redirect(url_for('admin'))
 
 
+# Route to handle deleting a deck and its images
 @app.route('/admin/delete_deck/<subfolder>', methods=['POST'])
 def admin_delete_deck(subfolder):
-     if not session.get('is_admin'):
-         flash("Недостаточно прав.", "danger")
-         return redirect(url_for('index'))
+    # Check if admin is logged in (basic check)
+    if not session.get('is_admin'):
+        flash("Недостаточно прав.", "danger")
+        return redirect(url_for('index'))
 
+    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов >>>
     db = get_db()
     c = db.cursor()
 
@@ -1271,12 +1273,12 @@ def admin_delete_deck(subfolder):
 
         deck_dir = os.path.join(app.static_folder, 'images', subfolder)
         if os.path.exists(deck_dir):
-             try:
-                 os.rmdir(deck_dir)
-                 print(f"Directory {deck_dir} removed.", file=sys.stderr)
-             except OSError as e:
-                  print(f"Warning: Could not remove directory {deck_dir}. It might not be empty: {e}", file=sys.stderr)
-                  flash(f"Колода удалена из базы данных, но папка '{subfolder}' не была пустой и не удалена на сервере.", "warning")
+            try:
+                os.rmdir(deck_dir)
+                print(f"Directory {deck_dir} removed.", file=sys.stderr)
+            except OSError as e:
+                print(f"Warning: Could not remove directory {deck_dir}. It might not be empty: {e}", file=sys.stderr)
+                flash(f"Колода удалена из базы данных, но папка '{subfolder}' не была пустой и не удалена на сервере.", "warning")
 
 
         flash(f"Колода '{subfolder}' удалена (если папка была пустой).", "success")
@@ -1286,6 +1288,7 @@ def admin_delete_deck(subfolder):
         print(f"Error deleting deck: {e}", file=sys.stderr)
 
     return redirect(url_for('admin'))
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
 @app.route('/admin/upload_images/<subfolder>', methods=['POST'])
