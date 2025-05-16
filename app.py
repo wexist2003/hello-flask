@@ -760,7 +760,7 @@ def start_new_round():
     next_leader_id = game_state['next_leader_id'] if game_state and 'next_leader_id' in game_state else None
     if next_leader_id is None:
          # If no next leader is set (e.g., first round or after game over), determine initial leader randomly from active players
-         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY rating DESC LIMIT 1")
+         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY RANDOM() LIMIT 1")
          initial_leader_row = cursor.fetchone()
          current_leader_id = initial_leader_row['id'] if initial_leader_row else None
          if current_leader_id is None:
@@ -788,7 +788,7 @@ def start_new_round():
     # Reset image statuses and owner_id for all images
     cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL")
 
-    # Delete all guesses
+    # Delete all guesses - IMPORTANT: Clear guesses when starting a NEW round
     cursor.execute("DELETE FROM guesses")
     db.commit()
 
@@ -956,8 +956,10 @@ def place_card(code, image_id):
     flash(f"Ваша карточка '{card_to_place['image']}' выложена на стол.", "success")
 
     # 6. Check if all active players have placed their cards.
-    c.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
-    active_players_count = c.fetchone()[0]
+    c.execute("SELECT id FROM users WHERE status = 'active'")
+    active_player_ids = [row['id'] for row in c.fetchall()]
+    active_players_count = len(active_player_ids)
+
 
     c.execute("SELECT COUNT(DISTINCT owner_id) FROM images WHERE status LIKE 'На столе:%'")
     placed_cards_distinct_owners_count = c.fetchone()[0]
@@ -975,6 +977,9 @@ def place_card(code, image_id):
     if all_players_placed_cards and not game_state['on_table_status'] and not game_state['show_card_info']:
         # Transition to guessing phase
         c.execute("UPDATE game_state SET on_table_status = 1 WHERE id = 1")
+        # --- НОВОЕ ИЗМЕНЕНИЕ: Очистить предположения при переходе в фазу угадывания ---
+        c.execute("DELETE FROM guesses")
+        # --- КОНЕЦ НОВОГО ИЗМЕНЕНИЯ ---
         db.commit()
         flash("Все игроки выложили карточки! Начинается фаза угадывания.", "info")
 
@@ -1138,18 +1143,20 @@ def guess_card(code, card_id):
         guesses_grouped_by_user[user_id].append(guess['guessed_user_id'])
 
     uniqueness_check_passed = True
+    # We only need to check uniqueness for players who have made more than one guess.
     for user_id, guessed_owners in guesses_grouped_by_user.items():
-        # Check if all guessed_user_id values for this user are unique
-        if len(guessed_owners) != len(set(guessed_owners)):
-            uniqueness_check_passed = False
-            # Optional: Identify which player failed the check for logging/debugging
-            # print(f"Uniqueness check failed for user ID {user_id}", file=sys.stderr)
-            break # No need to check other users if one failed
+        if len(guessed_owners) > 1: # Only check if user guessed more than one card
+             if len(guessed_owners) != len(set(guessed_owners)):
+                 uniqueness_check_passed = False
+                 # Optional: Identify which player failed the check for logging/debugging
+                 # print(f"Uniqueness check failed for user ID {user_id}", file=sys.stderr)
+                 break # No need to check other users if one failed
+
 
     # Trigger the reveal and scoring if:
     # 1. There are active players (more than 0)
     # 2. The number of actual guesses equals the total required guesses.
-    # 3. The uniqueness check passed for all players.
+    # 3. The uniqueness check passed for all players who made guesses.
     # 4. The game is in the guessing phase and not already in the reveal phase.
     # 5. Handle the edge case of 1 active player (leader) separately - they don't guess others' cards.
     # The transition for a leader-only game happens after they place their card (in place_card).
@@ -1193,7 +1200,9 @@ def guess_card(code, card_id):
 
     # 7. Broadcast game update (already handled inside the auto-trigger block if it fires)
     # If auto-trigger didn't fire, we still need to broadcast to show the user's guess.
-    if not should_auto_trigger:
+    auto_triggered = (num_active_players > 1 and actual_guesses_count == total_required_guesses and uniqueness_check_passed and game_state['on_table_status'] and not game_state['show_card_info']) or \
+                     (num_active_players == 1 and game_state['on_table_status'] and not game_state['show_card_info'] and active_player_ids and active_player_ids[0] == game_state['current_leader_id']) # Check the specific leader-only case that triggers
+    if not auto_triggered:
         broadcast_game_update(user_code_trigger=code)
 
 
