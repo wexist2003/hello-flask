@@ -21,10 +21,13 @@ DB_PATH = 'database.db'
 
 GAME_BOARD_POLE_IMG_SUBFOLDER = "pole"
 GAME_BOARD_POLE_IMAGES = [f"p{i}.jpg" for i in range(1, 8)]
-# Assuming you have a configuration for board visuals like this:
-_current_game_board_pole_image_config = [] # This should be loaded from somewhere or defined. Example structure: [{'id': 1, 'image': 'p1.jpg', 'max_rating': 5}, ...]
-# Let's define a simple default if not loaded elsewhere:
-_default_board_config = [
+
+# Вместо инициализации здесь, только объявим переменные.
+_current_game_board_pole_image_config = None
+_current_game_board_num_cells = None
+
+# Let's define a simple default config as a constant, not a global variable that will be reassigned
+_DEFAULT_BOARD_CONFIG_CONSTANT = [
     {'id': 1, 'image': 'p1.jpg', 'max_rating': 5},
     {'id': 2, 'image': 'p2.jpg', 'max_rating': 10},
     {'id': 3, 'image': 'p3.jpg', 'max_rating': 15},
@@ -35,10 +38,7 @@ _default_board_config = [
     # Add more as needed, up to DEFAULT_NUM_BOARD_CELLS logic
     {'id': 8, 'image': 'p8.jpg', 'max_rating': 40}, # Assuming 40 is the end
 ]
-_current_game_board_pole_image_config = _default_board_config # Use default if not initialized otherwise
-
 DEFAULT_NUM_BOARD_CELLS = 40 # This should ideally match the max_rating of the last board visual cell
-_current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Initial global declaration
 
 
 connected_users_socketio = {}  # {sid: user_code}
@@ -136,8 +136,8 @@ def init_database():
     cursor.execute("SELECT COUNT(*) FROM game_board_visuals")
     if cursor.fetchone()[0] == 0:
         print("Initializing game board visuals...", file=sys.stderr)
-        # Assuming _default_board_config is defined globally or loaded
-        if _default_board_config:
+        # Assuming _DEFAULT_BOARD_CONFIG_CONSTANT is defined globally or loaded
+        if _DEFAULT_BOARD_CONFIG_CONSTANT:
              cursor.executescript("""
                  INSERT INTO game_board_visuals (id, image, max_rating) VALUES
                  (1, 'p1.jpg', 5),
@@ -152,7 +152,7 @@ def init_database():
              db.commit()
              print("Inserted default game board visual entries.", file=sys.stderr)
         else:
-             print("WARNING: _default_board_config is empty. Cannot initialize game board visuals.", file=sys.stderr)
+             print("WARNING: _DEFAULT_BOARD_CONFIG_CONSTANT is empty. Cannot initialize game board visuals.", file=sys.stderr)
 
 
     # Initialize the single game_state row if it doesn't exist
@@ -176,41 +176,45 @@ def init_database():
 # This code runs when the app module is imported by Gunicorn or run directly
 # It needs to be within app_context to perform DB operations
 with app.app_context():
-    # <<< ИСПРАВЛЕНИЕ: Перемещение global в начало блока
+    # <<< ИСПРАВЛЕНИЕ: Объявление global в начале блока перед любым присвоением >>>
     global _current_game_board_pole_image_config
     global _current_game_board_num_cells
-    # >>>
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
     init_database()
 
-    # Load game board visuals into global variable _current_game_board_pole_image_config
-    # This should happen after init_database has potentially created the table
+    # Load game board visuals into global variables
     db = get_db()
     cursor = db.cursor()
     try:
          cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
          board_config_rows = cursor.fetchall()
          if board_config_rows:
+              # <<< ИСПРАВЛЕНИЕ: Первое присвоение здесь >>>
               _current_game_board_pole_image_config = [dict(row) for row in board_config_rows]
               _current_game_board_num_cells = board_config_rows[-1]['max_rating']
+              # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
               print("Loaded game board visuals from DB.", file=sys.stderr)
          else:
-              # Should not happen if init_database ran and added defaults, but as a fallback
               print("WARNING: Game board visuals table is empty after initialization. Using default config.", file=sys.stderr)
-              _current_game_board_pole_image_config = _default_board_config
+              # <<< ИСПРАВЛЕНИЕ: Первое присвоение здесь (в случае ошибки/пустой таблицы) >>>
+              _current_game_board_pole_image_config = _DEFAULT_BOARD_CONFIG_CONSTANT
               _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+              # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
     except sqlite3.OperationalError as e:
          print(f"WARNING: Could not load game board visuals from DB on startup: {e}. Table might be missing despite init_database attempt.", file=sys.stderr)
-         # Assign using default config if DB error
-         _current_game_board_pole_image_config = _default_board_config
+         # <<< ИСПРАВЛЕНИЕ: Первое присвоение здесь (в случае ошибки) >>>
+         _current_game_board_pole_image_config = _DEFAULT_BOARD_CONFIG_CONSTANT
          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+         # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
     except Exception as e:
          print(f"Error loading game board visuals on startup: {e}\n{traceback.format_exc()}", file=sys.stderr)
-         # Assign using default config on other errors
-         _current_game_board_pole_image_config = _default_board_config
+         # <<< ИСПРАВЛЕНИЕ: Первое присвоение здесь (в случае другой ошибки) >>>
+         _current_game_board_pole_image_config = _DEFAULT_BOARD_CONFIG_CONSTANT
          _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS
+         # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 # --- End of Automatic Initialization Block ---
 
 
@@ -286,7 +290,8 @@ def state_to_json(user_code_for_state=None):
     next_leader_id = game_state['next_leader_id']
 
     # Fetch current_num_board_cells from game_state if available, fallback to global
-    current_num_board_cells = game_state['current_num_board_cells'] if 'current_num_board_cells' in game_state and game_state['current_num_board_cells'] is not None else _current_game_board_num_cells
+    # Use _current_game_board_num_cells only as a last resort fallback if DB fails
+    current_num_board_cells = game_state['current_num_board_cells'] if game_state and 'current_num_board_cells' in game_state and game_state['current_num_board_cells'] is not None else DEFAULT_NUM_BOARD_CELLS
 
 
     current_leader_name = get_user_name_by_id(current_leader_id) if current_leader_id else None
@@ -393,15 +398,15 @@ def state_to_json(user_code_for_state=None):
     # Determine leader's board visual state based on rating
     leader_pole_image_path = None
     leader_pictogram_rating_display = None
-    game_board_visual_config = [] # Fetch board visual config
+    game_board_visual_config_local = [] # Use local variable for config
     cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
     board_config_rows = cursor.fetchall()
     if board_config_rows:
-         game_board_visual_config = [dict(row) for row in board_config_rows]
+         game_board_visual_config_local = [dict(row) for row in board_config_rows]
          # Ensure global is updated, but be careful if this runs multiple times
          # global _current_game_board_num_cells # Already declared global at the top of the file
 
-         _current_game_board_num_cells = game_board_visual_config[-1]['max_rating'] # Update global based on DB
+         # _current_game_board_num_cells = game_board_visual_config_local[-1]['max_rating'] # Update global based on DB - this should be done in app_context
 
          if current_leader_id is not None and (game_in_progress or game_over):
              cursor.execute("SELECT rating FROM users WHERE id = ?", (current_leader_id,))
@@ -409,23 +414,24 @@ def state_to_json(user_code_for_state=None):
              if leader_rating_row:
                  leader_rating = leader_rating_row['rating']
                  leader_pictogram_rating_display = leader_rating
-                 # Find the correct pictogram based on rating
-                 for i in range(len(game_board_visual_config)):
-                      if leader_rating <= game_board_visual_config[i]['max_rating']:
-                          leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config[i]['image'])
-                          break
-                 # If rating is higher than max, use the last pictogram
-                 if leader_pole_image_path is None and game_board_visual_config:
-                      leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config[-1]['image'])
-    else:
+                 # Find the correct pictogram based on rating using local config
+                 if game_board_visual_config_local:
+                     for i in range(len(game_board_visual_config_local)):
+                          if leader_rating <= game_board_visual_config_local[i]['max_rating']:
+                              leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config_local[i]['image'])
+                              break
+                     # If rating is higher than max, use the last pictogram
+                     if leader_pole_image_path is None:
+                          leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config_local[-1]['image'])
+    # else:
          # Fallback if board visuals not in DB (should be initialized by init_database)
-         print("WARNING: Game board visuals table is empty in DB!", file=sys.stderr)
-         _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Use default fallback
+         # print("WARNING: Game board visuals table is empty in DB!", file=sys.stderr)
+         # _current_game_board_num_cells = DEFAULT_NUM_BOARD_CELLS # Use default fallback
 
 
     # Fetch game board state (users on cells)
     game_board_state = []
-    if (game_in_progress or game_over) and game_board_visual_config:
+    if (game_in_progress or game_over) and game_board_visual_config_local: # Use local config here
          # Fetch active users with their ratings
          cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
          active_users_for_board = {row['id']: dict(row) for row in cursor.fetchall()}
@@ -434,9 +440,12 @@ def state_to_json(user_code_for_state=None):
          # Sort users by rating for easier board placement determination
          active_users_list.sort(key=lambda x: x['rating'])
 
+         # Determine the number of board cells based on the loaded config
+         num_board_cells_display = game_board_visual_config_local[-1]['max_rating'] if game_board_visual_config_local else DEFAULT_NUM_BOARD_CELLS
 
-         for cell_config in game_board_visual_config:
-             cell_data = {
+
+         for cell_config in game_board_visual_config_local: # Use local config here
+              cell_data = {
                  'cell_number': cell_config['id'],
                  'image_path': os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, cell_config['image']),
                  'max_rating': cell_config['max_rating'],
@@ -642,7 +651,7 @@ def end_round():
     # Fetch current_num_board_cells from game_state for accurate check
     cursor.execute("SELECT current_num_board_cells FROM game_state WHERE id = 1")
     game_state_cells_row = cursor.fetchone()
-    current_num_board_cells = game_state_cells_row['current_num_board_cells'] if game_state_cells_row else DEFAULT_NUM_BOARD_CELLS
+    current_num_board_cells = game_state_cells_row['current_num_board_cells'] if game_state_cells_row and game_state_cells_row['current_num_board_cells'] is not None else DEFAULT_NUM_BOARD_CELLS
 
     cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active' AND rating >= ?", (current_num_board_cells,)) # Use fetched cell count
     players_at_end = cursor.fetchone()[0]
@@ -760,16 +769,29 @@ def start_new_round():
     next_leader_id = game_state['next_leader_id'] if game_state and 'next_leader_id' in game_state else None
     if next_leader_id is None:
          # If no next leader is set (e.g., first round or after game over), determine initial leader randomly from active players
-         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY RANDOM() LIMIT 1")
-         initial_leader_row = cursor.fetchone()
-         current_leader_id = initial_leader_row['id'] if initial_leader_row else None
-         if current_leader_id is None:
+         cursor.execute("SELECT id FROM users WHERE status = 'active'") # Get all active players to pick a leader
+         active_users_for_leader_selection = cursor.fetchall()
+         if not active_users_for_leader_selection:
               flash("Недостаточно активных игроков для начала раунда.", "warning")
               # Reset game state to ensure it's not stuck in a 'starting' state
               cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
               db.commit()
               broadcast_game_update()
               return redirect(url_for('index')) # Or handle appropriately
+
+         # Select leader based on rating (highest)
+         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY rating DESC LIMIT 1")
+         initial_leader_row = cursor.fetchone()
+         current_leader_id = initial_leader_row['id'] if initial_leader_row else None
+
+         if current_leader_id is None: # Should not happen if active_users_for_leader_selection is not empty
+              flash("Ошибка при выборе ведущего.", "danger")
+              cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
+              db.commit()
+              broadcast_game_update()
+              return redirect(url_for('index'))
+
+
          # Clear next_leader_id as the initial leader is now the current one
          cursor.execute("UPDATE game_state SET current_leader_id = ?, next_leader_id = NULL WHERE id = 1", (current_leader_id,))
 
@@ -1120,9 +1142,12 @@ def guess_card(code, card_id):
 
     total_required_guesses = 0
     for player_id in active_player_ids:
-        for card in table_cards_with_owners:
-            if card['owner_id'] != player_id:
-                total_required_guesses += 1
+        # For each player, they must guess every card except their own.
+        # The number of cards they must guess is (total cards on table) - (1 if their card is on the table, else 0)
+        # A simpler way is: total_required_guesses = SUM over active players (number of cards on table WHERE owner_id != player_id)
+        player_required_guesses = sum(1 for card in table_cards_with_owners if card['owner_id'] != player_id)
+        total_required_guesses += player_required_guesses
+
 
     # Count the actual number of guesses made for cards currently on the table
     actual_guesses_count = 0
@@ -1145,13 +1170,34 @@ def guess_card(code, card_id):
 
     uniqueness_check_passed = True
     # We only need to check uniqueness for players who have made more than one guess.
+    # Also, ensure *all* active players have *started* guessing if the count is met,
+    # but the uniqueness check logic should handle this implicitly if they haven't made enough guesses.
+    # The check should be that *for the players who have made guesses*, their guesses are unique.
+    # A player who hasn't made all their required guesses will fail the total_required_guesses check anyway.
+
     for user_id, guessed_owners in guesses_grouped_by_user.items():
-        if len(guessed_owners) > 1: # Only check if user guessed more than one card
+        if len(guessed_owners) > 1: # Only check uniqueness if a player guessed more than one card
              if len(guessed_owners) != len(set(guessed_owners)):
                  uniqueness_check_passed = False
                  # Optional: Identify which player failed the check for logging/debugging
                  # print(f"Uniqueness check failed for user ID {user_id}", file=sys.stderr)
                  break # No need to check other users if one failed
+
+    # Additionally, we need to ensure that *every* active player has submitted *some* guess.
+    # If a player hasn't guessed at all, they won't be in `guesses_grouped_by_user`.
+    # However, the `actual_guesses_count == total_required_guesses` check implicitly handles this
+    # for games with > 1 active player, as the total required guesses accounts for *all* active players.
+    # For the single-player case, this is not applicable.
+
+    # Let's add a check to make sure all active players are represented in the guesses if actual_guesses_count > 0
+    all_active_players_have_guessed_at_least_once = True
+    if actual_guesses_count > 0: # Only check if any guesses have been made
+        guessed_player_ids = set(guess['user_id'] for guess in all_guesses_for_trigger_check)
+        # Check if all active player IDs (excluding the leader in multi-player?) are in the guessed_player_ids set
+        # No, all active players must guess other players' cards.
+        # For a multi-player game, all active players must be in the set of users who made guesses *if* actual_guesses_count == total_required_guesses.
+        # Let's rely on `actual_guesses_count == total_required_guesses` which should be sufficient.
+
 
     # --- ДОБАВЛЕНИЕ ОТЛАДОЧНЫХ ВЫВОДОВ ---
     print("--- Проверка автоперехода ---", file=sys.stderr)
@@ -1159,7 +1205,7 @@ def guess_card(code, card_id):
     print(f"Карточек на столе: {num_cards_on_table}", file=sys.stderr)
     print(f"Всего требуется предположений: {total_required_guesses}", file=sys.stderr)
     print(f"Фактически сделано предположений: {actual_guesses_count}", file=sys.stderr)
-    print(f"Проверка уникальности пройдена: {uniqueness_check_passed}", file=sys.stderr)
+    print(f"Проверка уникальности пройдена (для игроков с >1 предположением): {uniqueness_check_passed}", file=sys.stderr)
     print(f"Состояние игры: on_table_status={game_state['on_table_status']}, show_card_info={game_state['show_card_info']}", file=sys.stderr)
     if num_active_players == 1 and active_player_ids:
          print(f"Единственный активный игрок ID: {active_player_ids[0]}, Ведущий ID: {game_state['current_leader_id']}", file=sys.stderr)
@@ -1168,41 +1214,34 @@ def guess_card(code, card_id):
 
 
     # Trigger the reveal and scoring if:
-    # 1. There are active players (more than 0)
-    # 2. The number of actual guesses equals the total required guesses.
-    # 3. The uniqueness check passed for all players who made guesses.
-    # 4. The game is in the guessing phase and not already in the reveal phase.
-    # 5. Handle the edge case of 1 active player (leader) separately - they don't guess others' cards.
-    # The transition for a leader-only game happens after they place their card (in place_card).
-    # So this auto-trigger logic primarily applies to games with > 1 active player.
+    # 1. Game is in guessing phase (`on_table_status` and not `show_card_info`).
+    # 2. For multi-player (> 1 active player):
+    #    a. Total guesses made equals total required guesses.
+    #    b. Uniqueness check passed for all players who made guesses.
+    # 3. For single-player (1 active player == leader):
+    #    a. The single active player is the leader.
+    #    b. The game is in the guessing phase (which is set after they place their card).
 
     should_auto_trigger = False
 
-    if num_active_players > 1: # Only check for auto-trigger if there's more than just the leader
-         if actual_guesses_count == total_required_guesses and uniqueness_check_passed and game_state['on_table_status'] and not game_state['show_card_info']:
-              should_auto_trigger = True
-              # Flash message is added inside the if block below if should_auto_trigger is True
+    if game_state['on_table_status'] and not game_state['show_card_info']: # Must be in guessing phase
+        if num_active_players > 1:
+            if actual_guesses_count == total_required_guesses and uniqueness_check_passed:
+                 should_auto_trigger = True
+                 flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
+                 print("Автоматический переход к подсчету очков: Все игроки сделали необходимые и уникальные предположения.", file=sys.stderr)
 
-
-    elif num_active_players == 1 and game_state['on_table_status'] and not game_state['show_card_info']:
-         # Edge case: Only one active player (the leader).
-         # The check in place_card for num_active_players == 1 and placed_cards_distinct_owners_count == 1
-         # should set on_table_status to true.
-         # If we reach here in guessing phase with 1 active player, it must be the leader.
-         # No guesses are required from non-existent players. The round should end.
-         # We can trigger immediately if in guessing phase with 1 active player.
-         # Ensure that the single active player *is* the leader to be safe.
-         if active_player_ids and active_player_ids[0] == game_state['current_leader_id']:
-              should_auto_trigger = True
-              # Flash message is added inside the if block below if should_auto_trigger is True
+        elif num_active_players == 1:
+             # Edge case: Only one active player (the leader).
+             # This transition should happen after the leader places their card, setting on_table_status.
+             # If we are in guessing phase with 1 active player, it implies the leader is the only one and has placed.
+             if active_player_ids and active_player_ids[0] == game_state['current_leader_id']:
+                  should_auto_trigger = True
+                  flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
+                  print("Автоматический переход к подсчету очков: Нет других игроков.", file=sys.stderr)
 
 
     if should_auto_trigger:
-        if num_active_players > 1:
-             flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
-        elif num_active_players == 1: # Leader-only case
-             flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
-
         c.execute("UPDATE game_state SET show_card_info = 1 WHERE id = 1")
         db.commit()
         # Broadcast game update to show revealed cards
@@ -1211,15 +1250,9 @@ def guess_card(code, card_id):
         end_round()
 
 
-    else:
-        # Not all required guesses have been made yet OR the uniqueness check failed for at least one player.
-        pass # Do nothing, wait for more guesses/corrections
-
-
-    # 7. Broadcast game update (already handled inside the auto-trigger block if it fires)
     # If auto-trigger didn't fire, we still need to broadcast to show the user's guess.
-    if not should_auto_trigger:
-        broadcast_game_update(user_code_trigger=code)
+    # This broadcast happens regardless of auto-trigger.
+    broadcast_game_update(user_code_trigger=code)
 
 
     return redirect(url_for('index')) # Redirect back to user page
