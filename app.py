@@ -162,7 +162,16 @@ def init_database():
 
 # --- Automatic Database Initialization and Board Visuals Loading into app.config on App Load ---
 with app.app_context():
-    init_database()
+    # --- НОВОЕ ИЗМЕНЕНИЕ: Удаляем файл базы данных при каждом запуске ---
+    if os.path.exists(DB_PATH):
+        try:
+            os.remove(DB_PATH)
+            print(f"Удален существующий файл базы данных: {DB_PATH}", file=sys.stderr)
+        except Exception as e:
+            print(f"Ошибка при удалении файла базы данных {DB_PATH}: {e}", file=sys.stderr)
+    # --- КОНЕЦ НОВОГО ИЗМЕНЕНИЯ ---
+
+    init_database() # Теперь init_database всегда будет создавать таблицы заново после удаления файла
 
     # Load game board visuals into app.config
     db = get_db()
@@ -235,7 +244,6 @@ def state_to_json(user_code_for_state=None):
             'db_current_leader_id': None,
             'current_user_data': None,
             'flashed_messages': [],
-            'game_board': [],
             # Use values from app.config or default constants
             'current_num_board_cells': app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS),
             'leader_pole_pictogram_path': None,
@@ -373,26 +381,40 @@ def state_to_json(user_code_for_state=None):
         # Determine the number of board cells based on the loaded config from app.config
         num_board_cells_display = app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS)
 
-        # We need the full board config from DB results again to calculate min_rating correctly
+        # We need the full board config from DB results again to calculate min_rating correctly,
+        # or reuse the one from app.config if it was loaded. Let's fetch again for clarity/safety here.
         cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
-        board_config_rows_for_min_rating = cursor.fetchall()
+        board_config_rows_for_min_rating = cursor.fetchall() # Use this for calculating min_rating
 
-        for cell_config in game_board_visual_config_local:
-            cell_data = {
-                'cell_number': cell_config['id'],
-                'image_path': os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, cell_config['image']),
-                'max_rating': cell_config['max_rating'],
-                'users_in_cell': []
-            }
-            # Find users in this cell based on rating range using board_config_rows_for_min_rating
-            min_rating = 0 if cell_config['id'] == 1 else board_config_rows_for_min_rating[cell_config['id']-2]['max_rating'] + 1
-            max_rating = cell_config['max_rating']
+        if game_board_visual_config_local: # Use board_config_visual_config_local (from app.config or default) for iteration
+            for cell_config in game_board_visual_config_local:
+                cell_data = {
+                    'cell_number': cell_config['id'],
+                    'image_path': os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, cell_config['image']),
+                    'max_rating': cell_config['max_rating'],
+                    'users_in_cell': []
+                }
+                # Find users in this cell based on rating range using board_config_rows_for_min_rating (from DB)
+                # Adjusted indexing logic for safety if board_config_rows_for_min_rating is shorter than expected
+                min_rating = 0
+                if cell_config['id'] > 1:
+                    prev_cell_index = cell_config['id'] - 2
+                    if 0 <= prev_cell_index < len(board_config_rows_for_min_rating):
+                        min_rating = board_config_rows_for_min_rating[prev_cell_index]['max_rating'] + 1
+                    elif 0 <= prev_cell_index < len(game_board_visual_config_local): # Fallback to app.config data if DB fetch is weird
+                         min_rating = game_board_visual_config_local[prev_cell_index]['max_rating'] + 1
+                    else:
+                         print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating.", file=sys.stderr)
+                         # If previous segment info is missing, min_rating remains 0 or handle error
 
-            users_in_this_cell = [user for user in active_users_list if user['rating'] >= min_rating and user['rating'] <= max_rating]
-            cell_data['users_in_cell'] = users_in_this_cell
 
-            game_board_state.append(cell_data)
+                max_rating = cell_config['max_rating']
 
+                users_in_this_cell = [user for user in active_users_list if user['rating'] >= min_rating and user['rating'] <= max_rating]
+                cell_data['users_in_cell'] = users_in_this_cell
+
+                game_board_state.append(cell_data)
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
     return {
         'game_in_progress': game_in_progress,
@@ -409,8 +431,7 @@ def state_to_json(user_code_for_state=None):
         'current_user_data': current_user_data,
         'flashed_messages': flashed_messages,
         'game_board': game_board_state,
-        # Use the determined number of cells from app.config or default
-        'current_num_board_cells': app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS),
+        'current_num_board_cells': app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS), # Use value from app.config
         'leader_pole_pictogram_path': leader_pole_image_path,
         'leader_pictogram_rating_display': leader_pictogram_rating_display,
     }
@@ -790,7 +811,7 @@ def place_card(code, image_id):
 
     c.execute("SELECT id FROM users WHERE status = 'active'")
     active_player_ids = [row['id'] for row in c.fetchall()]
-    active_players_count = len(active_player_ids)
+    num_active_players = len(active_player_ids)
 
 
     c.execute("SELECT COUNT(DISTINCT owner_id) FROM images WHERE status LIKE 'На столе:%'")
@@ -1001,9 +1022,14 @@ def user(code):
 
 @app.route('/admin')
 def admin():
+    # Check if user is logged in and is admin (assuming admin login sets session['is_admin'] = True)
+    # For this example, let's just check if there is a user code and they are marked as admin in DB
+    # A proper admin login flow would be needed in a real app.
+    # For now, let's allow access if session has admin flag set.
     if not session.get('is_admin'):
+         # Redirect to a login page or deny access if not admin
          flash("Доступ к админ панели ограничен.", "danger")
-         return redirect(url_for('index'))
+         return redirect(url_for('index')) # Redirect to index or login
 
     db = get_db()
     c = db.cursor()
@@ -1016,16 +1042,22 @@ def admin():
     active_subfolder = game_state['active_subfolder'] if game_state else None
 
 
+    # Fetch cards in the active deck and their status
     deck_images = []
     if active_subfolder:
          c.execute("SELECT id, image, status, owner_id FROM images WHERE subfolder = ?", (active_subfolder,))
          deck_images = c.fetchall()
 
+    # Fetch game state for admin panel display (optional, can reuse state_to_json)
+    # admin_game_state = state_to_json() # Use state_to_json to get current game info
+
+    # Fetch current leader name for display
     current_leader_name = None
     if game_state and game_state['current_leader_id']:
          current_leader_name = get_user_name_by_id(game_state['current_leader_id'])
 
 
+    # Get game board visuals and user positions for display in admin panel
     game_board_data = []
     # Get board config from app.config, fallback to default constant
     board_config_admin = app.config.get('BOARD_VISUAL_CONFIG', _DEFAULT_BOARD_CONFIG_CONSTANT)
@@ -1037,12 +1069,10 @@ def admin():
          active_users_list_admin = list(active_users_for_board_admin.values())
          active_users_list_admin.sort(key=lambda x: x['rating'])
 
-         # We need the full board config from DB results again to calculate min_rating correctly,
-         # or reuse the one from app.config if it was loaded. Let's fetch again for clarity/safety here.
          cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
-         board_config_rows_admin = cursor.fetchall() # Use this for calculating min_rating
+         board_config_rows_admin = cursor.fetchall()
 
-         if board_config_admin: # Use board_config_admin (from app.config or default) for iteration
+         if board_config_admin:
             for cell_config in board_config_admin:
                 cell_data = {
                     'cell_number': cell_config['id'],
@@ -1051,7 +1081,17 @@ def admin():
                     'users_in_cell': []
                 }
                 # Find users in this cell based on rating range using board_config_rows_admin (from DB)
-                min_rating = 0 if cell_config['id'] == 1 else board_config_rows_admin[cell_config['id']-2]['max_rating'] + 1 if cell_config['id']-2 >= 0 and cell_config['id']-2 < len(board_config_rows_admin) else board_config_admin[cell_config['id']-2]['max_rating'] + 1 # Safer indexing
+                min_rating = 0
+                if cell_config['id'] > 1:
+                    prev_cell_index = cell_config['id'] - 2
+                    if 0 <= prev_cell_index < len(board_config_rows_admin):
+                        min_rating = board_config_rows_admin[prev_cell_index]['max_rating'] + 1
+                    elif 0 <= prev_cell_index < len(board_config_admin): # Fallback to app.config data if DB fetch is weird
+                         min_rating = board_config_admin[prev_cell_index]['max_rating'] + 1
+                    else:
+                         print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating in admin panel.", file=sys.stderr)
+
+
                 max_rating = cell_config['max_rating']
 
                 users_in_this_cell = [user for user in active_users_list_admin if user['rating'] >= min_rating and user['rating'] <= max_rating]
@@ -1131,12 +1171,15 @@ def create_user():
     return redirect(url_for('admin'))
 
 
+# Route to handle activating/deactivating a user (from admin panel)
 @app.route('/admin/set_user_status/<int:user_id>/<status>', methods=['POST'])
 def admin_set_user_status(user_id, status):
-     if not session.get('is_admin'):
-         flash("Недостаточно прав.", "danger")
-         return redirect(url_for('index'))
+    # Check if admin is logged in (basic check)
+    if not session.get('is_admin'):
+        flash("Недостаточно прав.", "danger")
+        return redirect(url_for('index'))
 
+    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов >>>
     if status not in ['pending', 'active', 'inactive']:
         flash("Неверный статус.", "warning")
         return redirect(url_for('admin'))
@@ -1147,14 +1190,18 @@ def admin_set_user_status(user_id, status):
     db.commit()
     flash(f"Статус пользователя ID {user_id} изменен на '{status}'.", "success")
 
+    # Broadcast game update as user status affects active player count etc.
     broadcast_game_update()
 
     return redirect(url_for('admin'))
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
+# Route to handle deleting a user (from admin panel)
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def admin_delete_user(user_id):
-     if not session.get('is_admin'):
+     # Check if admin is logged in (basic check)
+    if not session.get('is_admin'):
          flash("Недостаточно прав.", "danger")
          return redirect(url_for('index'))
 
