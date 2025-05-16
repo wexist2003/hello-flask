@@ -1227,7 +1227,7 @@ def admin_create_deck():
         print(f"Error creating deck: {e}", file=sys.stderr)
 
     return redirect(url_for('admin'))
-    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
+# <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
 @app.route('/admin/delete_deck/<subfolder>', methods=['POST'])
