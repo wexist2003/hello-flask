@@ -90,7 +90,9 @@ def init_database():
             subfolder TEXT NOT NULL,
             image TEXT NOT NULL,
             status TEXT DEFAULT 'Свободно', -- 'Свободно', 'Занято:user_id', 'На столе:user_id'
-            FOREIGN KEY (subfolder) REFERENCES decks (subfolder)
+            owner_id INTEGER, -- Added owner_id for easier lookup of placed cards
+            FOREIGN KEY (subfolder) REFERENCES decks (subfolder),
+            FOREIGN KEY (owner_id) REFERENCES users (id) -- Link owner_id to users
         );
 
         CREATE TABLE IF NOT EXISTS game_state (
@@ -174,6 +176,11 @@ def init_database():
 # This code runs when the app module is imported by Gunicorn or run directly
 # It needs to be within app_context to perform DB operations
 with app.app_context():
+    # <<< ИСПРАВЛЕНИЕ: Перемещение global в начало блока
+    global _current_game_board_pole_image_config
+    global _current_game_board_num_cells
+    # >>>
+
     init_database()
 
     # Load game board visuals into global variable _current_game_board_pole_image_config
@@ -181,9 +188,6 @@ with app.app_context():
     db = get_db()
     cursor = db.cursor()
     try:
-         global _current_game_board_pole_image_config # Declare global before use/assignment
-         global _current_game_board_num_cells # Declare global before use/assignment
-
          cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
          board_config_rows = cursor.fetchall()
          if board_config_rows:
@@ -307,7 +311,7 @@ def state_to_json(user_code_for_state=None):
             current_user_data = dict(current_user)
             # Fetch user cards if user is active and game is in progress
             if current_user_data['status'] == 'active' and (game_in_progress or game_over):
-                 cursor.execute("SELECT id, subfolder, image FROM images WHERE status = ?", (f'Занято: {current_user_data["id"]}',))
+                 cursor.execute("SELECT id, subfolder, image FROM images WHERE status = ? AND owner_id = ?", (f'Занято: {current_user_data["id"]}', current_user_data['id'])) # Use owner_id
                  user_cards = [dict(row) for row in cursor.fetchall()]
 
 
@@ -368,25 +372,22 @@ def state_to_json(user_code_for_state=None):
     # Determine if all active players have placed a card for the guessing phase
     all_cards_placed_for_guessing_phase = False
     if game_in_progress and not game_over and current_leader_id is not None and on_table_status:
-         # Count active players excluding the leader
-         cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active' AND id != ?", (current_leader_id,))
-         active_players_count_excluding_leader = cursor.fetchone()[0]
-         if active_players_count_excluding_leader > 0:
-             # Count distinct owner_ids on the table that are not the leader's ID
-             cursor.execute("SELECT COUNT(DISTINCT owner_id) FROM images WHERE status LIKE 'На столе:%' AND owner_id != ?", (current_leader_id,))
-             placed_cards_count_excluding_leader = cursor.fetchone()[0]
+         # Count active players
+         cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+         active_players_count = cursor.fetchone()[0]
+         # Count distinct owner_ids on the table
+         cursor.execute("SELECT COUNT(DISTINCT owner_id) FROM images WHERE status LIKE 'На столе:%'")
+         placed_cards_distinct_owners_count = cursor.fetchone()[0]
 
-             # Also check if the leader has placed their card
-             cursor.execute("SELECT COUNT(*) FROM images WHERE status = ? AND owner_id = ?", (f'На столе: {current_leader_id}', current_leader_id))
-             leader_card_is_on_table = cursor.fetchone()[0] > 0
+         # Condition to transition to guessing phase: All active players have placed a card
+         if active_players_count > 0 and placed_cards_distinct_owners_count == active_players_count:
+             all_cards_placed_for_guessing_phase = True
+         elif active_players_count == 0: # No active players, shouldn't be in progress
+              pass # Stay False
 
-             if placed_cards_count_excluding_leader == active_players_count_excluding_leader and leader_card_is_on_table:
-                 all_cards_placed_for_guessing_phase = True
-         elif active_players_count_excluding_leader == 0 and current_leader_id is not None:
-             # Case: Only leader is active. Leader placing a card transitions to guessing/scoring implicitly
-             cursor.execute("SELECT COUNT(*) FROM images WHERE status = ? AND owner_id = ?", (f'На столе: {current_leader_id}', current_leader_id))
-             if cursor.fetchone()[0] > 0:
-                  all_cards_placed_for_guessing_phase = True
+    # In the edge case of only one active player (the leader), placing their card transitions to guessing phase
+    # and then immediately to scoring phase as no one else needs to guess.
+    # This is handled below in the guess_card trigger logic for the single active player case.
 
 
     # Determine leader's board visual state based on rating
@@ -489,7 +490,7 @@ def end_round():
          # If called incorrectly, try to reset state partially to prevent deadlock
          if game_state and game_state['game_in_progress'] and not game_state['game_over']:
              cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 0, leader_pole_image_path = NULL, leader_pictogram_rating = NULL")
-             cursor.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%'")
+             cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status LIKE 'На столе:%'") # Reset owner_id
              cursor.execute("DELETE FROM guesses")
              db.commit()
              flash("Раунд сброшен из-за внутренней ошибки.", "danger")
@@ -510,7 +511,7 @@ def end_round():
     if not table_image_owners:
          flash("На столе нет карточек из активной колоды для подсчета очков.", "warning")
          # Reset table state if no cards found (shouldn't happen if show_card_info was true)
-         cursor.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,))
+         cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,)) # Reset owner_id
          cursor.execute("DELETE FROM guesses")
          cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 0, leader_pole_image_path = NULL, leader_pictogram_rating = NULL, current_num_board_cells = NULL, current_leader_id = NULL, next_leader_id = NULL")
          db.commit()
@@ -525,11 +526,11 @@ def end_round():
             break
 
     if current_leader_id is not None: # Leader must be defined if game is in progress
-        if leader_card_id is None:
-            # This should not happen if leader placed a card to start the round
+        if leader_card_id is None and len(table_image_owners) > 0: # Leader's card must be on table unless no cards were placed at all (shouldn't happen if show_card_info=1)
+            # This should not happen if leader placed a card to start the round UNLESS they are the only player and no cards were dealt/placed
              flash("Ведущий не выложил карточку для подсчета очков.", "danger")
              # Reset table state
-             cursor.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,))
+             cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,)) # Reset owner_id
              cursor.execute("DELETE FROM guesses")
              cursor.execute("UPDATE game_state SET on_table_status = 0, show_card_info = 0, leader_pole_image_path = NULL, leader_pictogram_rating = NULL, current_num_board_cells = NULL, current_leader_id = NULL, next_leader_id = NULL")
              db.commit()
@@ -566,48 +567,38 @@ def end_round():
 
     # --- Scoring Logic based on Guesses ---
 
-    # Rule: If all players guessed leader's card correctly (only if there are other players) -> Leader -3
-    # Rule: If no players guessed leader's card correctly (only if there are other players) -> Leader -2
-    # Rule: In any other case (some players guessed leader's card correctly, or no other players):
-    #   - Players who correctly guessed leader's card get +3
-    #   - Players whose cards were guessed correctly by others get +1 per correct guesser (excluding owner's self-guess)
-    #   - Leader gets +3 plus +1 per player who correctly guessed THEIR card.
-
-
     # 1. Process non-leader players' guesses about the leader's card
     non_leader_players_ids = [pid for pid in active_player_ids if pid != current_leader_id]
     num_non_leader_players = len(non_leader_players_ids)
 
-    leader_card_guesses = guesses_by_card_guessed_about.get(leader_card_id, [])
-    leader_card_guesses_by_others = [guess for guess in leader_card_guesses if guess[0] != current_leader_id] # Guesses on leader's card by others
-    num_correct_leader_guesses_by_others = 0
-    correct_leader_guessers = []
-    for guesser_id, guessed_owner_id in leader_card_guesses_by_others:
-        if guessed_owner_id == current_leader_id:
-            num_correct_leader_guesses_by_others += 1
-            correct_leader_guessers.append(guesser_id)
-
     leader_score_from_guesses_on_his_card = 0
-    if num_non_leader_players > 0: # Only apply these rules if there are other players
-        if num_correct_leader_guesses_by_others == num_non_leader_players:
-             leader_score_from_guesses_on_his_card = -3
-             flash(f"Все игроки угадали карточку Ведущего. Ведущий перемещается на 3 хода назад.", "info")
-        elif num_correct_leader_guesses_by_others == 0:
-             leader_score_from_guesses_on_his_card = -2
-             flash(f"Ни один игрок не угадал карточку Ведущего. Ведущий перемещается на 2 хода назад.", "info")
-        else:
-             leader_score_from_guesses_on_his_card = 3 + num_correct_leader_guesses_by_others
-             flash(f"{num_correct_leader_guesses_by_others} игрок(а) угадали карточку Ведущего.", "info")
-    # else: if num_non_leader_players == 0, leader_score_from_guesses_on_his_card remains 0 from this part
+    if leader_card_id is not None: # Ensure leader's card was on the table
+        leader_card_guesses = guesses_by_card_guessed_about.get(leader_card_id, [])
+        leader_card_guesses_by_others = [guess for guess in leader_card_guesses if guess[0] != current_leader_id] # Guesses on leader's card by others
+        num_correct_leader_guesses_by_others = 0
+        correct_leader_guessers = []
+        for guesser_id, guessed_owner_id in leader_card_guesses_by_others:
+            if guessed_owner_id == current_leader_id:
+                num_correct_leader_guesses_by_others += 1
+                correct_leader_guessers.append(guesser_id)
 
-    # Add points for players who correctly guessed the leader's card (Case 3)
-    # This applies if not all or none guessed correctly, or if there were no other players initially
-    # But the rule is specified for Case 3, so apply it conditionally if num_non_leader_players > 0
-    if num_non_leader_players > 0 and not (num_correct_leader_guesses_by_others == num_non_leader_players or num_correct_leader_guesses_by_others == 0):
-        for guesser_id in correct_leader_guessers:
-            if guesser_id in score_changes: # Ensure it's an active player
-                 score_changes[guesser_id] += 3 # 3 points for correctly guessing leader's card
+        if num_non_leader_players > 0: # Only apply these rules if there are other players
+            if num_correct_leader_guesses_by_others == num_non_leader_players:
+                 leader_score_from_guesses_on_his_card = -3
+                 flash(f"Все игроки угадали карточку Ведущего. Ведущий перемещается на 3 хода назад.", "info")
+            elif num_correct_leader_guesses_by_others == 0:
+                 leader_score_from_guesses_on_his_card = -2
+                 flash(f"Ни один игрок не угадал карточку Ведущего. Ведущий перемещается на 2 хода назад.", "info")
+            else:
+                 leader_score_from_guesses_on_his_card = 3 + num_correct_leader_guesses_by_others
+                 flash(f"{num_correct_leader_guesses_by_others} игрок(а) угадали карточку Ведущего.", "info")
+        # else: if num_non_leader_players == 0, leader_score_from_guesses_on_his_card remains 0 from this part (leader gets points only if others guess him)
 
+        # Add points for players who correctly guessed the leader's card (Case 3 logic)
+        if num_non_leader_players > 0 and not (num_correct_leader_guesses_by_others == num_non_leader_players or num_correct_leader_guesses_by_others == 0):
+            for guesser_id in correct_leader_guessers:
+                if guesser_id in score_changes: # Ensure it's an active player
+                     score_changes[guesser_id] += 3 # 3 points for correctly guessing leader's card
 
     # 2. Process guesses about other players' cards
     # Both leader and non-leader players can guess other players' cards
@@ -626,12 +617,9 @@ def end_round():
                       flash(f"Карточку игрока {player_name} угадали {num_correct_guesses_for_this_player_card} игрок(а).", "info")
 
             # Check if the LEADER correctly guessed this player's card
-            # This rule isn't in user.html, but if leader guesses others' cards, they should get points
-            # Let's assume for now leader doesn't get points for guessing others' cards based on the text rules.
-            # If the rule is added, check leader's guess for this card:
-            # leader_guess_for_this_card = next((guess for guess in guesses_about_this_player_card if guess[0] == current_leader_id), None)
-            # if leader_guess_for_this_card and leader_guess_for_this_card[1] == owner_id:
-            #      if current_leader_id in score_changes: score_changes[current_leader_id] += 1 # Leader gets +1 for guessing player's card
+            # Based on user.html rules, leader's points only come from players guessing HIS card.
+            # If the rule was added that leader gets points for guessing others, logic would be here.
+            # For now, following the provided rules, leader doesn't get points for guessing players' cards.
 
 
     # Add the leader's score change from guesses on HIS card
@@ -643,7 +631,8 @@ def end_round():
     for player_id, score_change in score_changes.items():
         if score_change != 0: # Only update if score changed
              player_name = get_user_name_by_id(player_id) or f'Игрок ID {player_id}'
-             flash(f"Игрок {player_name} получает {score_change} очк(а/ов).", "info")
+             # Removed flashing score change per player to reduce spam, relies on score change in total flash
+             # flash(f"Игрок {player_name} получает {score_change} очк(а/ов).", "info")
              cursor.execute("UPDATE users SET rating = MAX(0, rating + ?) WHERE id = ?", (score_change, player_id))
              db.commit() # Commit each player's score change
 
@@ -689,7 +678,7 @@ def end_round():
 
     # Reset image statuses from 'На столе' to 'Свободно' for cards from the active subfolder that were on the table
     if active_subfolder:
-        cursor.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,))
+        cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,)) # Reset owner_id
 
     # Delete all guesses
     cursor.execute("DELETE FROM guesses")
@@ -771,7 +760,7 @@ def start_new_round():
     next_leader_id = game_state['next_leader_id'] if game_state and 'next_leader_id' in game_state else None
     if next_leader_id is None:
          # If no next leader is set (e.g., first round or after game over), determine initial leader randomly from active players
-         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY RANDOM() LIMIT 1")
+         cursor.execute("SELECT id FROM users WHERE status = 'active' ORDER BY rating DESC LIMIT 1")
          initial_leader_row = cursor.fetchone()
          current_leader_id = initial_leader_row['id'] if initial_leader_row else None
          if current_leader_id is None:
@@ -796,8 +785,8 @@ def start_new_round():
     # --- END Transition ---
 
 
-    # Reset image statuses
-    cursor.execute("UPDATE images SET status = 'Свободно'")
+    # Reset image statuses and owner_id for all images
+    cursor.execute("UPDATE images SET status = 'Свободно', owner_id = NULL")
 
     # Delete all guesses
     cursor.execute("DELETE FROM guesses")
@@ -858,7 +847,8 @@ def start_new_round():
         for _ in range(num_cards_per_player):
             if deal_count < len(available_image_ids):
                 image_id_to_deal = available_image_ids[deal_count]
-                cursor.execute("UPDATE images SET status = ? WHERE id = ?", (f'Занято: {user_id}', image_id_to_deal))
+                # When dealing, set status to 'Занято:user_id' and owner_id to user_id
+                cursor.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f'Занято: {user_id}', user_id, image_id_to_deal))
                 deal_count += 1
             else:
                 print(f"Warning: Ran out of available images while dealing cards. Dealt {deal_count} out of {required_cards}.", file=sys.stderr)
@@ -923,7 +913,8 @@ def place_card(code, image_id):
          return redirect(url_for('index')) # Redirect to index
 
     # 3. Check if the card belongs to the user and is in their hand ('Занято')
-    c.execute("SELECT id, subfolder, image, status FROM images WHERE id = ? AND status = ?", (image_id, f"Занято:{g.user['id']}"))
+    # Use owner_id check as well for robustness
+    c.execute("SELECT id, subfolder, image, status, owner_id FROM images WHERE id = ? AND status = ? AND owner_id = ?", (image_id, f"Занято:{g.user['id']}", g.user['id']))
     card_to_place = c.fetchone()
 
     if not card_to_place:
@@ -934,6 +925,7 @@ def place_card(code, image_id):
 
 
     # 4. Check if the user has already placed a card and handle replacement
+    # Find if the current user already has a card on the table in this round (status starts with 'На столе:')
     c.execute("SELECT id FROM images WHERE owner_id = ? AND status LIKE 'На столе:%' AND subfolder = ?", (g.user['id'], active_subfolder))
     card_of_this_user_on_table = c.fetchone()
 
@@ -947,14 +939,15 @@ def place_card(code, image_id):
         else:
             # User is placing a DIFFERENT card while one is already on the table.
             # This means they are replacing their card. Return the old one to hand.
-             c.execute("UPDATE images SET status = ? WHERE id = ?", (f"Занято:{g.user['id']}", card_of_this_user_on_table['id']))
+             c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{g.user['id']}", g.user['id'], card_of_this_user_on_table['id'])) # Reset owner_id to themselves
              # Also remove any guesses associated with the card being returned to hand (shouldn't exist if guesses cleared properly, but safety)
              c.execute("DELETE FROM guesses WHERE image_id = ?", (card_of_this_user_on_table['id'],))
              flash(f"Предыдущая карточка возвращена в руку.", "info")
 
 
     # 5. Place the selected card on the table
-    c.execute("UPDATE images SET status = ? WHERE id = ?", (f"На столе:{g.user['id']}", image_id))
+    # Set status to 'На столе:user_id' and keep owner_id set to user_id
+    c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"На столе:{g.user['id']}", g.user['id'], image_id))
     # When a card is placed, ensure any old guesses *about this specific card* from *previous rounds* are cleared.
     # Although guesses are cleared at the end of round, this is a safeguard.
     c.execute("DELETE FROM guesses WHERE image_id = ?", (image_id,))
@@ -974,6 +967,9 @@ def place_card(code, image_id):
     # - There are active players AND the number of distinct owners with cards on the table equals the number of active players.
     if active_players_count > 0 and placed_cards_distinct_owners_count == active_players_count:
         all_players_placed_cards = True
+    # Edge case: 0 active players - should not be able to start round. 1 active player (leader) transitions after placing.
+    elif active_players_count == 1 and placed_cards_distinct_owners_count == 1:
+         all_players_placed_cards = True # Leader placed their card, they are the only player
 
 
     if all_players_placed_cards and not game_state['on_table_status'] and not game_state['show_card_info']:
@@ -1012,7 +1008,7 @@ def guess_card(code, card_id):
         broadcast_game_update(user_code_trigger=code)
         return redirect(url_for('index'))
 
-    # In this updated logic, the leader *does* guess, so no exclusion here.
+    # Leader *does* guess in this updated logic, so no exclusion here.
 
 
     # 3. Get the guessed user ID from the form
@@ -1059,6 +1055,35 @@ def guess_card(code, card_id):
          broadcast_game_update(user_code_trigger=code)
          return redirect(url_for('index'))
 
+    # --- НОВАЯ ВАЛИДАЦИЯ: Игрок не может указывать одно и то же имя пользователя для разных карточек ---
+    # Check if the current user has already made a guess for a *different* card
+    # that points to the *same* guessed_user_id in this round.
+    # We need to check against all cards on the table that are NOT the one being guessed right now,
+    # and that belong to someone other than the current user (as user cannot guess own card).
+    c.execute("""
+        SELECT g.image_id, i.owner_id
+        FROM guesses g
+        JOIN images i ON g.image_id = i.id
+        WHERE g.user_id = ?
+          AND g.image_id != ? -- Exclude the card being guessed now
+          AND g.guessed_user_id = ?
+          AND i.status LIKE 'На столе:%' -- Ensure the card is still on the table
+    """, (g.user['id'], card_id, guessed_user_id))
+    existing_guess_for_other_card_with_same_owner = c.fetchone()
+
+    if existing_guess_for_other_card_with_same_owner:
+        # Find the image name for the conflicting card for better message
+        conflicting_image_id = existing_guess_for_other_card_with_same_owner['image_id']
+        c.execute("SELECT image FROM images WHERE id = ?", (conflicting_image_id,))
+        conflicting_image_row = c.fetchone()
+        conflicting_image_name = conflicting_image_row['image'] if conflicting_image_row else f"ID {conflicting_image_id}"
+
+        flash(f"Вы уже предположили, что карточка '{conflicting_image_name}' принадлежит этому игроку. Выберите другого игрока для текущей карточки или измените то предположение.", "warning")
+        broadcast_game_update(user_code_trigger=code)
+        return redirect(url_for('index'))
+    # --- КОНЕЦ НОВОЙ ВАЛИДАЦИИ ---
+
+
     # 5. Save the guess (or update if already exists)
     # Check if this user already guessed for this card in this round
     c.execute("SELECT id FROM guesses WHERE user_id = ? AND image_id = ?", (g.user['id'], card_id))
@@ -1073,7 +1098,7 @@ def guess_card(code, card_id):
 
     db.commit()
 
-    # --- НОВАЯ ЛОГИКА: Проверка, все ли игроки сделали все необходимые предположения ---
+    # --- НОВАЯ ЛОГИКА: Проверка, все ли игроки сделали все необходимые предположения и они валидны ---
     # Determine the total number of guesses required in this round:
     # Each active player must guess every card on the table that is not their own.
 
@@ -1081,6 +1106,7 @@ def guess_card(code, card_id):
     active_player_ids = [row['id'] for row in c.fetchall()]
     num_active_players = len(active_player_ids)
 
+    # Fetch cards on the table with owners
     c.execute("SELECT id, owner_id FROM images WHERE status LIKE 'На столе:%'")
     table_cards_with_owners = c.fetchall()
     table_card_ids = [card['id'] for card in table_cards_with_owners]
@@ -1098,13 +1124,60 @@ def guess_card(code, card_id):
         c.execute("SELECT COUNT(*) FROM guesses WHERE image_id IN ({})".format(','.join('?' * len(table_card_ids))), table_card_ids)
         actual_guesses_count = c.fetchone()[0]
 
+    # Check uniqueness constraint for *each* player who has made guesses
+    all_guesses_for_trigger_check = []
+    if table_card_ids:
+         c.execute("SELECT user_id, guessed_user_id, image_id FROM guesses WHERE image_id IN ({})".format(','.join('?' * len(table_card_ids))), table_card_ids)
+         all_guesses_for_trigger_check = c.fetchall()
 
-    # If the number of actual guesses equals the total required guesses
-    # AND the game is in the guessing phase and not already in reveal phase
-    if num_active_players > 0 and actual_guesses_count >= total_required_guesses and game_state['on_table_status'] and not game_state['show_card_info']:
-        # Trigger the reveal and scoring
-        flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
-        print("Автоматический переход к подсчету очков: Все игроки сделали необходимые предположения.", file=sys.stderr)
+    guesses_grouped_by_user = {}
+    for guess in all_guesses_for_trigger_check:
+        user_id = guess['user_id']
+        if user_id not in guesses_grouped_by_user:
+            guesses_grouped_by_user[user_id] = []
+        guesses_grouped_by_user[user_id].append(guess['guessed_user_id'])
+
+    uniqueness_check_passed = True
+    for user_id, guessed_owners in guesses_grouped_by_user.items():
+        # Check if all guessed_user_id values for this user are unique
+        if len(guessed_owners) != len(set(guessed_owners)):
+            uniqueness_check_passed = False
+            # Optional: Identify which player failed the check for logging/debugging
+            # print(f"Uniqueness check failed for user ID {user_id}", file=sys.stderr)
+            break # No need to check other users if one failed
+
+    # Trigger the reveal and scoring if:
+    # 1. There are active players (more than 0)
+    # 2. The number of actual guesses equals the total required guesses.
+    # 3. The uniqueness check passed for all players.
+    # 4. The game is in the guessing phase and not already in the reveal phase.
+    # 5. Handle the edge case of 1 active player (leader) separately - they don't guess others' cards.
+    # The transition for a leader-only game happens after they place their card (in place_card).
+    # So this auto-trigger logic primarily applies to games with > 1 active player.
+
+    should_auto_trigger = False
+
+    if num_active_players > 1: # Only check for auto-trigger if there's more than just the leader
+         if actual_guesses_count == total_required_guesses and uniqueness_check_passed and game_state['on_table_status'] and not game_state['show_card_info']:
+              should_auto_trigger = True
+              flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
+              print("Автоматический переход к подсчету очков: Все игроки сделали необходимые и уникальные предположения.", file=sys.stderr)
+
+    elif num_active_players == 1 and game_state['on_table_status'] and not game_state['show_card_info']:
+         # Edge case: Only one active player (the leader).
+         # The check in place_card for num_active_players == 1 and placed_cards_distinct_owners_count == 1
+         # should set on_table_status to true.
+         # If we reach here in guessing phase with 1 active player, it must be the leader.
+         # No guesses are required from non-existent players. The round should end.
+         # We can trigger immediately if in guessing phase with 1 active player.
+         # Ensure that the single active player *is* the leader to be safe.
+         if active_player_ids and active_player_ids[0] == game_state['current_leader_id']:
+              should_auto_trigger = True
+              flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
+              print("Автоматический переход к подсчету очков: Нет других игроков.", file=sys.stderr)
+
+
+    if should_auto_trigger:
         c.execute("UPDATE game_state SET show_card_info = 1 WHERE id = 1")
         db.commit()
         # Broadcast game update to show revealed cards
@@ -1112,33 +1185,15 @@ def guess_card(code, card_id):
         # Call the end_round logic to calculate scores and transition
         end_round()
 
-    elif num_active_players <= 1 and game_state['on_table_status'] and not game_state['show_card_info']:
-         # Edge case: Only one active player (the leader) or no active players left after placement.
-         # If only leader is active, no guesses are made by others. The round should end after leader places card.
-         # This transition should ideally be handled in place_card for the leader-only case.
-         # But as a fallback/double-check here: if in guessing phase, and 0 or 1 active player, proceed.
-         # The case where 0 players are active in guessing phase shouldn't happen if game_in_progress is true.
-         # So, effectively, this handles the leader-only scenario if it somehow reaches the guess route.
-         if num_active_players == 1 and active_player_ids[0] == game_state['current_leader_id']:
-              flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
-              print("Автоматический переход к подсчету очков: Нет других игроков.", file=sys.stderr)
-              c.execute("UPDATE game_state SET show_card_info = 1 WHERE id = 1")
-              db.commit()
-              broadcast_game_update()
-              end_round()
-         # If num_active_players is 0, game_in_progress should likely be false, state invalid for guessing.
-
 
     else:
-        # Not all required guesses have been made yet
-        pass # Do nothing, wait for more guesses
+        # Not all required guesses have been made yet OR the uniqueness check failed for at least one player.
+        pass # Do nothing, wait for more guesses/corrections
 
 
     # 7. Broadcast game update (already handled inside the auto-trigger block if it fires)
     # If auto-trigger didn't fire, we still need to broadcast to show the user's guess.
-    # This check prevents double broadcast if the auto-trigger fired.
-    if not (num_active_players > 0 and actual_guesses_count >= total_required_guesses and game_state['on_table_status'] and not game_state['show_card_info']) and \
-       not (num_active_players <= 1 and game_state['on_table_status'] and not game_state['show_card_info']): # Also prevent broadcast for the edge case that auto-triggered
+    if not should_auto_trigger:
         broadcast_game_update(user_code_trigger=code)
 
 
@@ -1190,7 +1245,7 @@ def admin():
     # Fetch cards in the active deck and their status
     deck_images = []
     if active_subfolder:
-         c.execute("SELECT id, image, status FROM images WHERE subfolder = ?", (active_subfolder,))
+         c.execute("SELECT id, image, status, owner_id FROM images WHERE subfolder = ?", (active_subfolder,)) # Fetch owner_id
          deck_images = c.fetchall()
 
 
@@ -1271,9 +1326,9 @@ def admin_login():
 # Route for admin logout
 @app.route('/admin/logout')
 def admin_logout():
-    session.pop('is_admin', None)
     session.pop('user_code', None)
-    flash("Вы вышли из админ панели.", "info")
+    session.pop('is_admin', None) # Also clear admin flag on user logout
+    flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for('index'))
 
 
@@ -1346,7 +1401,7 @@ def admin_delete_user(user_id):
         c.execute("DELETE FROM guesses WHERE user_id = ?", (user_id,))
         # If user owned a card on the table, reset its status? Or clear owner?
         # Let's reset status for cards owned by this user that are on the table
-        c.execute("UPDATE images SET status = 'Свободно' WHERE status LIKE 'На столе:%' AND owner_id = ?", (user_id,))
+        c.execute("UPDATE images SET status = 'Свободно', owner_id = NULL WHERE status LIKE 'На столе:%' AND owner_id = ?", (user_id,))
         # If this user is the current or next leader, reset that in game_state
         c.execute("UPDATE game_state SET current_leader_id = NULL WHERE current_leader_id = ?", (user_id,))
         c.execute("UPDATE game_state SET next_leader_id = NULL WHERE next_leader_id = ?", (user_id,))
@@ -1436,7 +1491,7 @@ def admin_delete_deck(subfolder):
 
 
     try:
-        # Delete images associated with this deck from DB
+        # Delete images associated with this deck from DB (also clears owner_id and status)
         c.execute("DELETE FROM images WHERE subfolder = ?", (subfolder,))
         # Delete the deck from DB
         c.execute("DELETE FROM decks WHERE subfolder = ?", (subfolder,))
@@ -1511,7 +1566,8 @@ def admin_upload_images(subfolder):
                 try:
                     file.save(filepath)
                     # Insert image info into DB
-                    c.execute("INSERT INTO images (subfolder, image, status) VALUES (?, ?, 'Свободно')", (subfolder, filename))
+                    # When uploading, status is 'Свободно' and owner_id is NULL
+                    c.execute("INSERT INTO images (subfolder, image, status, owner_id) VALUES (?, ?, 'Свободно', NULL)", (subfolder, filename))
                     db.commit()
                     uploaded_count += 1
                 except Exception as e:
@@ -1569,7 +1625,7 @@ def admin_delete_image(image_id):
         # For simplicity now, let's just delete and potentially break ongoing game state.
         # In a real app, would need to handle this gracefully (e.g., reset round).
 
-        # Delete from DB first
+        # Delete from DB first (also clears owner_id and status)
         c.execute("DELETE FROM images WHERE id = ?", (image_id,))
         # Delete related guesses if any (should be cleared per round, but belt-and-suspenders)
         c.execute("DELETE FROM guesses WHERE image_id = ?", (image_id,))
