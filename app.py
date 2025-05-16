@@ -275,14 +275,29 @@ def state_to_json(user_code_for_state=None):
     current_user_data = None
 
 
+    # Fetch current user data if code is provided
+    if user_code_for_state:
+        cursor.execute("SELECT id, code, name, rating, status FROM users WHERE code = ?", (user_code_for_state,))
+        current_user = cursor.fetchone()
+        if current_user:
+            current_user_data = dict(current_user)
+            # Fetch user cards if user is active and game is in progress
+            if current_user_data['status'] == 'active' and (game_in_progress or game_over):
+                 cursor.execute("SELECT id, subfolder, image FROM images WHERE status = ? AND owner_id = ?", (f'Занято: {current_user_data["id"]}', current_user_data['id']))
+                 user_cards = [dict(row) for row in cursor.fetchall()]
+
+
     if game_in_progress or game_over:
+        # Fetch images on the table
         cursor.execute("SELECT id, subfolder, image, status, owner_id FROM images WHERE status LIKE 'На столе:%'")
         table_images_raw = cursor.fetchall()
 
+        # Fetch all active users for guessing phase and other user info
         cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
         all_active_users = {row['id']: dict(row) for row in cursor.fetchall()}
         all_users_for_guessing = list(all_active_users.values())
 
+        # Fetch guesses related to cards currently on the table
         all_guesses_raw = []
         all_guesses_by_card = {}
         if table_images_raw:
@@ -297,6 +312,7 @@ def state_to_json(user_code_for_state=None):
                      all_guesses_by_card[card_guessed_about_id].append((guess['user_id'], guess['guessed_user_id']))
 
 
+        # Augment table images with owner info and guesses
         if show_card_info or on_table_status:
              for img in table_images_raw:
                 owner_id = img['owner_id']
@@ -318,6 +334,7 @@ def state_to_json(user_code_for_state=None):
                 table_images.append(img_dict)
 
 
+    # Determine if all active players have placed a card for the guessing phase
     all_cards_placed_for_guessing_phase = False
     if game_in_progress and not game_over and current_leader_id is not None and on_table_status:
          cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
@@ -331,8 +348,10 @@ def state_to_json(user_code_for_state=None):
               pass
 
 
+    # Determine leader's board visual state based on rating
     leader_pole_image_path = None
     leader_pictogram_rating_display = None
+    # Get board config from app.config
     game_board_visual_config_local = app.config.get('BOARD_VISUAL_CONFIG', [])
 
     if game_board_visual_config_local:
@@ -351,6 +370,7 @@ def state_to_json(user_code_for_state=None):
                           leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config_local[-1]['image'])
 
 
+    # Fetch game board state (users on cells)
     game_board_state = []
     if (game_in_progress or game_over) and game_board_visual_config_local:
         cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
@@ -1192,7 +1212,6 @@ def admin_create_deck():
         flash("Недостаточно прав.", "danger")
         return redirect(url_for('index'))
 
-    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов >>>
     deck_name = request.form.get('deck_name')
     subfolder_name = request.form.get('subfolder_name')
 
@@ -1227,7 +1246,6 @@ def admin_create_deck():
         print(f"Error creating deck: {e}", file=sys.stderr)
 
     return redirect(url_for('admin'))
-# <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
 @app.route('/admin/delete_deck/<subfolder>', methods=['POST'])
