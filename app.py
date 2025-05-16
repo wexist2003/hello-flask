@@ -275,29 +275,14 @@ def state_to_json(user_code_for_state=None):
     current_user_data = None
 
 
-    # Fetch current user data if code is provided
-    if user_code_for_state:
-        cursor.execute("SELECT id, code, name, rating, status FROM users WHERE code = ?", (user_code_for_state,))
-        current_user = cursor.fetchone()
-        if current_user:
-            current_user_data = dict(current_user)
-            # Fetch user cards if user is active and game is in progress
-            if current_user_data['status'] == 'active' and (game_in_progress or game_over):
-                 cursor.execute("SELECT id, subfolder, image FROM images WHERE status = ? AND owner_id = ?", (f'Занято: {current_user_data["id"]}', current_user_data['id']))
-                 user_cards = [dict(row) for row in cursor.fetchall()]
-
-
     if game_in_progress or game_over:
-        # Fetch images on the table
         cursor.execute("SELECT id, subfolder, image, status, owner_id FROM images WHERE status LIKE 'На столе:%'")
         table_images_raw = cursor.fetchall()
 
-        # Fetch all active users for guessing phase and other user info
         cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
         all_active_users = {row['id']: dict(row) for row in cursor.fetchall()}
         all_users_for_guessing = list(all_active_users.values())
 
-        # Fetch guesses related to cards currently on the table
         all_guesses_raw = []
         all_guesses_by_card = {}
         if table_images_raw:
@@ -312,7 +297,6 @@ def state_to_json(user_code_for_state=None):
                      all_guesses_by_card[card_guessed_about_id].append((guess['user_id'], guess['guessed_user_id']))
 
 
-        # Augment table images with owner info and guesses
         if show_card_info or on_table_status:
              for img in table_images_raw:
                 owner_id = img['owner_id']
@@ -334,7 +318,6 @@ def state_to_json(user_code_for_state=None):
                 table_images.append(img_dict)
 
 
-    # Determine if all active players have placed a card for the guessing phase
     all_cards_placed_for_guessing_phase = False
     if game_in_progress and not game_over and current_leader_id is not None and on_table_status:
          cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
@@ -348,10 +331,8 @@ def state_to_json(user_code_for_state=None):
               pass
 
 
-    # Determine leader's board visual state based on rating
     leader_pole_image_path = None
     leader_pictogram_rating_display = None
-    # Get board config from app.config
     game_board_visual_config_local = app.config.get('BOARD_VISUAL_CONFIG', [])
 
     if game_board_visual_config_local:
@@ -370,7 +351,6 @@ def state_to_json(user_code_for_state=None):
                           leader_pole_image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, game_board_visual_config_local[-1]['image'])
 
 
-    # Fetch game board state (users on cells)
     game_board_state = []
     if (game_in_progress or game_over) and game_board_visual_config_local:
         cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
@@ -378,15 +358,12 @@ def state_to_json(user_code_for_state=None):
         active_users_list = list(active_users_for_board.values())
         active_users_list.sort(key=lambda x: x['rating'])
 
-        # Determine the number of board cells based on the loaded config from app.config
         num_board_cells_display = app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS)
 
-        # We need the full board config from DB results again to calculate min_rating correctly,
-        # or reuse the one from app.config if it was loaded. Let's fetch again for clarity/safety here.
         cursor.execute("SELECT id, image, max_rating FROM game_board_visuals ORDER BY id")
-        board_config_rows_for_min_rating = cursor.fetchall() # Use this for calculating min_rating
+        board_config_rows_for_min_rating = cursor.fetchall()
 
-        if game_board_visual_config_local: # Use board_config_visual_config_local (from app.config or default) for iteration
+        if game_board_visual_config_local:
             for cell_config in game_board_visual_config_local:
                 cell_data = {
                     'cell_number': cell_config['id'],
@@ -394,19 +371,16 @@ def state_to_json(user_code_for_state=None):
                     'max_rating': cell_config['max_rating'],
                     'users_in_cell': []
                 }
-                # Find users in this cell based on rating range using board_config_rows_for_min_rating (from DB)
-                # Adjusted indexing logic for safety if board_config_rows_for_min_rating is shorter than expected
+
                 min_rating = 0
                 if cell_config['id'] > 1:
                     prev_cell_index = cell_config['id'] - 2
                     if 0 <= prev_cell_index < len(board_config_rows_for_min_rating):
                         min_rating = board_config_rows_for_min_rating[prev_cell_index]['max_rating'] + 1
-                    elif 0 <= prev_cell_index < len(game_board_visual_config_local): # Fallback to app.config data if DB fetch is weird
+                    elif 0 <= prev_cell_index < len(game_board_visual_config_local):
                          min_rating = game_board_visual_config_local[prev_cell_index]['max_rating'] + 1
                     else:
-                         print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating.", file=sys.stderr)
-                         # If previous segment info is missing, min_rating remains 0 or handle error
-
+                         print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating in admin panel.", file=sys.stderr)
 
                 max_rating = cell_config['max_rating']
 
@@ -414,7 +388,7 @@ def state_to_json(user_code_for_state=None):
                 cell_data['users_in_cell'] = users_in_this_cell
 
                 game_board_state.append(cell_data)
-    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
+
 
     return {
         'game_in_progress': game_in_progress,
@@ -431,7 +405,7 @@ def state_to_json(user_code_for_state=None):
         'current_user_data': current_user_data,
         'flashed_messages': flashed_messages,
         'game_board': game_board_state,
-        'current_num_board_cells': app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS), # Use value from app.config
+        'current_num_board_cells': app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS),
         'leader_pole_pictogram_path': leader_pole_image_path,
         'leader_pictogram_rating_display': leader_pictogram_rating_display,
     }
@@ -691,7 +665,7 @@ def start_new_round():
     active_users = [row['id'] for row in cursor.fetchall()]
 
     if not active_users:
-        flash("Нет активных игроков для раздачи карточек.", "warning")
+        flash("Недостаточно активных игроков для раздачи карточек.", "warning")
         cursor.execute("UPDATE game_state SET game_in_progress = 0, on_table_status = 0, show_card_info = 0, current_leader_id = NULL, next_leader_id = NULL")
         db.commit()
         broadcast_game_update()
@@ -1022,14 +996,9 @@ def user(code):
 
 @app.route('/admin')
 def admin():
-    # Check if user is logged in and is admin (assuming admin login sets session['is_admin'] = True)
-    # For this example, let's just check if there is a user code and they are marked as admin in DB
-    # A proper admin login flow would be needed in a real app.
-    # For now, let's allow access if session has admin flag set.
     if not session.get('is_admin'):
-         # Redirect to a login page or deny access if not admin
          flash("Доступ к админ панели ограничен.", "danger")
-         return redirect(url_for('index')) # Redirect to index or login
+         return redirect(url_for('index'))
 
     db = get_db()
     c = db.cursor()
@@ -1042,24 +1011,17 @@ def admin():
     active_subfolder = game_state['active_subfolder'] if game_state else None
 
 
-    # Fetch cards in the active deck and their status
     deck_images = []
     if active_subfolder:
          c.execute("SELECT id, image, status, owner_id FROM images WHERE subfolder = ?", (active_subfolder,))
          deck_images = c.fetchall()
 
-    # Fetch game state for admin panel display (optional, can reuse state_to_json)
-    # admin_game_state = state_to_json() # Use state_to_json to get current game info
-
-    # Fetch current leader name for display
     current_leader_name = None
     if game_state and game_state['current_leader_id']:
          current_leader_name = get_user_name_by_id(game_state['current_leader_id'])
 
 
-    # Get game board visuals and user positions for display in admin panel
     game_board_data = []
-    # Get board config from app.config, fallback to default constant
     board_config_admin = app.config.get('BOARD_VISUAL_CONFIG', _DEFAULT_BOARD_CONFIG_CONSTANT)
     current_num_board_cells_admin = app.config.get('NUM_BOARD_CELLS', DEFAULT_NUM_BOARD_CELLS)
 
@@ -1080,13 +1042,13 @@ def admin():
                     'max_rating': cell_config['max_rating'],
                     'users_in_cell': []
                 }
-                # Find users in this cell based on rating range using board_config_rows_admin (from DB)
+
                 min_rating = 0
                 if cell_config['id'] > 1:
                     prev_cell_index = cell_config['id'] - 2
                     if 0 <= prev_cell_index < len(board_config_rows_admin):
                         min_rating = board_config_rows_admin[prev_cell_index]['max_rating'] + 1
-                    elif 0 <= prev_cell_index < len(board_config_admin): # Fallback to app.config data if DB fetch is weird
+                    elif 0 <= prev_cell_index < len(board_config_admin):
                          min_rating = board_config_admin[prev_cell_index]['max_rating'] + 1
                     else:
                          print(f"Warning: Could not find previous board config for cell {cell_config['id']} to calculate min_rating in admin panel.", file=sys.stderr)
@@ -1171,7 +1133,6 @@ def create_user():
     return redirect(url_for('admin'))
 
 
-# Route to handle activating/deactivating a user (from admin panel)
 @app.route('/admin/set_user_status/<int:user_id>/<status>', methods=['POST'])
 def admin_set_user_status(user_id, status):
     # Check if admin is logged in (basic check)
@@ -1179,7 +1140,6 @@ def admin_set_user_status(user_id, status):
         flash("Недостаточно прав.", "danger")
         return redirect(url_for('index'))
 
-    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов >>>
     if status not in ['pending', 'active', 'inactive']:
         flash("Неверный статус.", "warning")
         return redirect(url_for('admin'))
@@ -1190,14 +1150,11 @@ def admin_set_user_status(user_id, status):
     db.commit()
     flash(f"Статус пользователя ID {user_id} изменен на '{status}'.", "success")
 
-    # Broadcast game update as user status affects active player count etc.
     broadcast_game_update()
 
     return redirect(url_for('admin'))
-    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
-# Route to handle deleting a user (from admin panel)
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 def admin_delete_user(user_id):
      # Check if admin is logged in (basic check)
@@ -1227,12 +1184,15 @@ def admin_delete_user(user_id):
     return redirect(url_for('admin'))
 
 
+# Route to handle creating a new deck folder
 @app.route('/admin/create_deck', methods=['POST'])
 def admin_create_deck():
-     if not session.get('is_admin'):
-         flash("Недостаточно прав.", "danger")
-         return redirect(url_for('index'))
+    # Check if admin is logged in (basic check)
+    if not session.get('is_admin'):
+        flash("Недостаточно прав.", "danger")
+        return redirect(url_for('index'))
 
+    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов >>>
     deck_name = request.form.get('deck_name')
     subfolder_name = request.form.get('subfolder_name')
 
@@ -1241,8 +1201,8 @@ def admin_create_deck():
         return redirect(url_for('admin'))
 
     if not re.match(r'^[a-zA-Z0-9_-]+$', subfolder_name):
-         flash("Название папки может содержать только латинские буквы, цифры, дефисы и подчеркивания.", "warning")
-         return redirect(url_for('admin'))
+        flash("Название папки может содержать только латинские буквы, цифры, дефисы и подчеркивания.", "warning")
+        return redirect(url_for('admin'))
 
 
     deck_dir = os.path.join(app.static_folder, 'images', subfolder_name)
@@ -1252,21 +1212,22 @@ def admin_create_deck():
         c = db.cursor()
         c.execute("SELECT COUNT(*) FROM decks WHERE subfolder = ?", (subfolder_name,))
         if c.fetchone()[0] > 0:
-             flash(f"Колода с папкой '{subfolder_name}' уже существует.", "warning")
+            flash(f"Колода с папкой '{subfolder_name}' уже существует.", "warning")
         else:
-             c.execute("INSERT INTO decks (subfolder, name) VALUES (?, ?)", (subfolder_name, deck_name))
-             db.commit()
-             flash(f"Колода '{deck_name}' ({subfolder_name}) создана.", "success")
+            c.execute("INSERT INTO decks (subfolder, name) VALUES (?, ?)", (subfolder_name, deck_name))
+            db.commit()
+            flash(f"Колода '{deck_name}' ({subfolder_name}) создана.", "success")
 
     except OSError as e:
         flash(f"Ошибка при создании папки колоды: {e}", "danger")
     except sqlite3.IntegrityError:
-         flash(f"Ошибка при создании колоды. Папка '{subfolder_name}' уже зарегистрирована в базе данных.", "danger")
+        flash(f"Ошибка при создании колоды. Папка '{subfolder_name}' уже зарегистрирована в базе данных.", "danger")
     except Exception as e:
         flash(f"Произошла ошибка при создании колоды: {e}", "danger")
         print(f"Error creating deck: {e}", file=sys.stderr)
 
     return redirect(url_for('admin'))
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
 @app.route('/admin/delete_deck/<subfolder>', methods=['POST'])
