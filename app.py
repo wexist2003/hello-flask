@@ -431,35 +431,37 @@ def state_to_json(user_code_for_state=None):
 
     # Fetch game board state (users on cells)
     game_board_state = []
+    # <<< ИСПРАВЛЕНИЕ: Выравнивание отступов в этом блоке >>>
     if (game_in_progress or game_over) and game_board_visual_config_local: # Use local config here
-         # Fetch active users with their ratings
-         cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
-         active_users_for_board = {row['id']: dict(row) for row in cursor.fetchall()}
-         active_users_list = list(active_users_for_board.values()) # List of active users
+        # Fetch active users with their ratings
+        cursor.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
+        active_users_for_board = {row['id']: dict(row) for row in cursor.fetchall()}
+        active_users_list = list(active_users_for_board.values()) # List of active users
 
-         # Sort users by rating for easier board placement determination
-         active_users_list.sort(key=lambda x: x['rating'])
+        # Sort users by rating for easier board placement determination
+        active_users_list.sort(key=lambda x: x['rating'])
 
-         # Determine the number of board cells based on the loaded config
-         num_board_cells_display = game_board_visual_config_local[-1]['max_rating'] if game_board_visual_config_local else DEFAULT_NUM_BOARD_CELLS
+        # Determine the number of board cells based on the loaded config
+        num_board_cells_display = game_board_visual_config_local[-1]['max_rating'] if game_board_visual_config_local else DEFAULT_NUM_BOARD_CELLS
 
 
-         for cell_config in game_board_visual_config_local: # Use local config here
-              cell_data = {
-                 'cell_number': cell_config['id'],
-                 'image_path': os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, cell_config['image']),
-                 'max_rating': cell_config['max_rating'],
-                 'users_in_cell': []
-             }
-             # Find users in this cell based on rating range for this cell
-             # Ensure indices are correct when using board_config_rows
-             min_rating = 0 if cell_config['id'] == 1 else board_config_rows[cell_config['id']-2]['max_rating'] + 1 # Rating threshold from previous cell
-             max_rating = cell_config['max_rating']
+        for cell_config in game_board_visual_config_local: # Use local config here
+            cell_data = {
+                'cell_number': cell_config['id'],
+                'image_path': os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, cell_config['image']),
+                'max_rating': cell_config['max_rating'],
+                'users_in_cell': []
+            }
+            # Find users in this cell based on rating range for this cell
+            # Ensure indices are correct when using board_config_rows
+            min_rating = 0 if cell_config['id'] == 1 else board_config_rows[cell_config['id']-2]['max_rating'] + 1 # Rating threshold from previous cell
+            max_rating = cell_config['max_rating']
 
-             users_in_this_cell = [user for user in active_users_list if user['rating'] >= min_rating and user['rating'] <= max_rating]
-             cell_data['users_in_cell'] = users_in_this_cell
+            users_in_this_cell = [user for user in active_users_list if user['rating'] >= min_rating and user['rating'] <= max_rating]
+            cell_data['users_in_cell'] = users_in_this_cell
 
-             game_board_state.append(cell_data)
+            game_board_state.append(cell_data)
+    # <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
 
 
     return {
@@ -1198,7 +1200,6 @@ def guess_card(code, card_id):
         # For a multi-player game, all active players must be in the set of users who made guesses *if* actual_guesses_count == total_required_guesses.
         # Let's rely on `actual_guesses_count == total_required_guesses` which should be sufficient.
 
-
     # --- ДОБАВЛЕНИЕ ОТЛАДОЧНЫХ ВЫВОДОВ ---
     print("--- Проверка автоперехода ---", file=sys.stderr)
     print(f"Активных игроков: {num_active_players}", file=sys.stderr)
@@ -1242,6 +1243,12 @@ def guess_card(code, card_id):
 
 
     if should_auto_trigger:
+        # This flash message is already added inside the if block above if should_auto_trigger is True
+        # if num_active_players > 1:
+        #      flash("Все игроки сделали предположения! Карточки открываются и подсчитываются очки.", "info")
+        # elif num_active_players == 1: # Leader-only case
+        #      flash("Нет других игроков для угадывания. Переход к подсчету.", "info")
+
         c.execute("UPDATE game_state SET show_card_info = 1 WHERE id = 1")
         db.commit()
         # Broadcast game update to show revealed cards
@@ -1252,6 +1259,7 @@ def guess_card(code, card_id):
 
     # If auto-trigger didn't fire, we still need to broadcast to show the user's guess.
     # This broadcast happens regardless of auto-trigger.
+    # Removed redundant auto_triggered check as the main if/else handles the flow
     broadcast_game_update(user_code_trigger=code)
 
 
