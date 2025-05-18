@@ -158,59 +158,147 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
             if user_rating == cell_number: users_in_this_cell.append({'id': user_data_item_board['id'], 'name': user_data_item_board['name'], 'rating': user_rating})
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
-def get_full_game_state_data(user_code_for_state=None): # Без изменений
-    db = get_db(); current_g_user_dict = None
+# ===== ИЗМЕНЕНИЯ В ФУНКЦИИ get_full_game_state_data =====
+def get_full_game_state_data(user_code_for_state=None):
+    db = get_db()
+    c = db.cursor()
+
+    # Получаем все настройки
+    settings = c.execute("SELECT key, value FROM settings").fetchall()
+    settings_dict = {s['key']: s['value'] for s in settings}
+
+    # Получаем ID текущего ведущего
+    current_leader_id = settings_dict.get('leading_user_id')
+    try:
+        current_leader_id = int(current_leader_id) if current_leader_id else None
+    except (ValueError, TypeError):
+        current_leader_id = None # Убеждаемся, что это int или None
+
+    # Получаем всех пользователей для списка (активные, ожидающие)
+    all_users_raw = c.execute("SELECT id, name, rating, status FROM users ORDER BY status DESC, name ASC").fetchall()
+
+    # Получаем только активных пользователей
+    active_users_raw = [u for u in all_users_raw if u['status'] == 'active']
+    active_user_ids = [u['id'] for u in active_users_raw]
+
+    # Находим данные текущего пользователя, если предоставлен user_code
+    current_user_data = None
     if user_code_for_state:
-        user_row = db.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (user_code_for_state,)).fetchone()
-        if user_row: current_g_user_dict = dict(user_row)
-    active_subfolder_val = get_setting('active_subfolder')
+        current_user_data = c.execute("SELECT id, name, rating, status FROM users WHERE code = ?", (user_code_for_state,)).fetchone()
+
+
+    # Извлекаем карты, которые находятся на столе, и обрабатываем предположения
+    # Используем LEFT JOIN, чтобы получить имя владельца (может быть NULL, если владелец удален)
+    table_cards_raw = c.execute("""
+        SELECT i.id, i.subfolder, i.image, i.status, i.owner_id, i.guesses, u.name as owner_name
+        FROM images i
+        LEFT JOIN users u ON i.owner_id = u.id
+        WHERE i.status LIKE 'На столе:%'
+    """).fetchall()
+
+    table_cards_for_template = []
+    # Множество для сбора всех уникальных ID пользователей, участвующих в текущем состоянии игры
+    # (активные игроки, владельцы карт на столе, те, кто делал предположения, те, кого угадали)
+    all_relevant_user_ids = set(active_user_ids)
+
+    # Добавляем ID владельца текущего пользователя, если он известен
+    if current_user_data and current_user_data['id'] is not None:
+         all_relevant_user_ids.add(current_user_data['id'])
+
+
+    # Обрабатываем карты на столе
+    for card in table_cards_raw:
+        card_dict = dict(card)
+        card_dict['guesses'] = {} # Начинаем с пустого словаря для предположений
+
+        # Добавляем ID владельца карты на столе в множество relevant_user_ids, если он существует
+        if card_dict['owner_id'] is not None:
+            all_relevant_user_ids.add(card_dict['owner_id'])
+
+        try:
+            # Парсим JSON с предположениями
+            guesses_json = json.loads(card['guesses'] or '{}')
+            card_dict['guesses'] = guesses_json
+
+            # Добавляем ID угадавших и ID тех, кого угадали, в множество relevant_user_ids
+            for guesser_id_str, guessed_owner_id_val in guesses_json.items():
+                try:
+                    guesser_id = int(guesser_id_str)
+                    all_relevant_user_ids.add(guesser_id)
+                except (ValueError, TypeError):
+                    # print(f"State Error: Некорректный формат ID угадавшего в предположениях для карты {card['id']}: {guesser_id_str}", file=sys.stderr)
+                    pass # Пропускаем некорректный ID
+
+                try:
+                    # Значение предположения - это ID игрока, которого угадывали
+                    guessed_owner_id = int(guessed_owner_id_val)
+                    all_relevant_user_ids.add(guessed_owner_id)
+                except (ValueError, TypeError):
+                     # print(f"State Error: Некорректный формат ID угаданного владельца в предположениях для карты {card['id']}: {guessed_owner_id_val}", file=sys.stderr)
+                     pass # Пропускаем некорректный ID
+
+
+        except json.JSONDecodeError:
+            print(f"State Error: Некорректный JSON в предположениях для карты {card['id']}: {card['guesses']}", file=sys.stderr)
+            pass # Оставляем guesses пустым словарем в случае ошибки
+
+        table_cards_for_template.append(card_dict)
+
+    # Извлекаем карты текущего пользователя, если current_user_data доступен (т.е. это не гость)
+    my_cards_for_template = []
+    if current_user_data:
+        my_cards_raw = c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images WHERE owner_id = ?", (current_user_data['id'],)).fetchall()
+        my_cards_for_template = [dict(card) for card in my_cards_raw]
+        # Также добавляем ID владельцев моих карт (должен быть только я) и угадавших по моим картам в relevant_user_ids
+        for card in my_cards_for_template:
+            if card['owner_id'] is not None: all_relevant_user_ids.add(card['owner_id'])
+            try:
+                guesses_json = json.loads(card['guesses'] or '{}')
+                for guesser_id_str, guessed_owner_id_val in guesses_json.items():
+                    try: guesser_id = int(guesser_id_str); all_relevant_user_ids.add(guesser_id)
+                    except (ValueError, TypeError): pass
+                    try: guessed_owner_id = int(guessed_owner_id_val); all_relevant_user_ids.add(guessed_owner_id)
+                    except (ValueError, TypeError): pass
+            except json.JSONDecodeError: pass
+
+
+    # Извлекаем имена для ВСЕХ собранных relevant_user_ids
+    relevant_users_data_mapping = {}
+    if all_relevant_user_ids:
+        # Формируем строку вида "(?, ?, ?)" для SQL-запроса с IN Clause
+        placeholders = ', '.join('?' for _ in all_relevant_user_ids)
+        query = f"SELECT id, name FROM users WHERE id IN ({placeholders})"
+        users_for_mapping = c.execute(query, list(all_relevant_user_ids)).fetchall()
+        # Создаем словарь ID -> Имя
+        relevant_users_data_mapping = {user['id']: user['name'] for user in users_for_mapping}
+
+
+    # Получаем данные для построения игрового поля - эта функция уже работает с именами активных пользователей
+    game_board_data_for_template = generate_game_board_data_for_display([dict(u) for u in active_users_raw]) # Передаем активных пользователей с именем/рейтингом
+
+
+    # Формируем словарь состояния игры для возврата
     game_state = {
-        'game_in_progress': is_game_in_progress(), 'game_over': is_game_over(),
-        'show_card_info': get_setting("show_card_info") == "true",
-        'active_subfolder': active_subfolder_val, 'db_current_leader_id': get_leading_user_id(),
-        'num_active_players': get_active_players_count(db),
-        'table_images': [], 'user_cards': [], 'all_users_for_guessing': [],
-        'on_table_status': False, 'is_current_user_the_db_leader': False,
-        'leader_pole_pictogram_path': None, 'leader_pictogram_rating_display': None,
-        'game_board': [], 'current_num_board_cells': _current_game_board_num_cells,
-        'current_user_data': current_g_user_dict, 'num_cards_on_table': 0,
-        'all_cards_placed_for_guessing_phase_to_template': False, 'flashed_messages': []
+        'is_game_in_progress': settings_dict.get('game_in_progress') == 'true',
+        'is_game_over': settings_dict.get('game_over') == 'true',
+        'current_leader_id': current_leader_id,
+        # Передаем raw данные словарей для пользователей
+        'active_users': [dict(u) for u in active_users_raw],
+        'active_user_ids': active_user_ids,
+        'table_cards': table_cards_for_template,
+        'my_cards': my_cards_for_template,
+        'all_users_for_list': [dict(u) for u in all_users_raw], # Полный список пользователей для общего отображения
+        'show_card_info': settings_dict.get('show_card_info') == 'true',
+        'active_subfolder': settings_dict.get('active_subfolder') or '',
+        # Используем расширенный relevant_users_data_mapping для сопоставления ID с именами в шаблоне
+        'users_data_for_guessing': relevant_users_data_mapping,
+        'game_board': game_board_data_for_template, # Данные для игрового поля
+        # Передаем данные текущего пользователя явно для его страницы
+        'current_user_data': dict(current_user_data) if current_user_data else None
     }
-    raw_table_cards = db.execute("SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses FROM images i LEFT JOIN users u ON i.owner_id = u.id WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' AND (u.status = 'active' OR u.status IS NULL)", (active_subfolder_val,)).fetchall() if active_subfolder_val else []
-    game_state['num_cards_on_table'] = len(raw_table_cards)
-    if game_state['game_in_progress'] and not game_state['game_over']:
-        game_state['all_cards_placed_for_guessing_phase_to_template'] = (game_state['num_active_players'] > 0 and game_state['num_cards_on_table'] >= game_state['num_active_players'])
-        for card_row in raw_table_cards:
-            guesses_data = json.loads(card_row['guesses'] or '{}'); my_guess_val = None
-            if current_g_user_dict and current_g_user_dict['status'] == 'active' and \
-               game_state['all_cards_placed_for_guessing_phase_to_template'] and \
-               not game_state['show_card_info'] and card_row['owner_id'] != current_g_user_dict['id']:
-                my_guess_val = guesses_data.get(str(current_g_user_dict['id']))
-            game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': my_guess_val})
-        if current_g_user_dict and current_g_user_dict['status'] == 'active' and active_subfolder_val:
-            user_cards_db = db.execute("SELECT id, image, subfolder FROM images WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'", (current_g_user_dict['id'], active_subfolder_val)).fetchall()
-            game_state['user_cards'] = [{'id': r['id'], 'image': r['image'], 'subfolder': r['subfolder']} for r in user_cards_db]
-            if any(tc['owner_id'] == current_g_user_dict['id'] for tc in game_state['table_images']): game_state['on_table_status'] = True
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall()
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-            if game_state['db_current_leader_id'] is not None: game_state['is_current_user_the_db_leader'] = (current_g_user_dict['id'] == game_state['db_current_leader_id'])
-            if game_state['is_current_user_the_db_leader'] and not game_state['on_table_status'] and \
-               not game_state['show_card_info'] and not game_state['all_cards_placed_for_guessing_phase_to_template']:
-                leader_rating = int(current_g_user_dict.get('rating', 0))
-                game_state['leader_pictogram_rating_display'] = leader_rating
-                if leader_rating > 0 and _current_game_board_pole_image_config and leader_rating <= _current_game_board_num_cells and (leader_rating - 1) < len(_current_game_board_pole_image_config):
-                    game_state['leader_pole_pictogram_path'] = _current_game_board_pole_image_config[leader_rating - 1]
-    elif game_state['show_card_info']: 
-        for card_row in raw_table_cards: 
-             guesses_data = json.loads(card_row['guesses'] or '{}')
-             game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': None})
-        if current_g_user_dict:
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall() 
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-    all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
-    game_state['game_board'] = generate_game_board_data_for_display(all_active_users_for_board)
-    game_state['current_num_board_cells'] = _current_game_board_num_cells
+
     return game_state
+# ===== КОНЕЦ ИЗМЕНЕНИЙ В ФУНКЦИИ get_full_game_state_data =====
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
     active_sids = list(connected_users_socketio.keys())
