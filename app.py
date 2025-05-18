@@ -159,6 +159,7 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
 # ===== ИЗМЕНЕНИЯ В ФУНКЦИИ get_full_game_state_data =====
+# ===== АКТУАЛЬНЫЙ КОД ФУНКЦИИ get_full_game_state_data =====
 def get_full_game_state_data(user_code_for_state=None):
     db = get_db()
     c = db.cursor()
@@ -168,11 +169,14 @@ def get_full_game_state_data(user_code_for_state=None):
     settings_dict = {s['key']: s['value'] for s in settings}
 
     # Получаем ID текущего ведущего
-    current_leader_id = settings_dict.get('leading_user_id')
-    try:
-        current_leader_id = int(current_leader_id) if current_leader_id else None
-    except (ValueError, TypeError):
-        current_leader_id = None # Убеждаемся, что это int или None
+    current_leader_id_str = settings_dict.get('leading_user_id')
+    current_leader_id = None
+    if current_leader_id_str:
+        try:
+            current_leader_id = int(current_leader_id_str)
+        except (ValueError, TypeError):
+            print(f"State Error: Некорректный формат leading_user_id в настройках: {current_leader_id_str}", file=sys.stderr)
+            current_leader_id = None # Убеждаемся, что это int или None
 
     # Получаем всех пользователей для списка (активные, ожидающие)
     all_users_raw = c.execute("SELECT id, name, rating, status FROM users ORDER BY status DESC, name ASC").fetchall()
@@ -279,6 +283,7 @@ def get_full_game_state_data(user_code_for_state=None):
 
     # Формируем словарь состояния игры для возврата
     game_state = {
+        # Убеждаемся, что эти флаги корректно считываются из строковых значений в настройках
         'is_game_in_progress': settings_dict.get('game_in_progress') == 'true',
         'is_game_over': settings_dict.get('game_over') == 'true',
         'current_leader_id': current_leader_id,
@@ -288,6 +293,7 @@ def get_full_game_state_data(user_code_for_state=None):
         'table_cards': table_cards_for_template,
         'my_cards': my_cards_for_template,
         'all_users_for_list': [dict(u) for u in all_users_raw], # Полный список пользователей для общего отображения
+        # Убеждаемся, что этот флаг корректно считывается из строкового значения
         'show_card_info': settings_dict.get('show_card_info') == 'true',
         'active_subfolder': settings_dict.get('active_subfolder') or '',
         # Используем расширенный relevant_users_data_mapping для сопоставления ID с именами в шаблоне
@@ -296,8 +302,8 @@ def get_full_game_state_data(user_code_for_state=None):
         # Передаем данные текущего пользователя явно для его страницы
         'current_user_data': dict(current_user_data) if current_user_data else None
     }
-
     return game_state
+    
 # ===== КОНЕЦ ИЗМЕНЕНИЙ В ФУНКЦИИ get_full_game_state_data =====
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
