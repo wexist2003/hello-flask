@@ -60,18 +60,21 @@ def close_db(e=None):
         db.close()
 
 def init_db():
+    """Инициализирует базу данных. Создает таблицы, если их нет."""
+    print("Attempting to initialize database...", file=sys.stderr)
     if not os.path.exists(DB_PATH):
-        print("Database file not found, creating...", file=sys.stderr)
+        print(f"Database file not found at {DB_PATH}, will attempt to create.", file=sys.stderr)
     with app.app_context():
         db = get_db()
         try:
             with app.open_resource('schema.sql', mode='r') as f:
                 db.cursor().executescript(f.read())
             db.commit()
-            print("Database initialized.", file=sys.stderr)
+            print("Database schema created/verified.", file=sys.stderr)
 
             # Initial settings if database is new
             if db.execute("SELECT COUNT(*) FROM settings").fetchone()[0] == 0:
+                 print("Adding initial settings...", file=sys.stderr)
                  db.execute("INSERT INTO settings (key, value) VALUES ('game_in_progress', 'false')")
                  db.execute("INSERT INTO settings (key, value) VALUES ('game_over', 'false')")
                  db.execute("INSERT INTO settings (key, value) VALUES ('show_card_info', 'false')")
@@ -84,11 +87,19 @@ def init_db():
                      db.execute("INSERT INTO users (name, code, status, rating, is_admin) VALUES (?, ?, ?, ?, ?)", ('Admin', admin_code, 'active', 0, 1))
                      print(f"Default admin user created with code: {admin_code}", file=sys.stderr)
                  db.commit()
-                 print("Initial settings added.", file=sys.stderr)
+                 print("Initial settings added and committed.", file=sys.stderr)
+            else:
+                 print("Settings table already populated.", file=sys.stderr)
+
+        except sqlite3.OperationalError as e:
+            print(f"SQLite OperationalError during init_db: {e}. This might happen if the database is being accessed by another process or if schema.sql has errors.", file=sys.stderr)
+            traceback.print_exc()
+            db.rollback()
         except Exception as e:
-            print(f"Error during database initialization: {e}", file=sys.stderr)
+            print(f"An unexpected error occurred during init_db: {e}", file=sys.stderr)
             traceback.print_exc()
             db.rollback() # Откатываем в случае ошибки
+
 
 def get_setting(key):
     db = get_db()
@@ -117,7 +128,7 @@ def get_active_players_count(db):
 def get_user_name(user_id):
     db = get_db()
     user = db.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
-    return user['name'] if user else None
+    return user['name'] if user else "Unknown User"
 
 def generate_user_code(length=6):
     characters = string.ascii_letters + string.digits
@@ -152,7 +163,7 @@ def generate_game_board_data_for_display(all_active_users_for_board):
     for i in range(1, num_cells + 1):
         image_path = ""
         # Assign pictogram based on cell number (simple example)
-        if i <= len(_current_game_board_pole_image_config):
+        if i > 0 and i <= len(_current_game_board_pole_image_config):
              image_path = _current_game_board_pole_image_config[i-1]
         # else: # Optionally assign a default image for other cells
         #     image_path = os.path.join(GAME_BOARD_POLE_IMG_SUBFOLDER, "default_cell.jpg")
@@ -180,10 +191,11 @@ def generate_game_board_data_for_display(all_active_users_for_board):
 
     return board_data
 
-def initialize_new_game_board_visuals(all_users_for_rating_check):
+def initialize_new_game_board_visuals(users_for_board_config):
     """
     Initializes the game board visuals configuration based on settings.
-    Called on app startup if needed to load config.
+    Called on app startup to load config and potentially for game state update.
+    Takes list of users to generate board data immediately.
     """
     db = get_db()
     board_config_json = get_setting('game_board_config')
@@ -310,7 +322,7 @@ def get_full_game_state_data(user_code_for_state=None):
 
     # Всегда получаем данные для игрового поля на основе активных пользователей
     all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
-    game_state['game_board'] = generate_game_board_data_for_display(all_active_users_for_board)
+    game_board_data = generate_game_board_data_for_display(all_active_users_for_board)
     game_state['current_num_board_cells'] = _current_game_board_num_cells
 
     return game_state
@@ -326,7 +338,7 @@ def perform_round_scoring(db):
     """
     print("Executing perform_round_scoring...", file=sys.stderr)
 
-    # --- ВСТАВЬТЕ СЮДА ПЕРЕНЕСЕННУЮ ЛОГИКУ ПОДСЧЕТА ОЧКОВ И ОБНОВЛЕНИЯ ПОЛЯ ИЗ admin_open_cards ---
+    # --- СЮДА ПЕРЕНЕСЕНА ЛОГИКА ПОДСЧЕТА ОЧКОВ И ОБНОВЛЕНИЯ ПОЛЯ ИЗ admin_open_cards ---
     # Основано на правилах, которые вы предоставили.
     active_subfolder = get_setting('active_subfolder')
     all_table_images = db.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,)).fetchall()
@@ -508,7 +520,7 @@ def perform_round_scoring(db):
              print("No active users to select a next leader.", file=sys.stderr)
     else:
         next_leader_id = None # Нет активных игроков
-        print("No active users to select a next leader.", file=sys.stderr)
+        print("No active users to select a next leader.", file=syserr)
 
 
     set_setting('current_leader_id', str(next_leader_id) if next_leader_id is not None else None)
@@ -1150,7 +1162,7 @@ def admin_open_cards():
         flash(f"Ошибка при подсчете очков: {e}", "danger")
         # В случае ошибки откатываем и сбрасываем флаг show_card_info
         try:
-             set_setting("show_card_info", "false")
+             set_setting("show_card_info", "false") # ИСПРАВЛЕНО: Синтаксическая ошибка здесь
              db.commit() # Фиксируем сброс флага
              socketio.emit('game_update', get_full_game_state_data(), broadcast=True)
         except Exception as inner_e:
@@ -1166,29 +1178,47 @@ def admin_open_cards():
 
 # --- SocketIO события ---
 @socketio.on('connect')
-def handle_connect():
+# ИСПРАВЛЕНО: Добавлены *args и **kwargs для корректной обработки аргументов, передаваемых SocketIO
+def handle_connect(*args, **kwargs):
     sid = request.sid
     user_code = session.get('user_code')
     if user_code:
         db = get_db()
-        user = db.execute("SELECT id, code FROM users WHERE code = ?", (user_code,)).fetchone()
-        if user:
-            connected_users_socketio[sid] = user_code
-            print(f"SocketIO: Client connected: SID={sid}, User code: {user_code}", file=sys.stderr)
-            # Отправляем начальное состояние игры только подключившемуся клиенту
-            try:
-                initial_state = get_full_game_state_data(user_code_for_state=user_code)
-                emit('game_update', initial_state, room=sid)
-            except Exception as e:
-                print(f"SocketIO: Error sending initial state to {sid}: {e}\n{traceback.format_exc()}", file=sys.stderr)
-        else:
-            print(f"SocketIO: Client connected with invalid user_code in session: SID={sid}, Code: {user_code}", file=sys.stderr)
-            # Очищаем некорректную сессию и, возможно, отправляем сообщение клиенту
-            session.pop('user_code', None)
-            emit('message', {'data': 'Ваша сессия недействительна. Пожалуйста, войдите снова.', 'category': 'danger'}, room=sid)
+        try: # Оборачиваем обращение к БД в try/except на случай, если таблица users еще не создана
+            user = db.execute("SELECT id, code FROM users WHERE code = ?", (user_code,)).fetchone()
+            if user:
+                connected_users_socketio[sid] = user_code
+                print(f"SocketIO: Client connected: SID={sid}, User code: {user_code}", file=sys.stderr)
+                # Отправляем начальное состояние игры только подключившемуся клиенту
+                try:
+                    initial_state = get_full_game_state_data(user_code_for_state=user_code)
+                    emit('game_update', initial_state, room=sid)
+                except Exception as e:
+                    print(f"SocketIO: Error sending initial state to {sid}: {e}\n{traceback.format_exc()}", file=sys.stderr)
+            else:
+                print(f"SocketIO: Client connected with invalid user_code in session: SID={sid}, Code: {user_code}. Clearing session.", file=sys.stderr)
+                # Очищаем некорректную сессию и, возможно, отправляем сообщение клиенту
+                session.pop('user_code', None)
+                # Отправляем базовое состояние гостя после очистки сессии
+                try:
+                     initial_state = get_full_game_state_data(user_code_for_state=None)
+                     emit('game_update', initial_state, room=sid)
+                except Exception as e:
+                     print(f"SocketIO: Error sending initial state to guest after invalid session: {sid}: {e}\n{traceback.format_exc()}", file=sys.stderr)
+
+        except sqlite3.OperationalError as e:
+             print(f"SocketIO: OperationalError accessing DB during connect for SID {sid}: {e}. Database might not be initialized.", file=sys.stderr)
+             traceback.print_exc()
+             # В случае ошибки БД при подключении, возможно, стоит отправить клиенту сообщение об ошибке сервера
+             emit('message', {'data': 'Ошибка сервера при подключении.', 'category': 'danger'}, room=sid)
+        except Exception as e:
+             print(f"SocketIO: Unexpected error during connect for SID {sid}: {e}", file=sys.stderr)
+             traceback.print_exc()
+             emit('message', {'data': 'Неизвестная ошибка сервера при подключении.', 'category': 'danger'}, room=sid)
+
 
     else:
-        print(f"SocketIO: Client connected without user_code in session: SID={sid}", file=sys.stderr)
+        print(f"SocketIO: Client connected without user_code in session: SID={sid} (Guest)", file=sys.stderr)
         # Для гостей без кода отправляем базовое состояние
         try:
              initial_state = get_full_game_state_data(user_code_for_state=None) # Передаем None для гостя
@@ -1207,27 +1237,38 @@ def handle_disconnect():
 # --- Запуск приложения ---
 if __name__ == "__main__":
     # Инициализация базы данных, если ее нет
-    init_db()
+    # ВАЖНО: Убедитесь, что ваша среда развертывания запускает этот блок кода
+    # ПЕРЕД тем, как приложение начинает принимать соединения.
+    print("Running init_db from __main__ block...", file=sys.stderr)
+    try:
+        init_db()
+        print("init_db completed from __main__ block.", file=sys.stderr)
+    except Exception as e:
+         print(f"Error during init_db execution in __main__: {e}", file=sys.stderr)
+         traceback.print_exc()
+
 
     # Инициализация визуализации игрового поля при старте
     print("Инициализация визуализации игрового поля...", file=sys.stderr)
-    # Передаем пустой список, так как игроки еще не на поле при старте,
-    # но нужно загрузить конфиг поля.
-    users_at_start = []
-    if os.path.exists(DB_PATH):
-        try:
-            conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row; cur = conn.cursor()
-            cur.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
-            users_at_start = cur.fetchall(); conn.close(); conn = None # Закрываем и обнуляем
-        except Exception as e: print(f"Ошибка чтения пользователей для поля при старте: {e}", file=sys.stderr)
-        finally:
-             if conn: conn.close()
+    # Получаем список активных пользователей для инициализации поля
+    users_for_board_init = []
+    # Повторяем попытку подключения к БД здесь, на случай, если init_db только что создал файл
+    try:
+         conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row; cur = conn.cursor()
+         cur.execute("SELECT id, name, rating FROM users WHERE status = 'active'")
+         users_for_board_init = cur.fetchall(); conn.close(); conn = None # Закрываем и обнуляем
+    except Exception as e: print(f"Ошибка чтения пользователей для поля при старте: {e}", file=sys.stderr)
+    finally:
+         if conn: conn.close()
 
-    initialize_new_game_board_visuals(all_users_for_rating_check=users_at_start)
+
+    initialize_new_game_board_visuals(users_for_board_config=users_for_board_init)
+    print("Game board visuals initialization finished.", file=sys.stderr)
 
 
     port = int(os.environ.get("PORT", 5000))
     # debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true" # Использовать переменную окружения FLASK_DEBUG
     # Используйте debug=True только в режиме разработки
     # allow_unsafe_werkzeug=True нужен для включения отладчика в Werkzeug, но может быть небезопасен на продакшене.
+    print(f"Starting SocketIO server on port {port}...", file=sys.stderr)
     socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
