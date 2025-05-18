@@ -315,107 +315,317 @@ def logout(): session.pop('is_admin', None); flash('Вы вышли из сис�
 
 
 # ===== ИЗМЕНЕНИЯ В МАРШРУТЕ ADMIN =====
+# ===== ИЗМЕНЕНИЯ В МАРШРУТЕ ADMIN =====
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
+    # Проверка авторизации администратора
     if not session.get('is_admin'):
         flash('Требуется авторизация.', 'warning')
         return redirect(url_for('login', next=request.url))
-    
+
     db = get_db()
     c = db.cursor() # Получаем курсор
 
-    # POST-обработка остается такой же, как была в вашем полном файле или как вы ее доработали
-    # Убедитесь, что после каждого действия, меняющего состояние, вызывается broadcast_game_state_update()
-    # Пример:
+    # --- POST-обработка ---
     if request.method == "POST":
-        action_admin = request.form.get("action_admin") # Пример вашего поля для определения действия
-        # Например:
+        # Определяем действие администратора по скрытому полю или значению кнопки
+        action_admin = request.form.get("action_admin")
+
         if action_admin == "set_active_deck_admin":
             new_active_subfolder = request.form.get("active_subfolder")
             set_setting("active_subfolder", new_active_subfolder if new_active_subfolder else "")
             flash(f"Активная колода изменена на '{new_active_subfolder or 'Не выбрана'}'.", "success" if new_active_subfolder else "info")
-            db.commit()
-            broadcast_game_state_update()
+            db.commit() # Фиксируем изменение настройки
+            broadcast_game_state_update() # Сообщаем клиентам об изменении
+            return redirect(url_for('admin')) # Перенаправляем обратно на страницу админки
+
         elif action_admin == "toggle_show_card_info_admin":
             new_show_info = not (get_setting('show_card_info') == 'true')
             set_setting('show_card_info', 'true' if new_show_info else 'false')
-            db.commit()
+            db.commit() # Фиксируем изменение настройки
             flash(f"Отображение инфо о картах {'вкл' if new_show_info else 'выкл'}.", "info")
+            broadcast_game_state_update() # Сообщаем клиентам об изменении
+            return redirect(url_for('admin')) # Перенаправляем обратно на страницу админки
+
+        elif action_admin == "add_user": # Действие добавления пользователя (предполагается action_admin="add_user" в форме)
+             name = request.form.get('name', '').strip()
+             # num_cards_to_deal_if_active = int(request.form.get('num_cards', 0)) # Поле num_cards игнорируется при добавлении
+             if not name:
+                 flash("Имя не может быть пустым.", "warning")
+                 return redirect(url_for('admin'))
+             try:
+                 # Проверяем, существует ли пользователь с таким именем
+                 user = c.execute("SELECT id, code, status, rating FROM users WHERE name = ?", (name,)).fetchone()
+                 if user:
+                     flash(f"Пользователь с именем '{name}' уже существует (ID: {user['id']}).", "warning")
+                 else:
+                     code = generate_unique_code()
+                     # Статус: активен, если игра не идет, иначе ожидающий
+                     status = 'pending' if is_game_in_progress() else 'active'
+                     c.execute("INSERT INTO users (name, code, status, rating) VALUES (?, ?, ?, 0)", (name, code, status))
+                     uid = c.lastrowid # Получаем ID нового пользователя
+                     db.commit() # Фиксируем создание пользователя
+
+                     flash(f"Пользователь '{name}' добавлен (Код: {code}). Статус: {'Ожидает' if status == 'pending' else 'Активен'}.", "success")
+                     # Отправляем обновление, чтобы другие клиенты увидели нового игрока в списке/на поле ожидания
+                     broadcast_game_state_update()
+             except sqlite3.Error as e:
+                 db.rollback() # Откатываем изменения в случае ошибки БД
+                 flash(f"Ошибка БД при добавлении пользователя: {e}", "danger")
+                 print(f"CRITICAL ERROR during add_user: {e}\n{traceback.format_exc()}", file=sys.stderr)
+             except Exception as e:
+                 db.rollback() # Откатываем изменения в случае любой другой ошибки
+                 flash(f"Произошла ошибка при добавлении пользователя: {e}", "danger")
+                 print(f"CRITICAL ERROR during add_user: {e}\n{traceback.format_exc()}", file=sys.stderr)
+             return redirect(url_for('admin')) # Перенаправляем обратно
+
+        elif request.form.get("delete_user_id"): # Действие удаления пользователя (определяется по наличию параметра delete_user_id)
+            user_id_to_delete = request.form.get("delete_user_id")
+            if user_id_to_delete:
+                try:
+                    user_id_to_delete_int = int(user_id_to_delete)
+
+                    # Получаем информацию об удаляемом пользователе до удаления
+                    deleted_user_info = c.execute("SELECT id, name FROM users WHERE id = ?", (user_id_to_delete_int,)).fetchone()
+                    if not deleted_user_info:
+                         flash(f"Ошибка: Пользователь с ID {user_id_to_delete_int} не найден.", "warning")
+                         return redirect(url_for('admin'))
+
+                    deleted_user_name = deleted_user_info['name'] or f'ID {user_id_to_delete_int}'
+
+                    # Проверяем, является ли удаляемый пользователь текущим ведущим
+                    current_leader_id = get_leading_user_id()
+                    is_deleted_user_leader = (current_leader_id is not None and current_leader_id == user_id_to_delete_int)
+
+                    # 1. Возвращаем все карты удаляемого пользователя в колоду и сбрасываем их предположения
+                    # Это затронет как карты в руке ('Занято:...'), так и карты на столе ('На столе:...').
+                    c.execute("UPDATE images SET owner_id = NULL, status = 'Свободно', guesses = '{}' WHERE owner_id = ?", (user_id_to_delete_int,))
+                    print(f"Admin Delete: Вернули карты пользователя '{deleted_user_name}' (ID {user_id_to_delete_int}) в колоду и сбросили предположения на них.", file=sys.stderr)
+
+                    # 2. Удаляем запись пользователя из таблицы users
+                    c.execute("DELETE FROM users WHERE id = ?", (user_id_to_delete_int,))
+                    db.commit() # Фиксируем удаление пользователя и обновление карт
+
+                    flash(f"Пользователь '{deleted_user_name}' удален.", "success")
+                    print(f"Admin Delete: Пользователь '{deleted_user_name}' (ID {user_id_to_delete_int}) успешно удален из БД.", file=sys.stderr)
+
+
+                    # 3. Если удаленный пользователь был ведущим, автоматически начинаем новый раунд
+                    if is_deleted_user_leader:
+                         print(f"Admin Delete: Удаленный пользователь '{deleted_user_name}' был ведущим. Автоматически запускаем новый раунд...", file=sys.stderr)
+
+                         # Логика начала нового раунда (адаптировано из new_round route)
+                         # Определяем нового ведущего из оставшихся активных игроков
+                         next_leader_id_ar = determine_new_leader(None) # Начинаем выбор ведущего с начала списка
+
+                         if next_leader_id_ar:
+                              set_leading_user_id(next_leader_id_ar)
+                              # Сообщение о новом ведущем будет добавлено после broadcast
+                         else:
+                              set_leading_user_id(None)
+                              # Сообщение об отсутствии ведущего будет добавлено после broadcast
+
+                         # Перемещаем любые карты, оставшиеся на столе (от ЛЮБЫХ игроков), в статус "Занято:Админ" и сбрасываем информацию
+                         c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'")
+                         print("Admin Delete: Переместили все карты со стола в статус 'Занято:Админ'.", file=sys.stderr)
+
+                         # Сбрасываем предположения на любых других картах, которые не были на столе
+                         c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'")
+                         print("Admin Delete: Сброшены предположения на картах вне стола.", file=sys.stderr)
+
+                         # Сбрасываем флаг показа информации о картах
+                         set_setting("show_card_info", "false")
+                         print("Admin Delete: Флаг show_card_info сброшен.", file=sys.stderr)
+
+
+                         # Раздаем ОДНУ новую карту каждому оставшемуся активному игроку из активной колоды
+                         # При автоматическом начале раунда после удаления ведущего раздаем по 1 карте для быстрого продолжения
+                         num_cards_per_player_for_new_round = 1
+                         remaining_active_user_ids = [row['id'] for row in c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id").fetchall()]
+
+                         if not remaining_active_user_ids:
+                              flash("Нет активных игроков для раздачи карт в новом раунде после удаления ведущего.", "warning")
+                              print("Admin Delete: Нет активных игроков для раздачи карт после удаления ведущего.", file=sys.stderr)
+                         else:
+                              active_subfolder = get_setting('active_subfolder') # Нужна активная колода
+                              if not active_subfolder:
+                                   flash("Активная колода не установлена для раздачи карт в новом раунде после удаления ведущего.", "warning")
+                                   print("Admin Delete: Активная колода не установлена для раздачи карт после удаления ведущего.", file=sys.stderr)
+                              else:
+                                   available_cards = [r['id'] for r in c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,)).fetchall()]
+                                   random.shuffle(available_cards)
+                                   num_dealt_total = 0
+                                   # Раздаем по одной карте каждому игроку
+                                   for i, user_id in enumerate(remaining_active_user_ids):
+                                        if num_dealt_total < len(available_cards):
+                                             c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[num_dealt_total]));
+                                             num_dealt_total += 1
+                                        else:
+                                             flash(f"Внимание: Закончились карты в колоде '{active_subfolder}'. Не все игроки получили по 1 карте в новом раунде после удаления ведущего.", "warning");
+                                             print(f"Admin Delete: Закончились карты ({active_subfolder}) при раздаче 1 карты на игрока после удаления ведущего.", file=sys.stderr)
+                                             break # Недостаточно карт
+
+                                   if num_dealt_total > 0 : flash(f"В новом раунде роздано {num_dealt_total} новых карт после удаления ведущего.", "info")
+                                   elif not available_cards and remaining_active_user_ids : flash(f"В колоде '{active_subfolder}' нет карт для раздачи в новом раунде после удаления ведущего.", "info")
+                                   print(f"Admin Delete: Роздано {num_dealt_total} карт в новом раунде после удаления ведущего.", file=sys.stderr)
+
+
+                         # Фиксируем все изменения, связанные с новым раундом
+                         db.commit()
+
+                         # Сообщаем о новом ведущем, если он был определен
+                         if next_leader_id_ar:
+                              flash(f"Новый ведущий: {get_user_name(next_leader_id_ar) or f'ID {next_leader_id_ar}'}.", "info")
+                         elif remaining_active_user_ids: # Предупреждение, если были игроки, но ведущий не определен
+                              flash("Ведущий не определен для нового раунда (нет активных игроков для выбора?) после удаления ведущего.", "warning")
+
+                    # Конец адаптированной логики нового раунда
+
+
+                    # 4. Отправляем обновление состояния игры всем клиентам, чтобы 반영 все изменения
+                    broadcast_game_state_update()
+
+                except ValueError:
+                    flash("Некорректный ID пользователя для удаления.", "danger")
+                    print("Admin Delete Error: Некорректный формат ID пользователя.", file=sys.stderr)
+                except sqlite3.Error as e:
+                    db.rollback() # Откатываем изменения в случае ошибки БД
+                    flash(f"Ошибка БД при удалении пользователя: {e}", "danger")
+                    print(f"CRITICAL ERROR during user deletion DB operation: {e}\n{traceback.format_exc()}", file=sys.stderr)
+                except Exception as e:
+                    # Перехватываем любые другие исключения в процессе удаления
+                    db.rollback() # Убеждаемся, что изменения отменены, если что-то пошло не так
+                    flash(f"Произошла ошибка при удалении пользователя: {e}", "danger")
+                    print(f"CRITICAL ERROR during user deletion process: {e}\n{traceback.format_exc()}", file=sys.stderr)
+
+            # Всегда перенаправляем обратно на страницу администратора после обработки POST-запроса
+            return redirect(url_for('admin'))
+
+        elif action_admin == "reset_game_board_visuals": # Действие сброса визуализации игрового поля
+            num_cells_str = request.form.get('num_cells_for_board_reset', '').strip()
+            num_cells = None
+            if num_cells_str:
+                try:
+                    num_cells = int(num_cells_str)
+                    if num_cells <= 0:
+                         num_cells = None # Используем значение по умолчанию/автоопределение, если число неположительное
+                         flash("Кол-во ячеек должно быть положительным. Использовано автоопределение.", "warning")
+                except ValueError:
+                    flash("Некорректное значение для кол-ва ячеек. Использовано автоопределение.", "warning")
+                    num_cells = None
+
+            # Получаем активных пользователей для корректного автоопределения размера поля
+            active_users_for_board_init = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
+            # Инициализируем новую конфигурацию визуализации поля
+            initialize_new_game_board_visuals(num_cells_for_board=num_cells, all_users_for_rating_check=active_users_for_board_init)
+            # Изменения _current_game_board_pole_image_config хранятся в памяти, не требуют коммита БД
+            flash("Визуализация игрового поля обновлена.", "success")
+            # Сообщаем клиентам об обновлении игрового поля
             broadcast_game_state_update()
-        # ... другие ваши POST обработчики ...
-        return redirect(url_for('admin'))
+            return redirect(url_for('admin'))
+
+        # Добавьте обработчики для других POST-действий здесь, если они есть
+
+        # Обработка неизвестных POST-действий
+        else:
+            flash("Неизвестное действие администратора.", "warning")
+            print(f"Admin POST: Получено неизвестное действие: {request.form}", file=sys.stderr)
+            return redirect(url_for('admin'))
 
 
-    # Сбор данных для шаблона admin.html
-    users_raw = c.execute("SELECT id, name, code, rating, status FROM users ORDER BY name ASC").fetchall()
+    # --- GET-обработка (сбор данных для шаблона admin.html) ---
+    # Этот блок выполняется при обычном GET-запросе страницы админки,
+    # чтобы собрать все данные для отображения текущего состояния.
+    # Он остается без изменений с предыдущей версии.
+
+    # Получаем список пользователей, сортируя по статусу (активные первыми) и имени
+    users_raw = c.execute("SELECT id, name, code, rating, status FROM users ORDER BY status DESC, name ASC").fetchall()
     users_for_template = [dict(row) for row in users_raw]
 
+    # Получаем список изображений
     images_db = c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id LIMIT 500").fetchall() # Ограничение для производительности
     images_for_template = []
+    # Собираем информацию о владельцах карт и всех предположениях для отображения в таблице
+    image_owners_for_template = {}
+    all_guesses_for_template = {}
+
     for img_row in images_db:
         img_dict = dict(img_row)
         try:
+            # Парсим предположения
             img_dict['guesses'] = json.loads(img_row['guesses'] or '{}')
+            # Сохраняем предположения, если они есть
+            if img_dict['guesses'] and img_dict['id'] is not None:
+                 all_guesses_for_template[img_dict['id']] = img_dict['guesses']
         except json.JSONDecodeError:
-            img_dict['guesses'] = {} # В случае ошибки парсинга JSON
+            img_dict['guesses'] = {} # В случае ошибки парсинга JSON делаем пустой словарь
+        # Сохраняем ID владельца, если он есть
+        if img_dict.get('owner_id') is not None:
+             image_owners_for_template[img_dict['id']] = img_dict['owner_id']
         images_for_template.append(img_dict)
 
+    # Получаем список всех подпапок с изображениями
     subfolders_for_template = [row['subfolder'] for row in c.execute("SELECT DISTINCT subfolder FROM images ORDER BY subfolder").fetchall()]
-    
+
+    # Фильтруем список активных пользователей для удобства
     active_users_for_template = [u for u in users_for_template if u['status'] == 'active']
 
-    # Восстанавливаем логику для user_has_duplicate_guesses и связанных переменных
-    all_guesses_for_template = {}
-    for img in images_for_template:
-        if img['guesses'] and isinstance(img['guesses'], dict) and img['id'] is not None:
-             all_guesses_for_template[img['id']] = img['guesses']
-    
+    # Пересчитываем количество предположений для каждого активного пользователя и проверяем на дубликаты
     guess_counts_by_user_for_template = {u['id']: 0 for u in active_users_for_template}
     user_has_duplicate_guesses_for_template = {u['id']: False for u in active_users_for_template}
 
     if all_guesses_for_template and active_users_for_template:
-        for user_item_dict in active_users_for_template: # user_item_dict это уже словарь
+        for user_item_dict in active_users_for_template: # Перебираем активных пользователей
             user_id_str = str(user_item_dict['id'])
-            guesses_made_by_this_user = []
-            for image_id_key_str in all_guesses_for_template: # image_id_key_str это id картинки (ключ словаря)
-                guesses_on_one_image = all_guesses_for_template[image_id_key_str] # это словарь голосов за эту картинку
-                if user_id_str in guesses_on_one_image: # если текущий юзер голосовал за эту картинку
-                    guesses_made_by_this_user.append(guesses_on_one_image[user_id_str]) # добавляем ID того, за кого он проголосовал
+            guesses_made_by_this_user_targets = [] # Список ID игроков, которых угадал данный пользователь
+            for image_id_key_str in all_guesses_for_template: # Перебираем карты с предположениями
+                guesses_on_one_image = all_guesses_for_template[image_id_key_str] # Предположения по одной карте
+                if user_id_str in guesses_on_one_image: # Если текущий пользователь угадывал по этой карте
+                    # Увеличиваем счетчик предположений для этого пользователя
                     guess_counts_by_user_for_template[user_item_dict['id']] += 1
-            
-            # Проверка на дубликаты (если пользователь проголосовал за одного и того же игрока для РАЗНЫХ карт)
-            # Это не то, что обычно проверяется как "дубликат". Обычно дубликат - это если он за ОДНУ карту пытается проголосовать несколько раз
-            # или если он выложил две одинаковые карты (что невозможно по другой логике).
-            # Логика ниже проверяет, не указывал ли он одного и того же ДРУГОГО игрока в качестве предполагаемого владельца для РАЗНЫХ карт.
-            # Если это то, что нужно, оставляем. Если нет, эту проверку нужно скорректировать.
-            if len(guesses_made_by_this_user) > len(set(guesses_made_by_this_user)):
+                    # Сохраняем ID игрока, которого он угадал (значение в словаре предположений)
+                    try:
+                         guessed_target_id = int(guesses_on_one_image[user_id_str])
+                         guesses_made_by_this_user_targets.append(guessed_target_id)
+                    except (ValueError, TypeError):
+                         print(f"Admin Template: Некорректный guessed_target_id в предположениях для карты {image_id_key_str} пользователем {user_id_str}.", file=sys.stderr)
+                         pass # Пропускаем некорректное значение
+
+            # Проверка на дубликаты: угадывал ли пользователь ОДНОГО И ТОГО ЖЕ ИГРОКА для РАЗНЫХ карт
+            if len(guesses_made_by_this_user_targets) > len(set(guesses_made_by_this_user_targets)):
                 user_has_duplicate_guesses_for_template[user_item_dict['id']] = True
-    
+
+
     current_active_subfolder = get_setting('active_subfolder') or ''
     current_leader_from_db = get_leading_user_id()
-    potential_next_leader_id = determine_new_leader(current_leader_from_db)
-    free_image_count_for_template = sum(1 for img in images_for_template if img.get('status') == 'Свободно' and img.get('subfolder') == current_active_subfolder)
-    image_owners_for_template = {img['id']: img['owner_id'] for img in images_for_template if img.get('owner_id') is not None}
 
+    # Подсчет количества свободных изображений в активной колоде
+    free_image_count_for_template = sum(1 for img in images_for_template if img.get('status') == 'Свободно' and img.get('subfolder') == current_active_subfolder)
+
+
+    # Получаем данные для построения игрового поля (только активные игроки)
     db_users_for_board_fetch = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
     game_board_data_for_template = generate_game_board_data_for_display(db_users_for_board_fetch)
 
 
-    return render_template("admin.html", 
-                           users=users_for_template, 
-                           images=images_for_template, 
+    # Отображаем шаблон admin.html, передавая все собранные данные
+    return render_template("admin.html",
+                           users=users_for_template,
+                           images=images_for_template,
                            subfolders=subfolders_for_template,
-                           active_subfolder=current_active_subfolder, 
+                           active_subfolder=current_active_subfolder,
                            db_current_leader_id=current_leader_from_db,
-                           potential_next_leader_id=potential_next_leader_id,
+                           # potential_next_leader_id=potential_next_leader_id, # Убрано из шаблона, менее критично для админки
                            free_image_count=free_image_count_for_template,
-                           image_owners=image_owners_for_template,
+                           image_owners=image_owners_for_template, # Передаем владельцев карт для отображения деталей предположений
                            game_board=game_board_data_for_template,
-                           all_guesses=all_guesses_for_template, # Передаем в шаблон
-                           guess_counts_by_user=guess_counts_by_user_for_template, # Передаем в шаблон
-                           user_has_duplicate_guesses=user_has_duplicate_guesses_for_template, # Передаем в шаблон
-                           get_user_name_func=get_user_name, # Jinja global, но можно и так
-                           current_num_board_cells=_current_game_board_num_cells
+                           all_guesses=all_guesses_for_template, # Передаем все предположения для отображения деталей
+                           guess_counts_by_user=guess_counts_by_user_for_template, # Передаем кол-во предположений по каждому игроку
+                           user_has_duplicate_guesses=user_has_duplicate_guesses_for_template, # Передаем флаги дубликатов
+                           get_user_name_func=get_user_name, # Функция для получения имени пользователя по ID в шаблоне
+                           current_num_board_cells=_current_game_board_num_cells # Передаем текущий размер игрового поля
+                           )
+# ===== КОНЕЦ ИЗМЕНЕНИЙ В МАРШРУТЕ ADMIN =====
                            )
 # ===== КОНЕЦ ИЗМЕНЕНИЙ В МАРШРУТЕ ADMIN =====
 
