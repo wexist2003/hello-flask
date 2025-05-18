@@ -326,7 +326,7 @@ def perform_round_scoring(db):
     """
     print("Executing perform_round_scoring...", file=sys.stderr)
 
-    # --- СЮДА ПЕРЕНЕСЕНА ЛОГИКА ПОДСЧЕТА ОЧКОВ И ОБНОВЛЕНИЯ ПОЛЯ ИЗ admin_open_cards ---
+    # --- ВСТАВЬТЕ СЮДА ПЕРЕНЕСЕННУЮ ЛОГИКУ ПОДСЧЕТА ОЧКОВ И ОБНОВЛЕНИЯ ПОЛЯ ИЗ admin_open_cards ---
     # Основано на правилах, которые вы предоставили.
     active_subfolder = get_setting('active_subfolder')
     all_table_images = db.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%' AND subfolder = ?", (active_subfolder,)).fetchall()
@@ -350,98 +350,99 @@ def perform_round_scoring(db):
         num_who_guessed_leader_card = len(guesser_ids_who_guessed_leader)
         num_players_who_should_guess = len(guesser_ids_who_should_guess)
 
-        # 1. Если карточку ведущего угадали все игроки (кто должен был угадывать)
-        if num_players_who_should_guess > 0 and num_who_guessed_leader_card == num_players_who_should_guess:
-            print(f"Rule 1: Leader ({get_user_name(current_leader_id)}) guessed by all who should guess. Moving back.", file=sys.stderr)
-            if current_leader_id in scores:
-                current_leader_rating = next((user['rating'] for user in active_users if user['id'] == current_leader_id), 0)
-                # Идет на 3 хода назад или на поле 1
-                new_rating = max(1, current_leader_rating - 3)
-                db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, current_leader_id))
-                print(f"Leader new rating: {new_rating}", file=sys.stderr)
-            # Остальные игроки стоят на месте - их рейтинги не меняются в этом условии.
-            # Подсчет очков завершается в этом раунде для этого условия.
 
-        # 2. Если карточку ведущего никто не угадал (среди тех, кто должен был угадывать)
-        elif num_players_who_should_guess > 0 and num_who_guessed_leader_card == 0:
-            print(f"Rule 2: Leader ({get_user_name(current_leader_id)}) not guessed by anyone who should guess. Moving back.", file=sys.stderr)
-            if current_leader_id in scores:
-                current_leader_rating = next((user['rating'] for user in active_users if user['id'] == current_leader_id), 0)
-                 # Идет на 2 хода назад
-                new_rating = max(1, current_leader_rating - 2)
-                db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, current_leader_id))
-                print(f"Leader new rating: {new_rating}", file=sys.stderr)
+        # Логика для Ведущего
+        if current_leader_id in scores: # Убедимся, что ведущий активен
+             if num_players_who_should_guess > 0: # Учитываем только если есть игроки, которые могли угадывать
+                 if num_who_guessed_leader_card == num_players_who_should_guess: # Если ведущего угадали ВСЕ, КТО ДОЛЖЕН БЫЛ УГАДАТЬ
+                     # Правило: Ведущий идет назад на 3 хода (или на поле 1)
+                     print(f"Rule 1: Leader ({get_user_name(current_leader_id)}) guessed by all who should guess. Moving back.", file=sys.stderr)
+                     current_leader_rating = next((user['rating'] for user in active_users if user['id'] == current_leader_id), 0)
+                     new_rating = max(1, current_leader_rating - 3)
+                     db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, current_leader_id))
+                     print(f"Leader new rating: {new_rating}", file=sys.stderr)
+                     # Остальные игроки стоят на месте - их рейтинги не меняются в этом условии.
 
-            # Плюс, очки получают игроки, чьи карточки угадали, по одному очку за каждого угадавшего их карту.
-            for card in all_table_images:
-                if card['owner_id'] != current_leader_id: # Рассматриваем только карточки игроков
-                    card_guesses = json.loads(card['guesses'] or '{}')
-                    num_who_guessed_this_card_correctly = 0
-                    # Кто угадал именно владельца этой карточки (среди тех, кто должен был угадывать)?
-                    for guesser_id_str, guessed_target_id in card_guesses.items():
-                        guesser_id = int(guesser_id_str)
-                        if guesser_id in guesser_ids_who_should_guess and int(guessed_target_id) == card['owner_id']:
-                             num_who_guessed_this_card_correctly += 1
+                 elif num_who_guessed_leader_card == 0: # Если ведущего НЕ угадал НИКТО, КТО ДОЛЖЕН БЫЛ УГАДЫВАТЬ
+                     # Правило: Ведущий идет назад на 2 хода
+                     print(f"Rule 2: Leader ({get_user_name(current_leader_id)}) not guessed by anyone who should guess. Moving back.", file=sys.stderr)
+                     current_leader_rating = next((user['rating'] for user in active_users if user['id'] == current_leader_id), 0)
+                     new_rating = max(1, current_leader_rating - 2)
+                     db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, current_leader_id))
+                     print(f"Leader new rating: {new_rating}", file=sys.stderr)
 
-                    # Очки игроку, чью карточку угадали (получает по 1 очку за каждого, кто угадал его карту)
-                    if card['owner_id'] in scores and num_who_guessed_this_card_correctly > 0:
-                         scores[card['owner_id']] += num_who_guessed_this_card_correctly
-                         print(f"Rule 2: Card of {get_user_name(card['owner_id'])} guessed by {num_who_guessed_this_card_correctly} players. Owner gains {num_who_guessed_this_card_correctly} points.", file=sys.stderr)
-            # Обновляем рейтинги игроков (которые не ведущий), если они набрали очки
-            for user_id, round_score in scores.items():
-                 if user_id != current_leader_id and round_score > 0:
-                     current_rating_db_row = db.execute("SELECT rating FROM users WHERE id = ?", (user_id,)).fetchone()
-                     if current_rating_db_row:
-                         current_rating_db = current_rating_db_row['rating']
-                         new_rating = current_rating_db + round_score
-                         new_rating = max(1, new_rating)
-                         db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, user_id))
-                         print(f"User {get_user_name(user_id)} gained {round_score} points. New rating: {new_rating}", file=sys.stderr)
+                     # Плюс, очки получают игроки, чьи карточки угадали, по одному очку за каждого угадавшего их карту.
+                     for card in all_table_images:
+                         if card['owner_id'] != current_leader_id: # Рассматриваем только карточки игроков
+                             card_guesses = json.loads(card['guesses'] or '{}')
+                             num_who_guessed_this_card_correctly = 0
+                             # Кто угадал именно владельца этой карточки (среди тех, кто должен был угадывать)?
+                             for guesser_id_str, guessed_target_id in card_guesses.items():
+                                 guesser_id = int(guesser_id_str)
+                                 if guesser_id in guesser_ids_who_should_guess and int(guessed_target_id) == card['owner_id']:
+                                      num_who_guessed_this_card_correctly += 1
 
-        # 3. В любом другом случае
-        else:
-            print("Rule 3: Mixed guesses for leader. Calculating points...", file=sys.stderr)
-            # а) по 3 очка получают все игроки, правильно угадавшие карточку Ведущего.
-            for guesser_id in guesser_ids_who_guessed_leader:
-                 if guesser_id in scores:
-                     scores[guesser_id] += 3
-                     print(f"Rule 3a: User {get_user_name(guesser_id)} correctly guessed leader. Gains 3 points.", file=sys.stderr)
+                             # Очки игроку, чью карточку угадали (получает по 1 очку за каждого, кто угадал его карту)
+                             if card['owner_id'] in scores and num_who_guessed_this_card_correctly > 0:
+                                  scores[card['owner_id']] += num_who_guessed_this_card_correctly
+                                  print(f"Rule 2: Card of {get_user_name(card['owner_id'])} guessed by {num_who_guessed_this_card_correctly} players. Owner gains {num_who_guessed_this_card_correctly} points.", file=sys.stderr)
+                     # Обновляем рейтинги игроков (которые не ведущий), если они набрали очки
+                     for user_id, round_score in scores.items():
+                          if user_id != current_leader_id and round_score > 0:
+                              current_rating_db_row = db.execute("SELECT rating FROM users WHERE id = ?", (user_id,)).fetchone()
+                              if current_rating_db_row:
+                                  current_rating_db = current_rating_db_row['rating']
+                                  new_rating = current_rating_db + round_score
+                                  new_rating = max(1, new_rating)
+                                  db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, user_id))
+                                  print(f"User {get_user_name(user_id)} gained {round_score} points. New rating: {new_rating}", file=sys.stderr)
 
-            # Ведущий получает 3 очка плюс по очку за каждого угадавшего его карточку игрока.
-            if current_leader_id in scores:
-                 leader_points = 3 + num_who_guessed_leader_card
-                 scores[current_leader_id] += leader_points
-                 print(f"Rule 3a: Leader ({get_user_name(current_leader_id)}) gains {leader_points} points (3 + {num_who_guessed_leader_card}).", file=sys.stderr)
 
-            # б) Все игроки получают по одному очку за каждого игрока, который угадал их карточку.
-            for card in all_table_images:
-                if card['owner_id'] != current_leader_id: # Рассматриваем только карточки игроков
-                    card_guesses = json.loads(card['guesses'] or '{}')
-                    num_who_guessed_this_card_correctly = 0
-                    # Кто угадал именно владельца этой карточки (среди тех, кто должен был угадывать)?
-                    for guesser_id_str, guessed_target_id in card_guesses.items():
-                         guesser_id = int(guesser_id_str)
-                         if guesser_id in guesser_ids_who_should_guess and int(guessed_target_id) == card['owner_id']:
-                             num_who_guessed_this_card_correctly += 1
+                 else: # В любом другом случае (угадал кто-то, но не все и не никто из тех, кто должен был угадывать)
+                     print("Rule 3: Mixed guesses for leader. Calculating points...", file=sys.stderr)
+                     # а) по 3 очка получают все игроки, правильно угадавшие карточку Ведущего.
+                     for guesser_id in guesser_ids_who_guessed_leader:
+                          if guesser_id in scores:
+                              scores[guesser_id] += 3
+                              print(f"Rule 3a: User {get_user_name(guesser_id)} correctly guessed leader. Gains 3 points.", file=sys.stderr)
 
-                    # Очки игроку, чью карточку угадали (получает по 1 очку за каждого, кто угадал его карту)
-                    if card['owner_id'] in scores and num_who_guessed_this_card_correctly > 0:
-                         scores[card['owner_id']] += num_who_guessed_this_card_correctly
-                         print(f"Rule 3b: Card of {get_user_name(card['owner_id'])} guessed by {num_who_guessed_this_card_correctly} players. Owner gains {num_who_guessed_this_card_correctly} points.", file=sys.stderr)
+                     # Ведущий получает 3 очка плюс по очку за каждого угадавшего его карточку игрока.
+                     if current_leader_id in scores:
+                          leader_points = 3 + num_who_guessed_leader_card
+                          scores[current_leader_id] += leader_points
+                          print(f"Rule 3a: Leader ({get_user_name(current_leader_id)}) gains {leader_points} points (3 + {num_who_guessed_leader_card}).", file=sys.stderr)
 
-            # Обновляем рейтинги всех активных игроков на основе набранных в раунде очков
-            for user_id, round_score in scores.items():
-                 current_rating_db_row = db.execute("SELECT rating FROM users WHERE id = ?", (user_id,)).fetchone()
-                 if current_rating_db_row:
-                     current_rating_db = current_rating_db_row['rating']
-                     new_rating = current_rating_db + round_score
-                     new_rating = max(1, new_rating)
-                     db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, user_id))
-                     if round_score > 0:
-                         print(f"User {get_user_name(user_id)} gained {round_score} points. New rating: {new_rating}", file=sys.stderr)
-                     elif round_score == 0:
-                         print(f"User {get_user_name(user_id)} rating remains {new_rating}.", file=sys.stderr)
+                     # б) Все игроки получают по одному очку за каждого игрока, который угадал их карточку.
+                     for card in all_table_images:
+                         if card['owner_id'] != current_leader_id: # Рассматриваем только карточки игроков
+                             card_guesses = json.loads(card['guesses'] or '{}')
+                             num_who_guessed_this_card_correctly = 0
+                             # Кто угадал именно владельца этой карточки (среди тех, кто должен был угадывать)?
+                             for guesser_id_str, guessed_target_id in card_guesses.items():
+                                  guesser_id = int(guesser_id_str)
+                                  if guesser_id in guesser_ids_who_should_guess and int(guessed_target_id) == card['owner_id']:
+                                      num_who_guessed_this_card_correctly += 1
 
+                             # Очки игроку, чью карточку угадали (получает по 1 очку за каждого, кто угадал его карту)
+                             if card['owner_id'] in scores and num_who_guessed_this_card_correctly > 0:
+                                  scores[card['owner_id']] += num_who_guessed_this_card_correctly
+                                  print(f"Rule 3b: Card of {get_user_name(card['owner_id'])} guessed by {num_who_guessed_this_card_correctly} players. Owner gains {num_who_guessed_this_card_correctly} points.", file=sys.stderr)
+
+                     # Обновляем рейтинги всех активных игроков на основе набранных в раунде очков
+                     for user_id, round_score in scores.items():
+                          current_rating_db_row = db.execute("SELECT rating FROM users WHERE id = ?", (user_id,)).fetchone()
+                          if current_rating_db_row:
+                              current_rating_db = current_rating_db_row['rating']
+                              new_rating = current_rating_db + round_score
+                              new_rating = max(1, new_rating)
+                              db.execute("UPDATE users SET rating = ? WHERE id = ?", (new_rating, user_id))
+                              if round_score > 0:
+                                  print(f"User {get_user_name(user_id)} gained {round_score} points. New rating: {new_rating}", file=sys.stderr)
+                              elif round_score == 0:
+                                  print(f"User {get_user_name(user_id)} rating remains {new_rating}.", file=sys.stderr)
+             else:
+                  # Случай, когда нет игроков, которые должны были угадывать (например, только Ведущий активен и выложил карту)
+                  print("No players who should guess. Skipping guess-based scoring.", file=sys.stderr)
 
     else:
         print("Leader card not found on the table. Skipping guess-based scoring logic.", file=sys.stderr)
@@ -507,7 +508,7 @@ def perform_round_scoring(db):
              print("No active users to select a next leader.", file=sys.stderr)
     else:
         next_leader_id = None # Нет активных игроков
-        print("No active users to select a next leader.", file=syserr)
+        print("No active users to select a next leader.", file=sys.stderr)
 
 
     set_setting('current_leader_id', str(next_leader_id) if next_leader_id is not None else None)
@@ -557,12 +558,11 @@ def index():
     current_leader_name = get_user_name(current_leader_id) if current_leader_id is not None else "Не определен"
 
     # Получаем список активных игроков для отображения на главной
-    active_users = db.execute("SELECT name, rating FROM users WHERE status = 'active' ORDER BY rating DESC").fetchall()
+    active_users = db.execute("SELECT id, name, rating FROM users WHERE status = 'active' ORDER BY rating DESC").fetchall() # Изменено для получения id
+    all_users_for_board = db.execute("SELECT id, name, rating FROM users").fetchall() # Получаем всех для отображения на поле главной
 
     # Получаем данные игрового поля для отображения на главной
-    all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
-    game_board_data = generate_game_board_data_for_display(all_active_users_for_board)
-
+    game_board_data = generate_game_board_data_for_display(all_users_for_board) # Передаем всех пользователей
 
     return render_template('index.html',
                            card_subfolders=card_subfolders,
@@ -745,7 +745,7 @@ def guess_card(user_code, image_id):
 
     # Убедимся, что карточка существует и находится на столе
     active_subfolder = get_setting('active_subfolder')
-    image_on_table = db.execute("SELECT id, owner_id, guesses FROM images WHERE id = ? AND status LIKE 'На столе:%' AND subfolder = ?", (image_id, active_subfolder)).fetchone()
+    image_on_table = db.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%' AND subfolder = ?", (image_id, active_subfolder)).fetchone()
     if not image_on_table:
         flash("Карточка не найдена на столе.", "danger")
         return redirect(url_for('user', user_code=user_code))
@@ -839,8 +839,10 @@ def guess_card(user_code, image_id):
                 flash(f"Произошла ошибка при автоматическом подсчете очков: {e}", "danger")
                 # В случае ошибки откатываем и сбрасываем флаг show_card_info, чтобы игра не зависла
                 try:
+                     # ИСПРАВЛЕНО: Синтаксическая ошибка здесь
                      set_setting("show_card_info", "false")
                      db.commit() # Фиксируем сброс флага
+                     socketio.emit('game_update', get_full_game_state_data(), broadcast=True)
                 except Exception as inner_e:
                      print(f"Error during rollback and setting show_card_info to false after automatic scoring error: {inner_e}", file=sys.stderr)
         else:
@@ -1128,7 +1130,8 @@ def admin_open_cards():
 
     try:
         # Устанавливаем флаг, чтобы показать карточки
-        set_setting("show_card_info', 'true')
+        set_setting("show_card_info", "true") # ИСПРАВЛЕНО: Синтаксическая ошибка здесь
+
         # Фиксируем установку флага перед подсчетом, чтобы клиенты увидели его
         db.commit()
         print("Admin set show_card_info to true. Calling perform_round_scoring...", file=sys.stderr)
