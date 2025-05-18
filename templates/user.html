@@ -15,8 +15,14 @@
             --header-unified-font-size: 1.5rem;
             --header-unified-font-size-mobile: 1.3rem;
 
-            --my-card-highlight-color: #28a745;
+            --my-card-highlight-color: #28a745; /* Зеленый для своей карточки */
             --my-card-highlight-shadow: rgba(40, 167, 69, 0.5);
+
+            /* --- ДОБАВЛЕНО: Переменные для синего цвета рамки Ведущего --- */
+            --leader-card-highlight-color: #007bff; /* Синий для карточки Ведущего */
+            --leader-card-highlight-shadow: rgba(0, 123, 255, 0.5);
+            /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
             --my-vote-correct-bg: rgba(40, 167, 69, 0.15);
             --my-vote-incorrect-bg: rgba(220, 53, 69, 0.1);
 
@@ -302,6 +308,14 @@
             box-shadow: 0 0 12px var(--my-card-highlight-shadow);
         }
 
+        /* --- ДОБАВЛЕНО: Стиль для карточки Ведущего --- */
+        .leader-card-revealed .card {
+            border: 3px solid var(--leader-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--leader-card-highlight-shadow);
+        }
+        /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
+
         #rules-block { transition: background-color 0.3s, border-color 0.3s;
         }
         #rules-block img.rules-image { margin-top: 0.5rem;
@@ -438,6 +452,13 @@
             border-color: var(--my-card-highlight-color) !important;
             box-shadow: 0 0 12px var(--my-card-highlight-shadow);
         }
+         /* --- ДОБАВЛЕНО: Стиль для карточки Ведущего в темной теме --- */
+        body.dark-theme .leader-card-revealed .card {
+            border-color: var(--leader-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--leader-card-highlight-shadow);
+        }
+        /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
         body.dark-theme .my-vote-highlight.correct-guess { background-color: rgba(40, 167, 69, 0.25);
             border-left-color: var(--my-card-highlight-color); }
         body.dark-theme .my-vote-highlight.incorrect-guess { background-color: rgba(220, 53, 69, 0.2); border-left-color: #dc3545;
@@ -808,23 +829,19 @@
             }
         }
 
-        // --- ИСПРАВЛЕНО: updatePlayerHand (Удалена избыточная проверка статуса внутри цикла) ---
+        // updatePlayerHand без изменений
         function updatePlayerHand(gameState) {
-            // Добавлено playerHandSectionDiv в деструктуризацию для доступа внутри функции
             const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template, table_images } = gameState;
             const playerHandDiv = document.getElementById('player-hand');
             const playerHandSectionDiv = document.getElementById('player-hand-section'); // Получаем элемент здесь
 
             if (!playerHandDiv || !playerHandSectionDiv) return;
-            playerHandDiv.innerHTML = ''; // Очищаем содержимое перед обновлением
+            playerHandDiv.innerHTML = '';
 
-            // Ранний выход, если пользователя нет или он не активен
-            // Эта проверка ДОЛЖНА предотвратить выполнение остальной части функции для неактивных пользователей
             if (!current_user_data || current_user_data.status !== 'active') {
-                playerHandSectionDiv.style.display = 'none'; // Скрываем раздел, если не активен
-                return; // Завершаем выполнение функции
+                playerHandSectionDiv.style.display = 'none';
+                return;
             }
-            // Если пользователь активен, убеждаемся, что раздел виден
             playerHandSectionDiv.style.display = 'block';
 
 
@@ -836,11 +853,8 @@
                 return;
             }
 
-            // Логика, определяющая, можно ли выложить карту (для АКТИВНЫХ игроков)
             const canPlaceCardAction = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template;
 
-            // Найти карту текущего пользователя, которая уже на столе (если есть)
-            // Используем currentUserId, который обновляется в game_update
             const placedCardOnTable = table_images ? table_images.find(card => card.owner_id === currentUserId) : null;
 
             user_cards.forEach(card => {
@@ -848,40 +862,26 @@
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 let cardBodyContent = '';
-                let cardIsPlaced = placedCardOnTable && placedCardOnTable.id === card.id; // Проверка, выложена ли эта конкретная карта
+                let cardIsPlaced = placedCardOnTable && placedCardOnTable.id === card.id;
 
                 if (cardIsPlaced) {
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Эта карточка на столе)</p>';
-                    cardDiv.classList.add('placed-on-table'); // Добавить класс для стилизации
+                    cardDiv.classList.add('placed-on-table');
                 } else if (canPlaceCardAction) {
-                    // Если игрок активен (проверено в начале функции) и может выложить карту (по условиям canPlaceCardAction)
                     cardBodyContent = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
                 } else if (on_table_status) {
-                     // Если игрок активен, но уже выложил карту (не эту конкретную)
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Ваша карточка уже на столе)</p>';
                 } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
-                     // Если идет фаза угадывания
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Идет угадывание)</p>';
                 } else if (show_card_info) {
-                     // Если карты открыты
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>';
                 } else if (game_over) {
-                     // Если игра окончена
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
                 } else if (!game_in_progress) {
-                    // Если игра еще не началась
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание начала игры)</p>';
                 } else {
-                     // Общее ожидание (например, ожидание выкладывания карты ведущим)
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание)</p>';
                 }
-
-                // --- УДАЛЕНО: Избыточная проверка статуса внутри цикла ---
-                // else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
-                //      cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
-                // }
-                // --- КОНЕЦ УДАЛЕННОГО БЛОКА ---
-
 
                 const imagePath = `/static/images/${card.subfolder}/${card.image}`;
                 cardDiv.innerHTML = `
@@ -894,10 +894,10 @@
                 playerHandDiv.appendChild(cardDiv);
             });
         }
-        // --- КОНЕЦ ИСПРАВЛЕННОЙ updatePlayerHand ---
+        // --- КОНЕЦ updatePlayerHand ---
 
 
-        // updateTableCards без изменений относительно прошлой итерации (с показом имен)
+        // --- ИЗМЕНЕНО: updateTableCards (Добавлена логика выделения карточки Ведущего) ---
         function updateTableCards(gameState) {
             const { table_images, all_users_for_guessing, all_users_info, show_card_info, all_cards_placed_for_guessing_phase_to_template, db_current_leader_id, current_user_data, game_in_progress, game_over, leader_pole_pictogram_path, leader_pictogram_rating_display } = gameState;
             const tableCardsDiv = document.getElementById('table-cards');
@@ -955,9 +955,26 @@
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
+                // --- ИЗМЕНЕНО: Логика выделения карточек ---
+                // Выделение карточки текущего пользователя, если карты открыты (зеленая рамка)
                 if (show_card_info && current_user_data && card.owner_id === current_user_data.id) {
                     cardDiv.classList.add('my-owned-card-revealed');
                 }
+
+                // Выделение карточки Ведущего, если карты открыты (синяя рамка)
+                // Проверяем db_current_leader_id на наличие и совпадение с owner_id карточки
+                if (show_card_info && gameState.db_current_leader_id !== null && gameState.db_current_leader_id !== undefined && card.owner_id === gameState.db_current_leader_id) {
+                     cardDiv.classList.add('leader-card-revealed');
+                }
+                // Примечание: Если текущий пользователь является Ведущим, его карточка получит оба класса.
+                // CSS-правила .my-owned-card-revealed .card и .leader-card-revealed .card
+                // должны работать вместе или одно перекрывать другое в зависимости от порядка и специфичности.
+                // Сейчас они просто применяют border и box-shadow, которые могут совместиться.
+                // Если нужно, чтобы рамка была только одного цвета (например, только синяя для Ведущего, даже если это вы),
+                // потребуется дополнительная логика или специфичные CSS-правила.
+                // Текущая реализация просто добавляет классы независимо.
+                // --- КОНЕЦ ИЗМЕНЕННОГО ---
+
 
                 let cardImageSrc = "";
                 let cardAltText = "Карточка на столе";
@@ -1069,7 +1086,7 @@
                 tableCardsDiv.appendChild(cardDiv);
             });
         }
-         // --- КОНЕЦ updateTableCards ---
+         // --- КОНЕЦ ИЗМЕНЕННОЙ updateTableCards ---
 
 
         function updateGameBoard(boardCells, totalCells) {
