@@ -302,6 +302,20 @@ def get_full_game_state_data(user_code_for_state=None):
         # Передаем данные текущего пользователя явно для его страницы
         'current_user_data': dict(current_user_data) if current_user_data else None
     }
+    # --- Отладочный вывод перед возвратом game_state ---
+    print("--- Debug: game_state content ---", file=sys.stderr)
+    print(f"is_game_in_progress: {game_state.get('is_game_in_progress')}", file=sys.stderr)
+    print(f"is_game_over: {game_state.get('is_game_over')}", file=sys.stderr)
+    print(f"show_card_info: {game_state.get('show_card_info')}", file=sys.stderr)
+    print(f"current_leader_id: {game_state.get('current_leader_id')}", file=sys.stderr)
+    print(f"active_users count: {len(game_state.get('active_users', []))}", file=sys.stderr)
+    print(f"table_cards count: {len(game_state.get('table_cards', []))}", file=sys.stderr)
+    print(f"my_cards count: {len(game_state.get('my_cards', []))}", file=sys.stderr)
+    # print(f"users_data_for_guessing keys: {game_state.get('users_data_for_guessing', {}).keys()}", file=sys.stderr) # Может быть слишком много
+    print("-----------------------------------", file=sys.stderr)
+    # --- Конец отладочного вывода ---
+
+    return game_state
     return game_state
     
 # ===== КОНЕЦ ИЗМЕНЕНИЙ В ФУНКЦИИ get_full_game_state_data =====
