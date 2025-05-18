@@ -626,8 +626,6 @@ def admin():
                            current_num_board_cells=_current_game_board_num_cells # Передаем текущий размер игрового поля
                            )
 # ===== КОНЕЦ ИЗМЕНЕНИЙ В МАРШРУТЕ ADMIN =====
-                           )
-# ===== КОНЕЦ ИЗМЕНЕНИЙ В МАРШРУТЕ ADMIN =====
 
 @app.route("/start_new_game", methods=["POST"]) # Логика без изменений (с последнего раза)
 def start_new_game():
