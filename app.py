@@ -158,59 +158,117 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
             if user_rating == cell_number: users_in_this_cell.append({'id': user_data_item_board['id'], 'name': user_data_item_board['name'], 'rating': user_rating})
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
-def get_full_game_state_data(user_code_for_state=None): # Без изменений
-    db = get_db(); current_g_user_dict = None
+def get_full_game_state_data(user_code_for_state=None):
+    db = get_db()
+    current_g_user_dict = None
     if user_code_for_state:
         user_row = db.execute("SELECT id, name, code, rating, status FROM users WHERE code = ?", (user_code_for_state,)).fetchone()
-        if user_row: current_g_user_dict = dict(user_row)
+        if user_row:
+            current_g_user_dict = dict(user_row)
     active_subfolder_val = get_setting('active_subfolder')
+
+    # --- ДОБАВЛЕНО: Получаем данные обо ВСЕХ пользователях ---
+    all_users_info_db = db.execute("SELECT id, name FROM users").fetchall()
+    all_users_info_list = [{'id': u['id'], 'name': u['name']} for u in all_users_info_db]
+    # --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА ---
+
     game_state = {
         'game_in_progress': is_game_in_progress(), 'game_over': is_game_over(),
         'show_card_info': get_setting("show_card_info") == "true",
         'active_subfolder': active_subfolder_val, 'db_current_leader_id': get_leading_user_id(),
         'num_active_players': get_active_players_count(db),
-        'table_images': [], 'user_cards': [], 'all_users_for_guessing': [],
+        'table_images': [], 'user_cards': [],
+        'all_users_for_guessing': [], # Этот список используется для выпадающего списка угадывания (активные игроки с картами на столе)
+        'all_users_info': all_users_info_list, # --- ДОБАВЛЕНО: Новый список со всеми пользователями для поиска имен ---
         'on_table_status': False, 'is_current_user_the_db_leader': False,
         'leader_pole_pictogram_path': None, 'leader_pictogram_rating_display': None,
         'game_board': [], 'current_num_board_cells': _current_game_board_num_cells,
         'current_user_data': current_g_user_dict, 'num_cards_on_table': 0,
         'all_cards_placed_for_guessing_phase_to_template': False, 'flashed_messages': []
     }
+
     raw_table_cards = db.execute("SELECT i.id, i.image, i.subfolder, i.owner_id, u.name as owner_name, i.guesses FROM images i LEFT JOIN users u ON i.owner_id = u.id WHERE i.subfolder = ? AND i.status LIKE 'На столе:%' AND (u.status = 'active' OR u.status IS NULL)", (active_subfolder_val,)).fetchall() if active_subfolder_val else []
     game_state['num_cards_on_table'] = len(raw_table_cards)
+
     if game_state['game_in_progress'] and not game_state['game_over']:
+        # This condition checks if enough cards are placed for guessing phase
         game_state['all_cards_placed_for_guessing_phase_to_template'] = (game_state['num_active_players'] > 0 and game_state['num_cards_on_table'] >= game_state['num_active_players'])
+
         for card_row in raw_table_cards:
-            guesses_data = json.loads(card_row['guesses'] or '{}'); my_guess_val = None
+            guesses_data = json.loads(card_row['guesses'] or '{}')
+            my_guess_val = None
+            # If current user is active, in guessing phase, and not the owner, show their guess
             if current_g_user_dict and current_g_user_dict['status'] == 'active' and \
                game_state['all_cards_placed_for_guessing_phase_to_template'] and \
                not game_state['show_card_info'] and card_row['owner_id'] != current_g_user_dict['id']:
                 my_guess_val = guesses_data.get(str(current_g_user_dict['id']))
-            game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': my_guess_val})
+
+            game_state['table_images'].append({
+                'id': card_row['id'],
+                'image': card_row['image'],
+                'subfolder': card_row['subfolder'],
+                'owner_id': card_row['owner_id'],
+                'owner_name': get_user_name(card_row['owner_id']) or "N/A", # Still use get_user_name for initial owner_name
+                'guesses': guesses_data,
+                'my_guess_for_this_card_value': my_guess_val
+            })
+
         if current_g_user_dict and current_g_user_dict['status'] == 'active' and active_subfolder_val:
             user_cards_db = db.execute("SELECT id, image, subfolder FROM images WHERE owner_id = ? AND subfolder = ? AND status LIKE 'Занято:%'", (current_g_user_dict['id'], active_subfolder_val)).fetchall()
             game_state['user_cards'] = [{'id': r['id'], 'image': r['image'], 'subfolder': r['subfolder']} for r in user_cards_db]
-            if any(tc['owner_id'] == current_g_user_dict['id'] for tc in game_state['table_images']): game_state['on_table_status'] = True
+
+            # Check if current user has a card on the table
+            if any(tc['owner_id'] == current_g_user_dict['id'] for tc in game_state['table_images']):
+                game_state['on_table_status'] = True
+
+            # Populate all_users_for_guessing with active users who have cards on the table
+            # --- ИЗМЕНЕНО: Этот список только для выпадающего списка, имена берутся из all_users_info ---
             all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall()
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
-            if game_state['db_current_leader_id'] is not None: game_state['is_current_user_the_db_leader'] = (current_g_user_dict['id'] == game_state['db_current_leader_id'])
+            active_users_with_card_on_table = [
+                u for u in all_active_users_db
+                if any(card['owner_id'] == u['id'] for card in game_state['table_images'])
+            ]
+            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in active_users_with_card_on_table] # Пока оставляем имена здесь, но основная логика в user.html будет брать из all_users_info
+            # --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
+
+
+            if game_state['db_current_leader_id'] is not None:
+                game_state['is_current_user_the_db_leader'] = (current_g_user_dict['id'] == game_state['db_current_leader_id'])
+
+            # Leader pictogram logic (only for the active leader, before placing card)
             if game_state['is_current_user_the_db_leader'] and not game_state['on_table_status'] and \
                not game_state['show_card_info'] and not game_state['all_cards_placed_for_guessing_phase_to_template']:
                 leader_rating = int(current_g_user_dict.get('rating', 0))
                 game_state['leader_pictogram_rating_display'] = leader_rating
                 if leader_rating > 0 and _current_game_board_pole_image_config and leader_rating <= _current_game_board_num_cells and (leader_rating - 1) < len(_current_game_board_pole_image_config):
                     game_state['leader_pole_pictogram_path'] = _current_game_board_pole_image_config[leader_rating - 1]
-    elif game_state['show_card_info']: 
-        for card_row in raw_table_cards: 
+
+    elif game_state['show_card_info']:
+        # If game is not in progress but cards are shown (e.g., after scoring)
+        for card_row in raw_table_cards:
              guesses_data = json.loads(card_row['guesses'] or '{}')
-             game_state['table_images'].append({'id': card_row['id'], 'image': card_row['image'], 'subfolder': card_row['subfolder'],'owner_id': card_row['owner_id'], 'owner_name': get_user_name(card_row['owner_id']) or "N/A",'guesses': guesses_data, 'my_guess_for_this_card_value': None})
-        if current_g_user_dict:
-            all_active_users_db = db.execute("SELECT id, name FROM users WHERE status = 'active'").fetchall() 
-            game_state['all_users_for_guessing'] = [{'id': u['id'], 'name': u['name']} for u in all_active_users_db]
+             game_state['table_images'].append({
+                 'id': card_row['id'],
+                 'image': card_row['image'],
+                 'subfolder': card_row['subfolder'],
+                 'owner_id': card_row['owner_id'],
+                 'owner_name': get_user_name(card_row['owner_id']) or "N/A",
+                 'guesses': guesses_data,
+                 'my_guess_for_this_card_value': None # No active guessing possible here
+             })
+        # all_users_for_guessing remains empty in this case
+
+
+    # Always get data for the game board based on active users
     all_active_users_for_board = db.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
     game_state['game_board'] = generate_game_board_data_for_display(all_active_users_for_board)
     game_state['current_num_board_cells'] = _current_game_board_num_cells
+
+    # Flashed messages are handled by the template on initial render/redirect.
+    # For SocketIO updates, we don't need to pass them here.
+
     return game_state
+    
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
     active_sids = list(connected_users_socketio.keys())
