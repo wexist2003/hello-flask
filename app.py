@@ -158,8 +158,8 @@ def generate_game_board_data_for_display(all_users_data_for_board): # Без и�
             if user_rating == cell_number: users_in_this_cell.append({'id': user_data_item_board['id'], 'name': user_data_item_board['name'], 'rating': user_rating})
         board_cells_data.append({'cell_number': cell_number, 'image_path': cell_image_path, 'users_in_cell': users_in_this_cell})
     return board_cells_data
-# ===== ИЗМЕНЕНИЯ В ФУНКЦИИ get_full_game_state_data =====
-# ===== АКТУАЛЬНЫЙ КОД ФУНКЦИИ get_full_game_state_data =====
+
+
 def get_full_game_state_data(user_code_for_state=None):
     db = get_db()
     c = db.cursor()
@@ -230,15 +230,12 @@ def get_full_game_state_data(user_code_for_state=None):
                     guesser_id = int(guesser_id_str)
                     all_relevant_user_ids.add(guesser_id)
                 except (ValueError, TypeError):
-                    # print(f"State Error: Некорректный формат ID угадавшего в предположениях для карты {card['id']}: {guesser_id_str}", file=sys.stderr)
                     pass # Пропускаем некорректный ID
 
                 try:
-                    # Значение предположения - это ID игрока, которого угадывали
                     guessed_owner_id = int(guessed_owner_id_val)
                     all_relevant_user_ids.add(guessed_owner_id)
                 except (ValueError, TypeError):
-                     # print(f"State Error: Некорректный формат ID угаданного владельца в предположениях для карты {card['id']}: {guessed_owner_id_val}", file=sys.stderr)
                      pass # Пропускаем некорректный ID
 
 
@@ -266,19 +263,38 @@ def get_full_game_state_data(user_code_for_state=None):
             except json.JSONDecodeError: pass
 
 
-    # Извлекаем имена для ВСЕХ собранных relevant_user_ids
-    relevant_users_data_mapping = {}
+    # Извлекаем имена и ID для ВСЕХ собранных relevant_user_ids
+    # >>> ИСПРАВЛЕНИЕ: Формируем список словарей, а не словарь <<<
+    relevant_users_data_list = []
     if all_relevant_user_ids:
-        # Формируем строку вида "(?, ?, ?)" для SQL-запроса с IN Clause
+        # Создаем строку вида "(?, ?, ?)" для SQL-запроса с IN Clause
         placeholders = ', '.join('?' for _ in all_relevant_user_ids)
+        # Извлекаем ID и Имя для всех релевантных пользователей
         query = f"SELECT id, name FROM users WHERE id IN ({placeholders})"
         users_for_mapping = c.execute(query, list(all_relevant_user_ids)).fetchall()
-        # Создаем словарь ID -> Имя
-        relevant_users_data_mapping = {user['id']: user['name'] for user in users_for_mapping}
+        # Формируем список словарей с ключами 'id' и 'name'
+        relevant_users_data_list = [{'id': user['id'], 'name': user['name']} for user in users_for_mapping]
 
 
     # Получаем данные для построения игрового поля - эта функция уже работает с именами активных пользователей
-    game_board_data_for_template = generate_game_board_data_for_display([dict(u) for u in active_users_raw]) # Передаем активных пользователей с именем/рейтингом
+    all_active_users_for_board = [dict(u) for u in active_users_raw] # Убеждаемся, что передаем список словарей
+    game_board_data_for_template = generate_game_board_data_for_display(all_active_users_for_board) # Передаем активных пользователей с именем/рейтингом
+
+    # --- Отладочный вывод перед возвратом game_state ---
+    print("--- Debug: game_state content (before return) ---", file=sys.stderr)
+    print(f"is_game_in_progress: {settings_dict.get('game_in_progress') == 'true'}", file=sys.stderr)
+    print(f"is_game_over: {settings_dict.get('game_over') == 'true'}", file=sys.stderr)
+    print(f"show_card_info: {settings_dict.get('show_card_info') == 'true'}", file=sys.stderr)
+    print(f"current_leader_id: {current_leader_id}", file=sys.stderr)
+    print(f"active_users count: {len(active_users_raw)}", file=sys.stderr)
+    print(f"table_cards count: {len(table_cards_for_template)}", file=sys.stderr)
+    print(f"my_cards count: {len(my_cards_for_template)}", file=sys.stderr)
+    # Проверим тип и примерное содержимое users_data_for_guessing
+    print(f"users_data_for_guessing type: {type(relevant_users_data_list)}", file=sys.stderr)
+    if relevant_users_data_list:
+        print(f"users_data_for_guessing sample: {relevant_users_data_list[:5]}", file=sys.stderr)
+    print("-----------------------------------", file=sys.stderr)
+    # --- Конец отладочного вывода ---
 
 
     # Формируем словарь состояния игры для возврата
@@ -296,29 +312,17 @@ def get_full_game_state_data(user_code_for_state=None):
         # Убеждаемся, что этот флаг корректно считывается из строкового значения
         'show_card_info': settings_dict.get('show_card_info') == 'true',
         'active_subfolder': settings_dict.get('active_subfolder') or '',
-        # Используем расширенный relevant_users_data_mapping для сопоставления ID с именами в шаблоне
-        'users_data_for_guessing': relevant_users_data_mapping,
+        # >>> ИСПРАВЛЕНИЕ: Присваиваем список словарей полю 'users_data_for_guessing' <<<
+        'users_data_for_guessing': relevant_users_data_list,
         'game_board': game_board_data_for_template, # Данные для игрового поля
         # Передаем данные текущего пользователя явно для его страницы
-        'current_user_data': dict(current_user_data) if current_user_data else None
+        'current_user_data': dict(current_user_data) if current_user_data else None,
+        # Добавляем пустое поле для flashed_messages, если оно не было добавлено ранее
+        'flashed_messages': [] # Это поле может быть нужно на клиенте
     }
-    # --- Отладочный вывод перед возвратом game_state ---
-    print("--- Debug: game_state content ---", file=sys.stderr)
-    print(f"is_game_in_progress: {game_state.get('is_game_in_progress')}", file=sys.stderr)
-    print(f"is_game_over: {game_state.get('is_game_over')}", file=sys.stderr)
-    print(f"show_card_info: {game_state.get('show_card_info')}", file=sys.stderr)
-    print(f"current_leader_id: {game_state.get('current_leader_id')}", file=sys.stderr)
-    print(f"active_users count: {len(game_state.get('active_users', []))}", file=sys.stderr)
-    print(f"table_cards count: {len(game_state.get('table_cards', []))}", file=sys.stderr)
-    print(f"my_cards count: {len(game_state.get('my_cards', []))}", file=sys.stderr)
-    # print(f"users_data_for_guessing keys: {game_state.get('users_data_for_guessing', {}).keys()}", file=sys.stderr) # Может быть слишком много
-    print("-----------------------------------", file=sys.stderr)
-    # --- Конец отладочного вывода ---
 
     return game_state
-    return game_state
     
-# ===== КОНЕЦ ИЗМЕНЕНИЙ В ФУНКЦИИ get_full_game_state_data =====
 def broadcast_game_state_update(user_code_trigger=None): # Без изменений
     print(f"SocketIO: Broadcasting game_update. Triggered by: {user_code_trigger or 'System'}", file=sys.stderr)
     active_sids = list(connected_users_socketio.keys())
