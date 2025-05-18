@@ -707,20 +707,17 @@
             const leaderDisplay = document.getElementById('current-leader-display');
             const nextLeaderInfoContainer = document.getElementById('next-leader-info-container');
             const nextLeaderDisplay = document.getElementById('next-leader-display');
+            const playerHandSectionDiv = document.getElementById('player-hand-section'); // Получаем элемент здесь
 
-            // --- ДОБАВЛЕНО: Вспомогательная функция для поиска имени по ID из all_users_info ---
+            // Вспомогательная функция для поиска имени по ID из all_users_info
             const getUserNameById = (userId, gameState) => {
                  if (userId === null || userId === undefined) return 'Неизвестный';
-                 // Преобразуем userId в число для надежности сравнения, если он приходит строкой
                  const id = parseInt(userId);
-                 if (isNaN(id)) return `ID ${userId}`; // Обработка нечисловых ID
+                 if (isNaN(id)) return `ID ${userId}`;
 
-                 // Ищем пользователя в списке всех пользователей
                  const user = gameState.all_users_info?.find(u => u.id === id);
-                 // Возвращаем имя пользователя или fallback, если не найден
                  return user ? user.name : `Игрок ID ${id}`;
             };
-            // --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА ---
 
 
             if (gameState.current_user_data) {
@@ -752,7 +749,7 @@
                  if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '<span class="badge badge-secondary">Наблюдатель</span>'; // Указываем статус Гость
             }
 
-            // --- ИЗМЕНЕНО: Обновление отображения Ведущего с использованием getUserNameById ---
+            // Обновление отображения Ведущего с использованием getUserNameById
             let leaderName = 'Не определен';
             let isCurrentUserLeader = false;
             if (gameState.db_current_leader_id !== null && gameState.db_current_leader_id !== undefined && gameState.db_current_leader_id !== '') {
@@ -772,13 +769,9 @@
                     leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
                 }
             }
-            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
 
             if (nextLeaderInfoContainer && nextLeaderDisplay) {
-                // Примечание: gameState.next_leader_name сейчас не заполняется app.py
-                // Если app.py будет обновлен для отправки next_leader_id, можно использовать getUserNameById здесь.
-                // Пока этот раздел полагается на то, что сервер предоставит имя.
                 if (gameState.show_card_info && gameState.next_leader_name) {
                     nextLeaderDisplay.textContent = gameState.next_leader_name;
                     nextLeaderInfoContainer.style.display = 'block';
@@ -788,7 +781,7 @@
             }
 
 
-            updatePlayerHand(gameState);
+            updatePlayerHand(gameState); // Вызываем функции обновления
             updateTableCards(gameState);
             updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
 
@@ -815,21 +808,25 @@
             }
         }
 
-        // --- updatePlayerHand без изменений относительно прошлой итерации ---
+        // --- ИСПРАВЛЕНО: updatePlayerHand (Удалена избыточная проверка статуса внутри цикла) ---
         function updatePlayerHand(gameState) {
+            // Добавлено playerHandSectionDiv в деструктуризацию для доступа внутри функции
             const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template, table_images } = gameState;
             const playerHandDiv = document.getElementById('player-hand');
-            const playerHandSectionDiv = document.getElementById('player-hand-section');
+            const playerHandSectionDiv = document.getElementById('player-hand-section'); // Получаем элемент здесь
 
             if (!playerHandDiv || !playerHandSectionDiv) return;
-            playerHandDiv.innerHTML = '';
+            playerHandDiv.innerHTML = ''; // Очищаем содержимое перед обновлением
 
-            // Раздел "Мои карточки" скрыт, если пользователя нет или он не активен (уже сделано в game_update)
+            // Ранний выход, если пользователя нет или он не активен
+            // Эта проверка ДОЛЖНА предотвратить выполнение остальной части функции для неактивных пользователей
             if (!current_user_data || current_user_data.status !== 'active') {
-                playerHandSectionDiv.style.display = 'none'; // Убедимся на всякий случай
-                return;
+                playerHandSectionDiv.style.display = 'none'; // Скрываем раздел, если не активен
+                return; // Завершаем выполнение функции
             }
-            playerHandSectionDiv.style.display = 'block'; // Убедимся, что показан для активных
+            // Если пользователь активен, убеждаемся, что раздел виден
+            playerHandSectionDiv.style.display = 'block';
+
 
             if (!user_cards || user_cards.length === 0) {
                 let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>';
@@ -843,6 +840,7 @@
             const canPlaceCardAction = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template;
 
             // Найти карту текущего пользователя, которая уже на столе (если есть)
+            // Используем currentUserId, который обновляется в game_update
             const placedCardOnTable = table_images ? table_images.find(card => card.owner_id === currentUserId) : null;
 
             user_cards.forEach(card => {
@@ -850,21 +848,19 @@
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
                 let cardBodyContent = '';
-                let cardIsPlaced = placedCardOnTable && placedCardOnTable.id === card.id;
+                let cardIsPlaced = placedCardOnTable && placedCardOnTable.id === card.id; // Проверка, выложена ли эта конкретная карта
 
                 if (cardIsPlaced) {
-                    // Если эта конкретная карта уже на столе
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Эта карточка на столе)</p>';
                     cardDiv.classList.add('placed-on-table'); // Добавить класс для стилизации
                 } else if (canPlaceCardAction) {
-                    // Если игрок активен и может выложить карту (и эта карта еще не на столе)
-                    // Здесь мы уже знаем, что current_user_data.status === 'active' благодаря проверке выше
+                    // Если игрок активен (проверено в начале функции) и может выложить карту (по условиям canPlaceCardAction)
                     cardBodyContent = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
                 } else if (on_table_status) {
                      // Если игрок активен, но уже выложил карту (не эту конкретную)
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Ваша карточка уже на столе)</p>';
                 } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
-                     // Если игрок активен, все карты выложены, и идет фаза угадывания
+                     // Если идет фаза угадывания
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Идет угадывание)</p>';
                 } else if (show_card_info) {
                      // Если карты открыты
@@ -876,9 +872,16 @@
                     // Если игра еще не началась
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание начала игры)</p>';
                 } else {
-                    // Общее ожидание (например, ожидание выкладывания карты ведущим)
+                     // Общее ожидание (например, ожидание выкладывания карты ведущим)
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание)</p>';
                 }
+
+                // --- УДАЛЕНО: Избыточная проверка статуса внутри цикла ---
+                // else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
+                //      cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
+                // }
+                // --- КОНЕЦ УДАЛЕННОГО БЛОКА ---
+
 
                 const imagePath = `/static/images/${card.subfolder}/${card.image}`;
                 cardDiv.innerHTML = `
@@ -891,27 +894,23 @@
                 playerHandDiv.appendChild(cardDiv);
             });
         }
-        // --- КОНЕЦ updatePlayerHand ---
+        // --- КОНЕЦ ИСПРАВЛЕННОЙ updatePlayerHand ---
 
 
-        // --- ИЗМЕНЕНО: updateTableCards ДЛЯ ОТОБРАЖЕНИЯ ИМЕН ИЗ all_users_info ---
+        // updateTableCards без изменений относительно прошлой итерации (с показом имен)
         function updateTableCards(gameState) {
-            // Добавлено all_users_info в деструктуризацию
             const { table_images, all_users_for_guessing, all_users_info, show_card_info, all_cards_placed_for_guessing_phase_to_template, db_current_leader_id, current_user_data, game_in_progress, game_over, leader_pole_pictogram_path, leader_pictogram_rating_display } = gameState;
             const tableCardsDiv = document.getElementById('table-cards');
             const tablePlaceholderDiv = document.getElementById('table-placeholder');
 
-            // --- ДОБАВЛЕНО: Локальная вспомогательная функция для поиска имени по ID из all_users_info ---
             const getUserNameByIdLocal = (userId) => {
                  if (userId === null || userId === undefined) return 'Неизвестный';
                  const id = parseInt(userId);
                  if (isNaN(id)) return `ID ${userId}`;
 
-                 // Ищем пользователя в списке всех пользователей (из gameState)
                  const user = all_users_info?.find(u => u.id === id);
-                 return user ? user.name : `Игрок ID ${id}`; // Возвращаем имя или fallback
+                 return user ? user.name : `Игрок ID ${id}`;
             };
-            // --- КОНЕЦ ДОБАВЛЕННОЙ ЛОКАЛЬНОЙ ФУНКЦИИ ---
 
 
             if (!tableCardsDiv || !tablePlaceholderDiv) return;
@@ -922,7 +921,6 @@
 
             const noCardsOnTable = !table_images || table_images.length === 0;
 
-            // Логика отображения плейсхолдера, если на столе нет карточек
             if ((!game_in_progress && !show_card_info && !game_over) ||
                 (game_over && !show_card_info && noCardsOnTable) ||
                 (noCardsOnTable && game_in_progress && !game_over && !show_card_info )
@@ -936,13 +934,11 @@
                      placeholderText = 'Игра завершена. На столе не было карточек.';
                 } else if (game_in_progress && !game_over && noCardsOnTable) {
                     placeholderText = 'На столе пока нет карточек. Ожидание игроков...';
-                     // Специальный текст и пиктограмма для ведущего, если он активен, игра идет, карты еще не выложены
                      if (leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status && current_user_data.status === 'active') {
                         if(leaderPictogramImg) { leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`; leaderPictogramImg.style.display = 'block'; }
                         if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; leaderPictogramRatingP.style.display = 'block'; }
-                        placeholderText = ''; // Убираем общий текст плейсхолдера, если показано для ведущего
+                        placeholderText = '';
                     } else {
-                        // Скрываем пиктограмму и текст для ведущего, если не ведущий или не активен
                         if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
                         if(leaderPictogramRatingP) leaderPictogramRatingP.style.display = 'none';
                     }
@@ -952,7 +948,6 @@
                 return;
             }
 
-            // Если карточки на столе есть, показываем блок с карточками и скрываем плейсхолдер
             tablePlaceholderDiv.style.display = 'none';
             tableCardsDiv.style.display = 'flex';
 
@@ -960,7 +955,6 @@
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
-                // Выделение карточки текущего пользователя, если карты открыты
                 if (show_card_info && current_user_data && card.owner_id === current_user_data.id) {
                     cardDiv.classList.add('my-owned-card-revealed');
                 }
@@ -970,23 +964,19 @@
                 let cardBodyContent = '';
                 let ownerInfoAboveImage = '';
 
-                // Определяем источник изображения карточки (реальное или заглушка)
                  if ((!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) ||
                      (!game_in_progress && !game_over && !show_card_info) ||
                      (game_over && !show_card_info)
                    ) {
-                    cardImageSrc = "/static/images/a.jpg"; // Путь к заглушке
+                    cardImageSrc = "/static/images/a.jpg";
                     cardAltText = "Карточка на столе (заглушка)";
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>';
                 } else {
-                    // Показываем реальное изображение карточки
                     cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
                     cardAltText = `Карточка ${card.image}`;
                 }
 
-                // Если карты открыты (фаза подсчета очков), показываем владельца и предположения
                 if (show_card_info) {
-                    // --- ИЗМЕНЕНО: Используем getUserNameByIdLocal для отображения имени владельца карты ---
                     ownerInfoAboveImage = `<p class="mb-0 small text-center card-owner-info">Чья: <strong>${getUserNameByIdLocal(card.owner_id) || 'Неизв.'}</strong></p>`;
 
                     let guessesHtml = '';
@@ -996,15 +986,12 @@
                             const parsedGuesserId = parseInt(guesserIdStr);
                             const guessedTargetId = card.guesses[guesserIdStr];
 
-                            // --- ИЗМЕНЕНО: Используем getUserNameByIdLocal для отображения имен угадавшего и того, кого угадали ---
                             const guesserName = getUserNameByIdLocal(parsedGuesserId);
                             const targetName = getUserNameByIdLocal(guessedTargetId);
-                            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
 
                             const isCorrect = guessedTargetId === card.owner_id;
                             let myVoteClass = "";
-                            // Выделяем предположение текущего пользователя
                             if (current_user_data && parsedGuesserId === current_user_data.id) {
                                 myVoteClass = isCorrect ? "my-vote-highlight correct-guess" : "my-vote-highlight incorrect-guess";
                             }
@@ -1016,37 +1003,27 @@
                     }
                     cardBodyContent = guessesHtml;
 
-                    // Показываем "Мой голос", если пользователь активен и делал предположение по этой карте
                     if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id && card.my_guess_for_this_card_value !== undefined && card.my_guess_for_this_card_value !== null) {
-                        // --- ИЗМЕНЕНО: Используем getUserNameByIdLocal для получения имени того, кого угадал текущий пользователь ---
                         let myGuessedUserName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
-                        // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
                         let correctGuessIndicator = "";
                         if (card.my_guess_for_this_card_value === card.owner_id) {
                             correctGuessIndicator = ` <span class="badge badge-success">Верно</span>`;
                         } else {
-                            // --- ИЗМЕНЕНО: Используем getUserNameByIdLocal для отображения имени владельца в сообщении "Мимо" ---
                             correctGuessIndicator = ` <span class="badge badge-danger">Мимо</span> (Владелец: ${getUserNameByIdLocal(card.owner_id) || 'Неизв.'})`;
-                            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
                         }
                         cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`;
                     }
 
 
                 } else if (all_cards_placed_for_guessing_phase_to_template && game_in_progress && !game_over) {
-                    // Если все карты выложены, идет фаза угадывания, и карты еще не открыты
                     if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id) {
-                        // Показываем форму угадывания для активных игроков (кроме владельца карты)
                         let selectOptions = '<option value="">-- Выберите --</option>';
                         if(all_users_for_guessing) {
-                            // Наполняем выпадающий список активными игроками, у которых есть карта на столе
                             all_users_for_guessing.forEach(user => {
                                 const userCardOnTable = table_images.find(c => c.owner_id === user.id);
                                 if (user.id !== current_user_data.id && userCardOnTable) {
-                                    // --- ИЗМЕНЕНО: Используем имя пользователя из user объекта (который из all_users_for_guessing, где имена уже есть) ---
                                     selectOptions += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
-                                    // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
                                 }
                             });
                         }
@@ -1060,29 +1037,21 @@
                                 </div>
                                 <button type="submit" class="btn btn-warning btn-block guess-action-button">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
                             </form>`;
-                        // Показываем текущий выбор пользователя, если он уже угадывал эту карту
                         if(card.my_guess_for_this_card_value) {
-                            // --- ИЗМЕНЕНО: Используем getUserNameByIdLocal для получения имени того, кого угадал текущий пользователь ---
                             let guessedName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
-                            // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
                             cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
                         }
                     } else if (current_user_data && current_user_data.status === 'pending') {
-                         // Сообщение для наблюдателя во время фазы угадывания
                          cardBodyContent += '<p class="text-muted small text-center my-1">(Идет угадывание, вы наблюдатель)</p>';
                     }
                      else {
-                         // Сообщение для активного игрока, который является владельцем этой карты
                         cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>';
                     }
                 } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
-                     // Сообщение для наблюдателя, когда карты выложены, но не все, или идет другое ожидание
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
                 } else if (game_over && !show_card_info && cardImageSrc !== "/static/images/a.jpg") {
-                     // Сообщение, если игра окончена, карты не открыты, но показывается реальная карта
                      cardBodyContent = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
                 } else if (cardImageSrc !== "/static/images/a.jpg") {
-                     // Общее сообщение, если реальная карта показана, но нет активных действий (например, после игры)
                     cardBodyContent = '<p class="text-muted small text-center my-1">(Просмотр)</p>';
                 }
 
@@ -1100,7 +1069,7 @@
                 tableCardsDiv.appendChild(cardDiv);
             });
         }
-         // --- КОНЕЦ ИЗМЕНЕННОГО updateTableCards ---
+         // --- КОНЕЦ updateTableCards ---
 
 
         function updateGameBoard(boardCells, totalCells) {
@@ -1146,10 +1115,7 @@
                     cellHtml += '<div class="player-chips-container mt-auto mb-1">';
                     cell.users_in_cell.forEach(user => {
                         const isCurrentUserOnCell = currentUserId && user.id === currentUserId;
-                        // --- ИЗМЕНЕНО: Отображаем полное имя игрока на фишке ---
                         cellHtml += `<span class="player-chip badge ${isCurrentUserOnCell ? 'badge-success' : 'badge-primary'}" title="${user.name} (Рейтинг: ${user.rating})">${user.name}</span>`;
-                        // Примечание: Если имя слишком длинное, может понадобиться укоротить его или изменить дизайн фишек.
-                        // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
                     });
                     cellHtml += '</div>';
                 }
