@@ -872,7 +872,7 @@ def open_cards():
             # Проверяем основные случаи для карты ведущего, если есть другие активные игроки
             if total_other_active_players > 0:
                 if correct_leader_guesses_count_by_others == total_other_active_players:
-                    # Правило: "Если карточку ведущего угадали все игроки..."
+                    # Правило 1: "Если карточку ведущего угадали все игроки..."
                     # Ведущий теряет 3 балла. Остальные очки не начисляются.
                     leader_was_correctly_guessed_by_all_others = True
                     current_leader_current_rating = active_users_dict[current_leader_id]['rating']
@@ -880,8 +880,8 @@ def open_cards():
                     print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) угадан ВСЕМИ ({correct_leader_guesses_count_by_others} из {total_other_active_players} других игроков). Рейтинг будет {leader_new_rating_override}. Дальнейший подсчет очков пропускается.", file=sys.stderr)
 
                 elif correct_leader_guesses_count_by_others == 0:
-                    # Правило: "Если карточку ведущего никто не угадал..."
-                    # Ведущий теряет 2 балла. Остальные игроки получают очки по общим правилам.
+                    # Правило 2: "Если карточку ведущего никто не угадал..."
+                    # Ведущий теряет 2 балла. Остальные игроки получают очки по общим правилам (будет обработано ниже).
                     leader_was_guessed_by_none_others = True
                     current_leader_current_rating = active_users_dict[current_leader_id]['rating']
                     leader_new_rating_override = max(1, current_leader_current_rating - 2)
@@ -904,7 +904,7 @@ def open_cards():
         # Этот блок выполняется ТОЛЬКО если leader_was_correctly_guessed_by_all_others == False
         if not leader_was_correctly_guessed_by_all_others:
 
-            # 3a. Начисление очков за угадывание *своей* карты другими игроками
+            # 3а. Начисление очков за угадывание *своей* карты другими игроками (Правило 3б)
             # Правило: "Все игроки получают по одному очку за каждого игрока, который угадал их карточку."
             # Этот пункт выполняется, если не сработал случай "Все угадали ведущего".
             for card in table_cards:
@@ -912,6 +912,10 @@ def open_cards():
                 # Убедимся, что владелец карты активен, чтобы начислять ему очки
                 if card_owner_id not in active_user_ids:
                     continue
+                # ИСПРАВЛЕНО: Пропускаем карту ведущего здесь. Ведущий получает очки за свою карту только по Правилу 3а (ниже).
+                if current_leader_id is not None and card_owner_id == current_leader_id:
+                    continue
+
 
                 try:
                     guesses = json.loads(card['guesses'] or '{}')
@@ -928,7 +932,7 @@ def open_cards():
 
                     # Проверяем, что угадавший игрок активен, отличается от владельца карты, и угадал правильно
                     if guesser_id in active_user_ids and guesser_id != card_owner_id and guessed_owner_id_int == card_owner_id:
-                        rating_changes[card_owner_id] += 1
+                        rating_changes[card_owner_id] += 1 # <-- This line awards points to the card owner
                         print(f"Scoring: Игрок {get_user_name(card_owner_id) or f'ID {card_owner_id}'} получил +1 очко (карта {card['id']} угадана игроком {get_user_name(guesser_id) or f'ID {guesser_id}'}).", file=sys.stderr)
 
 
@@ -940,13 +944,12 @@ def open_cards():
 
                 correct_leader_guesses_count_by_others = len(correct_guesser_ids_for_leader) # Пересчитываем на всякий случай, хотя уже должно быть посчитано
 
-                # Правило: "В любом другом случае..."
-                # Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.
+                # Правило 3а: "В любом другом случае... Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока."
                 leader_points_from_guessing = 3 + correct_leader_guesses_count_by_others
                 rating_changes[current_leader_id] += leader_points_from_guessing
                 print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) угадан SOME ({correct_leader_guesses_count_by_others} игроков). Получает +{leader_points_from_guessing} очков.", file=sys.stderr)
 
-                # Игроки, которые правильно угадали карту ведущего, получают по 3 очка.
+                # Правило 3а: "Игроки, которые правильно угадали карту ведущего, получают по 3 очка."
                 for guesser_id in correct_guesser_ids_for_leader:
                     if guesser_id in rating_changes: # Убедимся, что игрок активен
                          rating_changes[guesser_id] += 3
@@ -973,8 +976,9 @@ def open_cards():
 
                 if calculated_rating_change != 0:
                      print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) итоговый рейтинг: {current_rating} -> {final_rating} (изменения: {calculated_rating_change}).", file=sys.stderr)
-                elif user_id != current_leader_id: # Не логируем для ведущего, если его изменение 0 в этом блоке
-                     print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) рейтинг остался {current_rating}.", file=sys.stderr)
+                # Убрал дублирующийся print для случая 0 изменений, кроме ведущего
+                # elif user_id != current_leader_id: # Не логируем для ведущего, если его изменение 0 в этом блоке
+                #      print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) рейтинг остался {current_rating}.", file=sys.stderr)
 
 
             # Выполняем обновление в базе данных
@@ -982,17 +986,97 @@ def open_cards():
 
         # --- Конец логики подсчета очков ---
 
-        db.commit() # Сохраняем все изменения в базе данных
+        # После подсчета очков и обновления рейтингов, очищаем стол и готовим к новому раунду
+        # (эта логика уже была в open_cards, оставляем ее здесь, но при необходимости можно перенести в new_round)
+        print("Scoring finished. Proceeding with round cleanup...", file=sys.stderr)
 
-        flash("Карты открыты, очки начислены.", "success")
+        # 5. Сброс состояния раунда (очистка стола, сброс угадываний, раздача карт, выбор ведущего)
+        # Перемещаем любые карты, оставшиеся на столе (от ЛЮБЫХ игроков), в статус "Занято:Админ" и сбрасываем информацию
+        c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'")
+        print("Round Cleanup: Переместили все карты со стола в статус 'Занято:Админ'.", file=sys.stderr)
+
+        # Сбрасываем предположения на любых других картах, которые не были на столе
+        c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'")
+        print("Round Cleanup: Сброшены предположения на картах вне стола.", file=sys.stderr)
+
+        # Выбор следующего ведущего
+        current_leader_id_after_scoring = get_leading_user_id() # Получаем ID ведущего ДО определения следующего
+        next_leader_id_cleanup = determine_new_leader(current_leader_id_after_scoring)
+
+        if next_leader_id_cleanup:
+             set_leading_user_id(next_leader_id_cleanup)
+             print(f"Round Cleanup: Следующий ведущий: {get_user_name(next_leader_id_cleanup) or f'ID {next_leader_id_cleanup}'}.", file=sys.stderr)
+        else:
+             set_leading_user_id(None)
+             print("Round Cleanup: Нет активных игроков для выбора следующего ведущего.", file=sys.stderr)
+
+
+        # Сбрасываем флаг показа информации о картах для начала нового раунда
+        set_setting("show_card_info", "false")
+        print("Round Cleanup: Флаг show_card_info сброшен.", file=sys.stderr)
+
+
+        # Логика раздачи карт (по 1 карте для продолжения раунда, если не переходим в new_round)
+        # Если вы хотите, чтобы после подсчета очков карты раздавались автоматически, оставьте этот блок.
+        # Если раздача карт должна быть только по кнопке "Начать новый раунд", этот блок нужно убрать.
+        # Предполагаю, что после подсчета очков должен начинаться новый раунд с раздачей карты Ведущему и, возможно, другими игрокам.
+        # Адаптируем раздачу по 1 карте каждому активному игроку (как было в удалении пользователя)
+        num_cards_per_player_for_next_round = 1 # Количество карт на игрока в начале раунда после подсчета
+        active_user_ids_for_deal = [row['id'] for row in c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id").fetchall()]
+
+        if not active_user_ids_for_deal:
+             print("Round Cleanup: Нет активных игроков для раздачи карт.", file=sys.stderr)
+        else:
+             active_subfolder = get_setting('active_subfolder') # Нужна активная колода
+             if not active_subfolder:
+                  print("Round Cleanup: Активная колода не установлена для раздачи карт.", file=sys.stderr)
+             else:
+                  available_cards = [r['id'] for r in c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,)).fetchall()]
+                  random.shuffle(available_cards)
+                  num_dealt_total = 0
+                  # Раздаем по одной карте каждому игроку
+                  for i, user_id in enumerate(active_user_ids_for_deal):
+                       if num_dealt_total < len(available_cards):
+                            c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[num_dealt_total]));
+                            num_dealt_total += 1
+                       else:
+                            print(f"Round Cleanup: Закончились карты в колоде '{active_subfolder}'. Не все игроки получили по {num_cards_per_player_for_next_round} карте.", file=sys.stderr)
+                            break # Недостаточно карт
+
+                  if num_dealt_total > 0 : flash(f"В новом раунде роздано {num_dealt_total} новых карт.", "info")
+                  elif not available_cards and active_user_ids_for_deal : flash(f"В колоде '{active_subfolder}' нет карт для раздачи.", "info")
+                  print(f"Round Cleanup: Роздано {num_dealt_total} карт.", file=sys.stderr)
+
+
+        # Проверка на окончание игры (например, у кого-то закончились карты)
+        # Эта проверка уже есть в new_round, но можно добавить ее и здесь после раздачи карт
+        # if check_and_end_game_if_player_out_of_cards(db):
+        #      flash("Игра окончена, у игрока закончились карты.", "info")
+        #      # set_game_over и set_game_in_progress уже внутри check_and_end_game_if_player_out_of_cards
+
+        print("Round cleanup finished.", file=sys.stderr)
+
+
+        # Фиксируем все изменения, связанные с подсчетом очков и сбросом раунда
+        db.commit()
+
+        flash("Карты открыты, очки начислены. Состояние раунда сброшено.", "success")
         # Отправляем обновление состояния игры всем подключенным клиентам
         broadcast_game_state_update()
 
     except Exception as e:
         # В случае любой ошибки откатываем изменения в базе данных
         db.rollback()
-        flash(f"Ошибка открытия карт/подсчета очков: {e}", "danger")
-        print(f"CRITICAL ERROR in open_cards: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        flash(f"Ошибка открытия карт/подсчета очков/сброса раунда: {e}", "danger")
+        print(f"CRITICAL ERROR in open_cards during scoring/cleanup: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        # В случае ошибки, возможно, стоит сбросить флаг показа карт, чтобы игра не зависла в открытом состоянии
+        try:
+             set_setting("show_card_info", "false")
+             db.commit()
+             broadcast_game_state_update()
+        except Exception as inner_e:
+             print(f"Error during rollback and setting show_card_info to false after scoring/cleanup error: {inner_e}", file=sys.stderr)
+
 
     # Перенаправляем обратно на страницу администратора
     return redirect(url_for('admin'))
