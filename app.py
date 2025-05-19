@@ -800,20 +800,28 @@ def open_cards():
 
     try:
         # 1. Устанавливаем флаг, чтобы показать информацию о картах
+        # Этот флаг остается true после этого маршрута до следующего раунда.
         set_setting("show_card_info", "true")
+        # Фиксируем установку флага show_card_info = true в БД
+        db.commit()
+        print("Admin set show_card_info to true.", file=sys.stderr)
+
 
         # --- Логика подсчета очков ---
+        print("Executing scoring logic...", file=sys.stderr)
 
         # Получаем список активных игроков с их текущим рейтингом
         active_users = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
         active_user_ids = [user['id'] for user in active_users]
         active_users_dict = {user['id']: dict(user) for user in active_users} # Словарь для быстрого поиска по ID
 
-        # Если нет активных игроков, просто коммитим изменение show_card_info и выходим
+        # Если нет активных игроков, откатываем изменение show_card_info, коммитим и выходим
         if not active_users:
+            print("Scoring: Нет активных игроков для подсчета очков.", file=sys.stderr)
+            # set_setting("show_card_info", initial_show_card_info_setting) # Не восстанавливаем, если нажали "Открыть карты"
+            db.commit() # Коммитим обратно show_card_info=true
             flash("Нет активных игроков для подсчета очков.", "warning")
-            db.commit() # Commit the setting change
-            broadcast_game_state_update()
+            broadcast_game_state_update() # Отправляем состояние с show_card_info=true, но без игроков
             return redirect(url_for('admin'))
 
         # Получаем карты, которые находятся на столе
@@ -881,7 +889,7 @@ def open_cards():
 
                 elif correct_leader_guesses_count_by_others == 0:
                     # Правило 2: "Если карточку ведущего никто не угадал..."
-                    # Ведущий теряет 2 балла. Остальные игроки получают очки по общим правилам (будет обработано ниже).
+                    # Ведущий теряет 2 балла. Остальные игроки получают очки по общим правилам.
                     leader_was_guessed_by_none_others = True
                     current_leader_current_rating = active_users_dict[current_leader_id]['rating']
                     leader_new_rating_override = max(1, current_leader_current_rating - 2)
@@ -912,10 +920,9 @@ def open_cards():
                 # Убедимся, что владелец карты активен, чтобы начислять ему очки
                 if card_owner_id not in active_user_ids:
                     continue
-                # ИСПРАВЛЕНО: Пропускаем карту ведущего здесь. Ведущий получает очки за свою карту только по Правилу 3а (ниже).
+                # ИСПРАВЛЕНО (для Правила 3б): Пропускаем карту ведущего здесь. Ведущий получает очки за свою карту только по Правилу 3а (ниже).
                 if current_leader_id is not None and card_owner_id == current_leader_id:
                     continue
-
 
                 try:
                     guesses = json.loads(card['guesses'] or '{}')
@@ -932,7 +939,7 @@ def open_cards():
 
                     # Проверяем, что угадавший игрок активен, отличается от владельца карты, и угадал правильно
                     if guesser_id in active_user_ids and guesser_id != card_owner_id and guessed_owner_id_int == card_owner_id:
-                        rating_changes[card_owner_id] += 1 # <-- This line awards points to the card owner
+                        rating_changes[card_owner_id] += 1
                         print(f"Scoring: Игрок {get_user_name(card_owner_id) or f'ID {card_owner_id}'} получил +1 очко (карта {card['id']} угадана игроком {get_user_name(guesser_id) or f'ID {guesser_id}'}).", file=sys.stderr)
 
 
@@ -957,8 +964,8 @@ def open_cards():
                     else:
                          print(f"Scoring Warning: Guesser ID {guesser_id} for leader card not found in active users rating_changes dict (Some Guessed case).", file=sys.stderr)
 
-
         # 4. Окончательное обновление рейтинга в базе данных
+        print("Applying rating updates to DB...", file=sys.stderr)
         for user in active_users:
             user_id = user['id']
             current_rating = user['rating']
@@ -976,109 +983,50 @@ def open_cards():
 
                 if calculated_rating_change != 0:
                      print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) итоговый рейтинг: {current_rating} -> {final_rating} (изменения: {calculated_rating_change}).", file=sys.stderr)
-                # Убрал дублирующийся print для случая 0 изменений, кроме ведущего
-                # elif user_id != current_leader_id: # Не логируем для ведущего, если его изменение 0 в этом блоке
-                #      print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) рейтинг остался {current_rating}.", file=sys.stderr)
-
+                elif user_id != current_leader_id: # Не логируем для ведущего, если его изменение 0 в этом блоке
+                     print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) рейтинг остался {current_rating}.", file=sys.stderr)
 
             # Выполняем обновление в базе данных
             c.execute("UPDATE users SET rating = ? WHERE id = ?", (final_rating, user_id))
 
         # --- Конец логики подсчета очков ---
 
-        # После подсчета очков и обновления рейтингов, очищаем стол и готовим к новому раунду
-        # (эта логика уже была в open_cards, оставляем ее здесь, но при необходимости можно перенести в new_round)
-        print("Scoring finished. Proceeding with round cleanup...", file=sys.stderr)
-
-        # 5. Сброс состояния раунда (очистка стола, сброс угадываний, раздача карт, выбор ведущего)
-        # Перемещаем любые карты, оставшиеся на столе (от ЛЮБЫХ игроков), в статус "Занято:Админ" и сбрасываем информацию
-        c.execute("UPDATE images SET owner_id = NULL, guesses = '{}', status = 'Занято:Админ' WHERE status LIKE 'На столе:%'")
-        print("Round Cleanup: Переместили все карты со стола в статус 'Занято:Админ'.", file=sys.stderr)
-
-        # Сбрасываем предположения на любых других картах, которые не были на столе
-        c.execute("UPDATE images SET guesses = '{}' WHERE status NOT LIKE 'На столе:%' AND guesses != '{}'")
-        print("Round Cleanup: Сброшены предположения на картах вне стола.", file=sys.stderr)
-
-        # Выбор следующего ведущего
-        current_leader_id_after_scoring = get_leading_user_id() # Получаем ID ведущего ДО определения следующего
-        next_leader_id_cleanup = determine_new_leader(current_leader_id_after_scoring)
-
-        if next_leader_id_cleanup:
-             set_leading_user_id(next_leader_id_cleanup)
-             print(f"Round Cleanup: Следующий ведущий: {get_user_name(next_leader_id_cleanup) or f'ID {next_leader_id_cleanup}'}.", file=sys.stderr)
-        else:
-             set_leading_user_id(None)
-             print("Round Cleanup: Нет активных игроков для выбора следующего ведущего.", file=sys.stderr)
-
-
-        # Сбрасываем флаг показа информации о картах для начала нового раунда
-        set_setting("show_card_info", "false")
-        print("Round Cleanup: Флаг show_card_info сброшен.", file=sys.stderr)
-
-
-        # Логика раздачи карт (по 1 карте для продолжения раунда, если не переходим в new_round)
-        # Если вы хотите, чтобы после подсчета очков карты раздавались автоматически, оставьте этот блок.
-        # Если раздача карт должна быть только по кнопке "Начать новый раунд", этот блок нужно убрать.
-        # Предполагаю, что после подсчета очков должен начинаться новый раунд с раздачей карты Ведущему и, возможно, другими игрокам.
-        # Адаптируем раздачу по 1 карте каждому активному игроку (как было в удалении пользователя)
-        num_cards_per_player_for_next_round = 1 # Количество карт на игрока в начале раунда после подсчета
-        active_user_ids_for_deal = [row['id'] for row in c.execute("SELECT id FROM users WHERE status = 'active' ORDER BY id").fetchall()]
-
-        if not active_user_ids_for_deal:
-             print("Round Cleanup: Нет активных игроков для раздачи карт.", file=sys.stderr)
-        else:
-             active_subfolder = get_setting('active_subfolder') # Нужна активная колода
-             if not active_subfolder:
-                  print("Round Cleanup: Активная колода не установлена для раздачи карт.", file=sys.stderr)
-             else:
-                  available_cards = [r['id'] for r in c.execute("SELECT id FROM images WHERE subfolder = ? AND status = 'Свободно'", (active_subfolder,)).fetchall()]
-                  random.shuffle(available_cards)
-                  num_dealt_total = 0
-                  # Раздаем по одной карте каждому игроку
-                  for i, user_id in enumerate(active_user_ids_for_deal):
-                       if num_dealt_total < len(available_cards):
-                            c.execute("UPDATE images SET status = ?, owner_id = ? WHERE id = ?", (f"Занято:{user_id}", user_id, available_cards[num_dealt_total]));
-                            num_dealt_total += 1
-                       else:
-                            print(f"Round Cleanup: Закончились карты в колоде '{active_subfolder}'. Не все игроки получили по {num_cards_per_player_for_next_round} карте.", file=sys.stderr)
-                            break # Недостаточно карт
-
-                  if num_dealt_total > 0 : flash(f"В новом раунде роздано {num_dealt_total} новых карт.", "info")
-                  elif not available_cards and active_user_ids_for_deal : flash(f"В колоде '{active_subfolder}' нет карт для раздачи.", "info")
-                  print(f"Round Cleanup: Роздано {num_dealt_total} карт.", file=sys.stderr)
-
-
-        # Проверка на окончание игры (например, у кого-то закончились карты)
-        # Эта проверка уже есть в new_round, но можно добавить ее и здесь после раздачи карт
-        # if check_and_end_game_if_player_out_of_cards(db):
-        #      flash("Игра окончена, у игрока закончились карты.", "info")
-        #      # set_game_over и set_game_in_progress уже внутри check_and_end_game_if_player_out_of_cards
-
-        print("Round cleanup finished.", file=sys.stderr)
-
-
-        # Фиксируем все изменения, связанные с подсчетом очков и сбросом раунда
+        # Фиксируем все изменения, связанные с подсчетом очков
         db.commit()
+        print("Scoring updates committed.", file=sys.stderr)
 
-        flash("Карты открыты, очки начислены. Состояние раунда сброшено.", "success")
-        # Отправляем обновление состояния игры всем подключенным клиентам
+        flash("Карты открыты, очки начислены.", "success")
+
+        # !!! ИСПРАВЛЕНИЕ: Отправляем обновление состояния игры ЗДЕСЬ, чтобы клиенты увидели открытые карты и очки !!!
+        # В этом состоянии show_card_info = true, карты на столе еще не очищены.
+        print("Broadcasting game state after scoring (show_card_info=true)...", file=sys.stderr)
         broadcast_game_state_update()
+
+        # !!! ИСПРАВЛЕНИЕ: Удален код сброса состояния раунда и второго broadcast из этого маршрута !!!
+        # Эти действия выполняются только при нажатии кнопки "Новый раунд".
+        print("Cleanup logic and second broadcast are handled by the separate 'New Round' route.", file=sys.stderr)
+
 
     except Exception as e:
         # В случае любой ошибки откатываем изменения в базе данных
         db.rollback()
-        flash(f"Ошибка открытия карт/подсчета очков/сброса раунда: {e}", "danger")
-        print(f"CRITICAL ERROR in open_cards during scoring/cleanup: {e}\n{traceback.format_exc()}", file=sys.stderr)
-        # В случае ошибки, возможно, стоит сбросить флаг показа карт, чтобы игра не зависла в открытом состоянии
+        # Пытаемся сбросить show_card_info обратно, чтобы игра не зависла в открытом состоянии
         try:
-             set_setting("show_card_info", "false")
-             db.commit()
-             broadcast_game_state_update()
+            # Пытаемся получить текущее значение show_card_info из БД, чтобы откатить к нему
+            # Или просто сбрасываем в false, если хотим, чтобы карты закрылись при ошибке
+            # set_setting("show_card_info", "false") # Более безопасный вариант при ошибке
+            # Не коммитим здесь, чтобы не перезаписать потенциально корректные данные, если ошибка была после коммита очков
+            print(f"Error handling in open_cards: Error occurred before final state broadcast. show_card_info might be stuck on true. Rollback performed.", file=sys.stderr)
+            # Можем попробовать отправить обновление, но состояние может быть некорректным
+            # broadcast_game_state_update()
         except Exception as inner_e:
-             print(f"Error during rollback and setting show_card_info to false after scoring/cleanup error: {inner_e}", file=sys.stderr)
+             print(f"Error during rollback or setting show_card_info after scoring/cleanup error: {inner_e}", file=sys.stderr)
+        flash(f"Ошибка открытия карт/подсчета очков: {e}. Состояние игры может быть некорректным. Возможно, потребуется сброс.", "danger")
+        print(f"CRITICAL ERROR in open_cards: {e}\n{traceback.format_exc()}", file=sys.stderr)
 
 
     # Перенаправляем обратно на страницу администратора
+    # Это происходит быстро, независимо от SocketIO обновлений
     return redirect(url_for('admin'))
     
 
