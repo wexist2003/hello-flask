@@ -31,7 +31,8 @@
             display: flex;
             flex-direction: column;
             align-items: center; /* Center content-wrapper horizontally */
-            justify-content: center; /* Center content-wrapper vertically within available space */
+            /* ИЗМЕНЕНО: Выравниваем содержимое сверху, чтобы контролировать отступ через margin-top */
+            justify-content: flex-start;
             width: 100%;
             padding: 1rem;
             /* No padding-bottom needed if body has padding-bottom */
@@ -45,10 +46,11 @@
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
             padding: 1rem; /* Adjusted padding */
-            /* ИЗМЕНЕНО: Добавлено transform для поднятия блока */
-            transform: translateY(-20vh); /* Поднимаем блок вверх на 20% от высоты видимой области */
-            /* Удаляем margin-top, так как transform лучше подходит для смещения относительно центра */
-            margin-top: 0; 
+            /* ИЗМЕНЕНО: Отступ сверху для поднятия формы на 20% от центра.
+               Если изначально было по центру (50%), то 50% - 20% = 30%. */
+            margin-top: 30vh; /* Поднимаем блок вверх, задавая отступ от верха */
+            /* Удаляем transform, который прилипал к верху */
+            transform: none;
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -180,13 +182,17 @@
             body {
                 padding-bottom: 180px; /* Adjusted padding for PC footer height */
             }
+            .main-content-area {
+                /* ИЗМЕНЕНО: Выравниваем содержимое сверху */
+                justify-content: flex-start;
+            }
             .content-wrapper {
                 width: 90%; /* Use 90% of parent width */
                 max-width: 400px; /* Further reduced max-width for PC */
-                /* ИЗМЕНЕНО: Добавлено transform для поднятия блока */
-                transform: translateY(-20vh); /* Поднимаем блок вверх на 20% от высоты видимой области */
-                /* Удаляем margin-top */
-                margin-top: 0;
+                /* ИЗМЕНЕНО: Отступ сверху для поднятия формы на 20% от центра.
+                   Если изначально было по центру (50%), то 50% - 20% = 30%. */
+                margin-top: 30vh; /* Поднимаем блок вверх, задавая отступ от верха */
+                transform: none; /* Удаляем transform */
                 padding: 1.5rem; /* Adjusted padding */
                 margin-bottom: auto;
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25); /* Adjusted transparency for PC */
@@ -217,11 +223,15 @@
             body {
                 padding-bottom: 150px; /* Mobile body padding */
             }
+            .main-content-area {
+                /* ИЗМЕНЕНО: Выравниваем содержимое сверху */
+                justify-content: flex-start;
+            }
             .content-wrapper {
-                /* ИЗМЕНЕНО: Добавлено transform для поднятия блока */
-                transform: translateY(-20vh); /* Поднимаем блок вверх на 20% от высоты видимой области */
-                /* Удаляем margin-top */
-                margin-top: 0;
+                /* ИЗМЕНЕНО: Отступ сверху для поднятия формы на 20% от центра.
+                   Если изначально было по центру (50%), то 50% - 20% = 30%. */
+                margin-top: 30vh; /* Поднимаем блок вверх, задавая отступ от верха */
+                transform: none; /* Удаляем transform */
                 margin-bottom: auto;
                 width: 90vw; /* Rely on 90vw for mobile */
                 max-width: none; /* No max-width on mobile */
