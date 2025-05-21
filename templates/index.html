@@ -22,7 +22,7 @@
             display: flex;
             flex-direction: column;
             padding: 0;
-            padding-bottom: 150px; /* Вернул padding-bottom для ПК/по умолчанию */
+            padding-bottom: 150px; /* Padding for PC/default, adjusted later for mobile */
         }
 
         .main-content-area {
@@ -30,18 +30,18 @@
             display: flex;
             flex-direction: column;
             align-items: center; /* Center content-wrapper horizontally */
-            justify-content: center; /* Center content-wrapper vertically */
+            justify-content: center; /* Center content-wrapper vertically by default (PC) */
             width: 100%;
             padding: 1rem;
         }
 
         .content-wrapper {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile/default */
+            background-color: rgba(var(--bs-body-bg-rgb), 0.3);
             border-radius: 0.5rem;
-            width: 90vw; /* Adjusted: 90vw for mobile/default */
+            width: 90vw; /* 90vw for mobile/default */
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
-            padding: 1rem; /* Adjusted padding */
+            padding: 1rem;
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -108,8 +108,8 @@
 
         /* Футер по умолчанию (для ПК) */
         .footer-container {
-            position: fixed; /* Изменено на fixed, чтобы он был внизу */
-            bottom: 0; /* Прикрепил к низу */
+            position: fixed;
+            bottom: 0;
             left: 0;
             width: 100%;
             z-index: 1000;
@@ -119,7 +119,7 @@
             align-items: center;
             padding: 0.5rem 1rem;
             box-sizing: border-box;
-            min-height: 100px; /* Увеличил min-height для ПК, чтобы padding-bottom работал */
+            min-height: 100px;
             flex-shrink: 0;
         }
 
@@ -178,16 +178,16 @@
             .content-wrapper {
                 width: 90%;
                 max-width: 400px;
-                margin-top: 0; /* Вернул 0, так как ПК-версия центрируется */
+                margin-top: 0;
                 padding: 1.5rem;
                 margin-bottom: auto;
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
             }
             .footer-container {
-                min-height: 100px; /* Adjust PC footer height */
+                min-height: 100px;
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
-                position: fixed; /* Fixed для ПК */
-                bottom: 0; /* Ensures it sticks to the bottom */
+                position: fixed;
+                bottom: 0;
             }
             .footer-links {
                 width: 90%;
@@ -207,20 +207,10 @@
 
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
-            body {
-                /* Оставляем padding-bottom таким же, как для ПК, чтобы футер был над нижней границей */
-                padding-bottom: 80px; 
-            }
-            .main-content-area {
-                /* Установил flex-start, чтобы margin-top мог опустить контент */
-                justify-content: flex-start; 
-                padding-top: 1rem; /* Добавляем небольшой отступ сверху, если нужно */
-            }
-
-            /* Футер: над нижней границей фонового рисунка */
+            /* Кнопка "Играть" выше на 1 строку от нижней границы фонового рисунка */
             .footer-container {
                 position: fixed;
-                bottom: 5vh; /* Поднимаем футер на 5vh от низа, чтобы он был "над" границей фона */
+                bottom: 7vh; /* Поднимаем футер на 7vh от низа, чтобы он был "над" границей фона */
                 left: 0;
                 width: 100%;
                 z-index: 1000;
@@ -230,14 +220,24 @@
                 align-items: center;
                 padding: 0.5rem 1rem;
                 box-sizing: border-box;
-                min-height: 80px; /* Высота футера для мобильных */
+                min-height: 80px;
                 flex-shrink: 0;
             }
 
+            body {
+                /* padding-bottom должен быть больше или равен высоте футера + его отступ от низа */
+                padding-bottom: calc(80px + 7vh); 
+            }
+
+            .main-content-area {
+                /* Установил flex-start, чтобы margin-top мог опустить контент */
+                justify-content: flex-start; 
+                padding-top: 1rem; /* Добавляем небольшой отступ сверху, если нужно */
+            }
+
             .content-wrapper {
-                /* Опускаем блок голосования ниже на 3 строки */
-                /* Мы используем margin-top, чтобы опустить его от верхней границы main-content-area */
-                margin-top: calc(3rem + 1rem); /* 3rem для 3 строк + 1rem (padding-top main-content-area) */
+                /* Опускаем блок голосования ниже на 4 строки (было +3rem, теперь +4rem от базового отступа) */
+                margin-top: calc(4rem + 1rem); /* 4rem для опускания + 1rem (padding-top main-content-area) */
                 margin-bottom: auto; /* Позволяем main-content-area центрировать его, если не хватает места */
                 width: 90vw;
                 max-width: none;
