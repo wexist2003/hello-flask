@@ -20,10 +20,9 @@
             background-color: var(--bs-body-bg); /* Используем переменную Bootstrap для фона */
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
+            flex-direction: column; /* Изменено на column для футера сверху */
             padding: 0;
-            /* Adjusted padding bottom to prevent footer overlap */
-            padding-bottom: 150px; /* Increased padding for mobile/default footer */
+            /* УДАЛЕНО: padding-bottom, так как футер теперь сверху */
         }
 
         .main-content-area {
@@ -31,24 +30,19 @@
             display: flex;
             flex-direction: column;
             align-items: center; /* Center content-wrapper horizontally */
-            /* ИЗМЕНЕНО: Вернул justify-content: center; */
-            justify-content: center;
+            justify-content: center; /* Center content-wrapper vertically */
             width: 100%;
             padding: 1rem;
-            /* No padding-bottom needed if body has padding-bottom */
         }
 
         .content-wrapper {
             background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile/default */
             border-radius: 0.5rem;
-            /* Default width/max-width for smaller screens */
             width: 90vw; /* Adjusted: 90vw for mobile/default */
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
             padding: 1rem; /* Adjusted padding */
-            /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
             margin-top: 25vh; /* Поднимаем блок вверх, задавая отступ от верха */
-            /* transform: none; // Это уже не нужно, если нет transform */
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -114,30 +108,31 @@
             z-index: 1050;
         }
 
+        /* ИЗМЕНЕНО: Футер теперь позиционируется вверху */
         .footer-container {
-            position: fixed; /* Fixed at the bottom of the viewport */
-            bottom: 0;
+            position: sticky; /* Sticky, чтобы он оставался вверху, но не перекрывал контент при прокрутке */
+            top: 0;
             left: 0;
             width: 100%;
             z-index: 1000;
-            /* Adjusted background-color to match content-wrapper opacity (default/mobile) */
             background-color: rgba(var(--bs-body-bg-rgb), 0.3);
-            /* Center the content inside the fixed footer */
             display: flex;
             justify-content: center;
-            align-items: center; /* Vertically center links inside footer */
-            padding: 0 1rem 1rem 1rem; /* Adjust padding */
+            align-items: center;
+            padding: 0.5rem 1rem; /* Уменьшен padding, так как теперь сверху */
             box-sizing: border-box;
-            height: 60px; /* Define footer height */
+            min-height: 60px; /* Установил min-height вместо height, чтобы не обрезать при больших текстах */
+            flex-shrink: 0; /* Чтобы футер не сжимался */
         }
 
+        /* ИЗМЕНЕНО: Центрирование кнопки "Играть" */
         .footer-links {
-            width: 100%; /* Take full width of parent (footer-container) */
-            max-width: 500px; /* Match content-wrapper max-width on mobile */
-            margin: 0 auto; /* Center the links block within the footer */
+            width: 100%;
+            max-width: 500px; /* Сохраняем max-width для контроля ширины */
+            margin: 0 auto; /* Центрируем сам блок ссылок */
             padding: 0.5rem 0;
             display: flex;
-            justify-content: space-between;
+            justify-content: center; /* ИЗМЕНЕНО: Отцентрировать содержимое */
             align-items: center;
         }
         .footer-links a {
@@ -178,25 +173,21 @@
         /* Media queries for PC */
         @media (min-width: 768px) {
             body {
-                padding-bottom: 180px; /* Adjusted padding for PC footer height */
+                /* УДАЛЕНО: padding-bottom, так как футер теперь сверху */
             }
             .main-content-area {
-                /* ИЗМЕНЕНО: Вернул justify-content: center; */
                 justify-content: center;
             }
             .content-wrapper {
                 width: 90%; /* Use 90% of parent width */
                 max-width: 400px; /* Further reduced max-width for PC */
-                /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
                 margin-top: 25vh; /* Поднимаем блок вверх, задавая отступ от верха */
-                /* transform: none; // Это уже не нужно, если нет transform */
                 padding: 1.5rem; /* Adjusted padding */
                 margin-bottom: auto;
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25); /* Adjusted transparency for PC */
             }
             .footer-container {
-                height: 80px; /* Adjust PC footer height */
-                /* Adjusted background-color to match content-wrapper opacity (PC) */
+                min-height: 80px; /* Adjust PC footer height */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
             }
             .footer-links {
@@ -218,16 +209,13 @@
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
             body {
-                padding-bottom: 150px; /* Mobile body padding */
+                /* УДАЛЕНО: padding-bottom, так как футер теперь сверху */
             }
             .main-content-area {
-                /* ИЗМЕНЕНО: Вернул justify-content: center; */
                 justify-content: center;
             }
             .content-wrapper {
-                /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
-                margin-top: 35vh; /* Поднимаем блок вверх, задавая отступ от верха */
-                /* transform: none; // Это уже не нужно, если нет transform */
+                margin-top: 25vh; /* Поднимаем блок вверх, задавая отступ от верха */
                 margin-bottom: auto;
                 width: 90vw; /* Rely on 90vw for mobile */
                 max-width: none; /* No max-width on mobile */
@@ -235,8 +223,7 @@
                 background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile */
             }
             .footer-container {
-                height: 60px; /* Mobile footer height */
-                /* Adjusted background-color to match content-wrapper opacity (mobile) */
+                min-height: 60px; /* Mobile footer height */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.3);
             }
             .footer-links {
@@ -261,6 +248,12 @@
 </head>
 
 <body>
+    <div class="footer-container">
+        <div class="footer-links">
+            <a href="{{ url_for('login_player') }}" class="btn btn-primary btn-lg">Играть</a>
+            </div>
+    </div>
+
     <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
         <i class="bi bi-circle-half"></i>
     </button>
@@ -316,12 +309,6 @@
         </div>
     </div>
 
-    <div class="footer-container">
-        <div class="footer-links">
-            <a href="{{ url_for('login_player') }}">Войти как игрок</a>
-            <a href="{{ url_for('login') }}" class="admin-link text-end">Войти как администратор</a>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
