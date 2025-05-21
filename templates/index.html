@@ -22,7 +22,8 @@
             display: flex;
             flex-direction: column;
             padding: 0;
-            padding-bottom: 150px; /* Padding for PC/default, adjusted later for mobile */
+            /* Adjusted padding bottom to prevent footer overlap */
+            padding-bottom: 150px; /* Increased padding for mobile/default footer */
         }
 
         .main-content-area {
@@ -30,18 +31,24 @@
             display: flex;
             flex-direction: column;
             align-items: center; /* Center content-wrapper horizontally */
-            justify-content: center; /* Center content-wrapper vertically by default (PC) */
+            /* ИЗМЕНЕНО: Вернул justify-content: center; */
+            justify-content: center;
             width: 100%;
             padding: 1rem;
+            /* No padding-bottom needed if body has padding-bottom */
         }
 
         .content-wrapper {
-            background-color: rgba(var(--bs-body-bg-rgb), 0.3);
+            background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile/default */
             border-radius: 0.5rem;
-            width: 90vw; /* 90vw for mobile/default */
+            /* Default width/max-width for smaller screens */
+            width: 90vw; /* Adjusted: 90vw for mobile/default */
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
-            padding: 1rem;
+            padding: 1rem; /* Adjusted padding */
+            /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
+            margin-top: 25vh; /* Поднимаем блок вверх, задавая отступ от верха */
+            /* transform: none; // Это уже не нужно, если нет transform */
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -51,20 +58,21 @@
             font-size: 1.5rem;
             margin-bottom: 0;
         }
-        .title-block p {
+        .title-block p { /* Added style for paragraph */
             font-size: 1.5rem;
             margin-bottom: 0;
-            margin-top: 0;
+            margin-top: 0; /* Ensure no extra top margin */
         }
+
 
         .deck-vote-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.2rem 0.5rem;
+            padding: 0.2rem 0.5rem; /* Adjusted vertical padding */
             border: 1px solid var(--bs-border-color-translucent);
             border-radius: 0.375rem;
-            margin-bottom: 0.15rem;
+            margin-bottom: 0.15rem; /* Adjusted margin-bottom */
             background-color: rgba(var(--bs-secondary-bg-rgb), 0.5);
             transition: all 0.2s ease-in-out;
         }
@@ -106,31 +114,30 @@
             z-index: 1050;
         }
 
-        /* Футер по умолчанию (для ПК) */
         .footer-container {
-            position: fixed;
+            position: fixed; /* Fixed at the bottom of the viewport */
             bottom: 0;
             left: 0;
             width: 100%;
             z-index: 1000;
+            /* Adjusted background-color to match content-wrapper opacity (default/mobile) */
             background-color: rgba(var(--bs-body-bg-rgb), 0.3);
+            /* Center the content inside the fixed footer */
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 0.5rem 1rem;
+            align-items: center; /* Vertically center links inside footer */
+            padding: 0 1rem 1rem 1rem; /* Adjust padding */
             box-sizing: border-box;
-            min-height: 100px;
-            flex-shrink: 0;
+            height: 60px; /* Define footer height */
         }
 
-        /* Центрирование кнопки "Играть" */
         .footer-links {
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
+            width: 100%; /* Take full width of parent (footer-container) */
+            max-width: 500px; /* Match content-wrapper max-width on mobile */
+            margin: 0 auto; /* Center the links block within the footer */
             padding: 0.5rem 0;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
         }
         .footer-links a {
@@ -164,84 +171,72 @@
 
         /* Dark theme specific footer transparency */
         [data-bs-theme="dark"] .footer-container {
-             background-color: rgba(var(--bs-body-bg-rgb), 0.15);
+             background-color: rgba(var(--bs-body-bg-rgb), 0.15); /* Halved opacity for dark theme mobile */
         }
+
 
         /* Media queries for PC */
         @media (min-width: 768px) {
             body {
-                padding-bottom: 100px; /* Padding-bottom для ПК, равный min-height футера */
+                padding-bottom: 180px; /* Adjusted padding for PC footer height */
             }
             .main-content-area {
+                /* ИЗМЕНЕНО: Вернул justify-content: center; */
                 justify-content: center;
             }
             .content-wrapper {
-                width: 90%;
-                max-width: 400px;
-                margin-top: 0;
-                padding: 1.5rem;
+                width: 90%; /* Use 90% of parent width */
+                max-width: 400px; /* Further reduced max-width for PC */
+                /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
+                margin-top: 25vh; /* Поднимаем блок вверх, задавая отступ от верха */
+                /* transform: none; // Это уже не нужно, если нет transform */
+                padding: 1.5rem; /* Adjusted padding */
                 margin-bottom: auto;
-                background-color: rgba(var(--bs-body-bg-rgb), 0.25);
+                background-color: rgba(var(--bs-body-bg-rgb), 0.25); /* Adjusted transparency for PC */
             }
             .footer-container {
-                min-height: 100px;
+                height: 80px; /* Adjust PC footer height */
+                /* Adjusted background-color to match content-wrapper opacity (PC) */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
-                position: fixed;
-                bottom: 0;
             }
             .footer-links {
-                width: 90%;
-                max-width: 400px;
+                width: 90%; /* Match content-wrapper width */
+                max-width: 400px; /* Further reduced max-width for PC */
                 margin: 0 auto;
             }
             .title-block {
-                background-color: transparent;
+                background-color: transparent; /* No background on title block itself on PC */
                 padding: 0;
-                margin-bottom: 0.75rem;
+                margin-bottom: 0.75rem; /* Adjusted margin-bottom */
             }
             /* Dark theme specific footer transparency for PC */
             [data-bs-theme="dark"] .footer-container {
-                 background-color: rgba(var(--bs-body-bg-rgb), 0.125);
+                 background-color: rgba(var(--bs-body-bg-rgb), 0.125); /* Halved opacity for dark theme PC */
             }
         }
 
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
-            /* Кнопка "Играть" выше на 1 строку от нижней границы фонового рисунка */
-            .footer-container {
-                position: fixed;
-                bottom: 7vh; /* Поднимаем футер на 7vh от низа, чтобы он был "над" границей фона */
-                left: 0;
-                width: 100%;
-                z-index: 1000;
-                background-color: rgba(var(--bs-body-bg-rgb), 0.3);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 0.5rem 1rem;
-                box-sizing: border-box;
-                min-height: 80px;
-                flex-shrink: 0;
-            }
-
             body {
-                /* padding-bottom должен быть больше или равен высоте футера + его отступ от низа */
-                padding-bottom: calc(80px + 7vh); 
+                padding-bottom: 150px; /* Mobile body padding */
             }
-
             .main-content-area {
-                /* Установил flex-start, чтобы margin-top мог опустить контент */
-                justify-content: flex-start; 
-                padding-top: 1rem; /* Добавляем небольшой отступ сверху, если нужно */
+                /* ИЗМЕНЕНО: Вернул justify-content: center; */
+                justify-content: center;
             }
-
             .content-wrapper {
-                /* Опускаем блок голосования ниже на 4 строки (было +3rem, теперь +4rem от базового отступа) */
-                margin-top: calc(4rem + 1rem); /* 4rem для опускания + 1rem (padding-top main-content-area) */
-                margin-bottom: auto; /* Позволяем main-content-area центрировать его, если не хватает места */
-                width: 90vw;
-                max-width: none;
-                padding: 1rem;
+                /* ИЗМЕНЕНО: Уменьшил margin-top на 5vh (было 30vh, стало 25vh) */
+                margin-top: 35vh; /* Поднимаем блок вверх, задавая отступ от верха */
+                /* transform: none; // Это уже не нужно, если нет transform */
+                margin-bottom: auto;
+                width: 90vw; /* Rely on 90vw for mobile */
+                max-width: none; /* No max-width on mobile */
+                padding: 1rem; /* Adjusted padding */
+                background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile */
+            }
+            .footer-container {
+                height: 60px; /* Mobile footer height */
+                /* Adjusted background-color to match content-wrapper opacity (mobile) */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.3);
             }
             .footer-links {
@@ -266,12 +261,6 @@
 </head>
 
 <body>
-    <div class="footer-container">
-        <div class="footer-links">
-            <a href="{{ url_for('login_player') }}" class="btn btn-primary btn-lg">Играть</a>
-        </div>
-    </div>
-
     <button id="theme-toggle-btn" class="btn btn-outline-secondary btn-sm theme-toggle-button" title="Сменить тему">
         <i class="bi bi-circle-half"></i>
     </button>
@@ -280,8 +269,20 @@
         <div class="content-wrapper">
             <div class="title-block text-center">
                 <h2>Выберите колоду,</h2>
-                <p>которой хотели бы играть</p>
-            </div>
+                <p>которой хотели бы играть</p> </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
             <div class="deck-list">
                 {% if deck_votes %}
@@ -315,23 +316,38 @@
         </div>
     </div>
 
+    <div class="footer-container">
+        <div class="footer-links">
+            <a href="{{ url_for('login_player') }}">Войти как игрок</a>
+            <a href="{{ url_for('login') }}" class="admin-link text-end">Войти как администратор</a>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    {# --- ИСПРАВЛЕННЫЙ СКРИПТ СМЕНЫ ТЕМЫ --- #}
     <script>
         (function() {
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const htmlElement = document.documentElement;
+            // Используем общий ключ, чтобы тема была одинаковой на всех страницах (index, user, admin)
+            // Если хотите разные темы, используйте разные ключи, например 'indexThemePreference'
             const storageKey = 'globalThemePreference';
 
             const applyTheme = (theme) => {
                 htmlElement.setAttribute('data-bs-theme', theme);
                 if (themeToggleBtn) {
                    themeToggleBtn.setAttribute('title', theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему');
+                   // Опционально: можно менять иконку кнопки
+                   // const icon = themeToggleBtn.querySelector('i');
+                   // if (icon) {
+                   //    icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill'; // или bi-circle-half
+                   // }
                 }
             };
 
             const toggleTheme = () => {
-                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light';
+                const currentTheme = htmlElement.getAttribute('data-bs-theme') || 'light'; // По умолчанию светлая
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 applyTheme(newTheme);
                 try {
@@ -345,18 +361,21 @@
                 themeToggleBtn.addEventListener('click', toggleTheme);
             }
 
-            let defaultThemeInitial = 'light';
+            // Применить начальную тему
+            let defaultThemeInitial = 'light'; // По умолчанию светлая
             try {
                 const savedTheme = localStorage.getItem(storageKey);
                 if (savedTheme) {
                     defaultThemeInitial = savedTheme;
                 } else {
+                    // Если нет сохраненной темы, проверяем системные настройки
                     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                         defaultThemeInitial = 'dark';
                     }
                 }
             } catch (e) {
                 console.error('Не удалось загрузить предпочтение темы:', e);
+                // Оставляем defaultThemeInitial как 'light'
             }
             applyTheme(defaultThemeInitial);
         })();
