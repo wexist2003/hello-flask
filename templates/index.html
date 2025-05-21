@@ -42,7 +42,6 @@
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
             padding: 1rem; /* Adjusted padding */
-            /* margin-top: 21vh; /* Возвращаю этот отступ, который был ранее */ */
             margin-left: auto; /* Centering */
             margin-right: auto;
             margin-bottom: auto; /* Push content-wrapper up if main-content-area grows */
@@ -209,17 +208,19 @@
         /* Media queries for Mobile */
         @media (max-width: 767.98px) {
             body {
-                padding-bottom: 80px; /* Padding-bottom для мобильных, чтобы не перекрывать футер */
+                /* Оставляем padding-bottom таким же, как для ПК, чтобы футер был над нижней границей */
+                padding-bottom: 80px; 
             }
             .main-content-area {
-                justify-content: center; /* Центрируем контент по вертикали для мобильных */
+                /* Установил flex-start, чтобы margin-top мог опустить контент */
+                justify-content: flex-start; 
                 padding-top: 1rem; /* Добавляем небольшой отступ сверху, если нужно */
             }
 
-            /* ИЗМЕНЕНО: Позиционирование футера для мобильных */
+            /* Футер: над нижней границей фонового рисунка */
             .footer-container {
-                position: fixed; /* Футер прикреплен к нижней части вьюпорта */
-                bottom: 0; /* Расположен у нижней границы */
+                position: fixed;
+                bottom: 5vh; /* Поднимаем футер на 5vh от низа, чтобы он был "над" границей фона */
                 left: 0;
                 width: 100%;
                 z-index: 1000;
@@ -234,9 +235,10 @@
             }
 
             .content-wrapper {
-                /* УБРАНО: margin-top: calc(...) так как теперь футер внизу */
-                margin-top: auto; /* Позволяем main-content-area центрировать его */
-                margin-bottom: auto; /* Позволяем main-content-area центрировать его */
+                /* Опускаем блок голосования ниже на 3 строки */
+                /* Мы используем margin-top, чтобы опустить его от верхней границы main-content-area */
+                margin-top: calc(3rem + 1rem); /* 3rem для 3 строк + 1rem (padding-top main-content-area) */
+                margin-bottom: auto; /* Позволяем main-content-area центрировать его, если не хватает места */
                 width: 90vw;
                 max-width: none;
                 padding: 1rem;
