@@ -137,7 +137,7 @@
             margin: 0 auto; /* Center the links block within the footer */
             padding: 0.5rem 0;
             display: flex;
-            justify-content: space-between;
+            justify-content: center; /* Changed to center for single button */
             align-items: center;
         }
         .footer-links a {
@@ -305,8 +305,7 @@
 
     <div class="footer-container">
         <div class="footer-links">
-            <a href="{{ url_for('login_player') }}">Войти как игрок</a>
-            <a href="{{ url_for('login') }}" class="admin-link text-end">Войти как администратор</a>
+            <a href="{{ url_for('login_player') }}">ИГРАТЬ</a>
         </div>
     </div>
 
