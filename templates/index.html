@@ -42,7 +42,6 @@
             max-width: none; /* No max-width by default */
             box-sizing: border-box;
             padding: 1rem; /* Adjusted padding */
-            /* ИЗМЕНЕНО: Поднимаем блок голосования выше */
             margin-top: 21vh; /* Поднимаем блок вверх, задавая отступ от верха */
             margin-left: auto; /* Centering */
             margin-right: auto;
@@ -109,9 +108,9 @@
             z-index: 1050;
         }
 
-        /* ИЗМЕНЕНО: Футер теперь позиционируется вверху */
+        /* Футер по умолчанию (для ПК) - остается sticky вверху */
         .footer-container {
-            position: sticky; /* Sticky, чтобы он оставался вверху, но не перекрывал контент при прокрутке */
+            position: sticky;
             top: 0;
             left: 0;
             width: 100%;
@@ -120,20 +119,20 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 0.5rem 1rem; /* Уменьшен padding, так как теперь сверху */
+            padding: 0.5rem 1rem;
             box-sizing: border-box;
-            min-height: 60px; /* Установил min-height вместо height, чтобы не обрезать при больших текстах */
-            flex-shrink: 0; /* Чтобы футер не сжимался */
+            min-height: 60px;
+            flex-shrink: 0;
         }
 
-        /* ИЗМЕНЕНО: Центрирование кнопки "Играть" */
+        /* Центрирование кнопки "Играть" */
         .footer-links {
             width: 100%;
-            max-width: 500px; /* Сохраняем max-width для контроля ширины */
-            margin: 0 auto; /* Центрируем сам блок ссылок */
+            max-width: 500px;
+            margin: 0 auto;
             padding: 0.5rem 0;
             display: flex;
-            justify-content: center; /* ИЗМЕНЕНО: Отцентрировать содержимое */
+            justify-content: center;
             align-items: center;
         }
         .footer-links a {
@@ -182,7 +181,6 @@
             .content-wrapper {
                 width: 90%; /* Use 90% of parent width */
                 max-width: 400px; /* Further reduced max-width for PC */
-                /* ИЗМЕНЕНО: Поднимаем блок голосования выше */
                 margin-top: 21vh; /* Поднимаем блок вверх, задавая отступ от верха */
                 padding: 1.5rem; /* Adjusted padding */
                 margin-bottom: auto;
@@ -191,6 +189,8 @@
             .footer-container {
                 min-height: 80px; /* Adjust PC footer height */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.25);
+                position: sticky; /* Sticky for PC */
+                top: 0; /* Ensures it sticks to the top */
             }
             .footer-links {
                 width: 90%; /* Match content-wrapper width */
@@ -214,20 +214,36 @@
                 /* УДАЛЕНО: padding-bottom, так как футер теперь сверху */
             }
             .main-content-area {
-                justify-content: center;
+                /* Убрал justify-content: center; чтобы контент не центрировался по вертикали, а начинался ниже */
+                justify-content: flex-start; /* Начнем контент сверху */
+                padding-top: 0; /* Убираем верхний паддинг, чтобы контролировать его через margin-top у content-wrapper */
             }
+
+            /* ИЗМЕНЕНО: Позиционирование футера для мобильных */
+            .footer-container {
+                position: absolute; /* Делаем футер абсолютно позиционированным */
+                top: 5vh; /* Примерно на уровне верхней границы изображения (нужно будет проверить и настроить) */
+                left: 0;
+                width: 100%;
+                z-index: 1000;
+                background-color: rgba(var(--bs-body-bg-rgb), 0.3);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 0.5rem 1rem;
+                box-sizing: border-box;
+                min-height: 60px;
+                flex-shrink: 0;
+            }
+
             .content-wrapper {
-                /* ИЗМЕНЕНО: Поднимаем блок голосования выше */
-                margin-top: 21vh; /* Поднимаем блок вверх, задавая отступ от верха */
+                /* ИЗМЕНЕНО: Опускаем блок голосования ниже на 0.5 строки */
+                margin-top: calc(5vh + 60px + 2rem); /* top footer + footer height + padding для отступа (приблизительно 0.5 строки) */
                 margin-bottom: auto;
                 width: 90vw; /* Rely on 90vw for mobile */
                 max-width: none; /* No max-width on mobile */
                 padding: 1rem; /* Adjusted padding */
                 background-color: rgba(var(--bs-body-bg-rgb), 0.3); /* Adjusted transparency for mobile */
-            }
-            .footer-container {
-                min-height: 60px; /* Mobile footer height */
-                background-color: rgba(var(--bs-body-bg-rgb), 0.3);
             }
             .footer-links {
                 width: 90vw;
@@ -266,22 +282,6 @@
             <div class="title-block text-center">
                 <h2>Выберите колоду,</h2>
                 <p>которой хотели бы играть</p> </div>
-
-            {# УДАЛЕНО: Блок вывода флэш-сообщений #}
-            {#
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-            #}
 
             <div class="deck-list">
                 {% if deck_votes %}
