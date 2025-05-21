@@ -779,152 +779,223 @@ def guess_image(code, image_id):
     except Exception as e: db.rollback(); flash(f"Ошибка угадывания: {e}", "danger"); print(traceback.format_exc(), file=sys.stderr)
     return redirect(url_for('user', code=code))
 
-@socketio.on('open_cards')
-def handle_open_cards(data):
-    game_id = data.get('game_id')
-    if not game_id: return
+@app.route("/admin/open_cards", methods=["POST"])
+def open_cards():
+    # Проверка авторизации администратора
+    if not session.get('is_admin'):
+        flash('Доступ запрещен.', 'danger')
+        return redirect(url_for('login'))
 
-    current_game_state = get_game_state(game_id)
-    if not current_game_state or current_game_state['round_state'] != 'open_cards': return
+    # Проверка состояния игры
+    if is_game_over():
+        flash("Игра уже завершена.", "warning")
+        return redirect(url_for('admin'))
 
-    leader_id = str(current_game_state['leader_id'])
-    leader_selected_card = current_game_state['selected_cards'].get(leader_id)
+    if not is_game_in_progress():
+        flash("Игра не активна.", "warning")
+        return redirect(url_for('admin'))
 
-    if leader_selected_card is None:
-        print(f"SocketIO: Error - Leader's selected card not found for game {game_id}", file=sys.stderr)
-        return
+    db = get_db()
+    c = db.cursor()
 
-    # Determine who guessed the leader's card correctly
-    guessed_leader_count = 0
-    for user_id_str, user_data in current_game_state['players'].items():
-        if user_id_str != leader_id:
-            guessed_card = current_game_state['guesses'].get(user_id_str)
-            if guessed_card == leader_selected_card:
-                current_game_state['players'][user_id_str]['guessed_leader_card'] = True
-                guessed_leader_count += 1
-            else:
-                current_game_state['players'][user_id_str]['guessed_leader_card'] = False
-        else:
-            # Сбрасываем для ведущего, на случай если он был в предыдущем раунде не ведущим и угадывал
-            current_game_state['players'][user_id_str]['guessed_leader_card'] = False 
+    try:
+        # 1. Устанавливаем флаг, чтобы показать информацию о картах
+        set_setting("show_card_info", "true")
 
-    total_non_leader_players = len(current_game_state['players']) - 1 # Все игроки кроме ведущего
+        # --- Логика подсчета очков ---
 
-    # Правило 1: Если карточку ведущего угадали все игроки
-    if guessed_leader_count == total_non_leader_players and total_non_leader_players > 0:
-        leader_position = current_game_state['players'][leader_id]['position']
-        new_leader_position = max(1, leader_position - 3)
-        current_game_state['players'][leader_id]['position'] = new_leader_position
-        # Остальные игроки стоят на месте (их позиции не меняются)
-        print(f"SocketIO: All players guessed leader's card. Leader moves to {new_leader_position}. Starting new round.", file=sys.stderr)
-        
-        # Переход к следующему раунду
-        current_game_state['game_round'] += 1
-        current_game_state['round_state'] = 'card_selection'
-        
-        # Выбор нового ведущего и раздача карт
-        player_ids = list(current_game_state['players'].keys())
-        # Простой способ выбора следующего ведущего
-        current_leader_index = player_ids.index(leader_id)
-        next_leader_index = (current_leader_index + 1) % len(player_ids)
-        current_game_state['leader_id'] = int(player_ids[next_leader_index])
+        # Получаем список активных игроков с их текущим рейтингом
+        active_users = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
+        active_user_ids = [user['id'] for user in active_users]
+        active_users_dict = {user['id']: dict(user) for user in active_users} # Словарь для быстрого поиска по ID
 
-        # Выдаем новые карты
-        all_cards = list(range(1, 7)) # Пример: карты от 1 до 6
-        random.shuffle(all_cards)
-        card_index = 0
-        for player_id_str in player_ids:
-            player_hand = []
-            for _ in range(3): # Каждый игрок получает 3 карты
-                if card_index < len(all_cards):
-                    player_hand.append(all_cards[card_index])
-                    card_index += 1
-                else:
+        # Если нет активных игроков, просто коммитим изменение show_card_info и выходим
+        if not active_users:
+            flash("Нет активных игроков для подсчета очков.", "warning")
+            db.commit() # Commit the setting change
+            broadcast_game_state_update()
+            return redirect(url_for('admin'))
+
+        # Получаем карты, которые находятся на столе
+        table_cards = c.execute("SELECT id, owner_id, guesses FROM images WHERE status LIKE 'На столе:%'").fetchall()
+
+        # Получаем ID текущего ведущего
+        current_leader_id = get_leading_user_id()
+        leader_card = None
+
+        # Находим карту, выложенную ведущим
+        # Убедимся, что ведущий активен, прежде чем искать его карту на столе
+        if current_leader_id in active_user_ids:
+            for card in table_cards:
+                if card['owner_id'] == current_leader_id:
+                    leader_card = card
                     break
-            current_game_state['players'][player_id_str]['hand'] = player_hand
-            current_game_state['players'][player_id_str]['guessed_leader_card'] = False # Reset for new round
-            current_game_state['players'][player_id_str]['guessed_card_id'] = None # Reset for new round
-            current_game_state['players'][player_id_str]['selected_card'] = None # Reset for new round
-        current_game_state['leader_card_description'] = None # Сброс описания
-        
-        save_game_state(game_id, current_game_state)
-        emit('game_update', current_game_state, room=game_id)
-        return # Подсчет очков завершается, начинается следующий раунд
+        elif current_leader_id is not None:
+             print(f"Scoring Warning: Current leader ID {current_leader_id} is not in active users. Cannot find leader card on table.", file=sys.stderr)
 
-    # Правило 2.1: Если карточку ведущего никто не угадал
-    no_one_guessed_leader = (guessed_leader_count == 0)
-    if no_one_guessed_leader:
-        leader_position = current_game_state['players'][leader_id]['position']
-        new_leader_position = max(1, leader_position - 2)
-        current_game_state['players'][leader_id]['position'] = new_leader_position
-        print(f"SocketIO: No one guessed leader's card. Leader moves to {new_leader_position} (Rule 2.1).", file=sys.stderr)
-        # В этом случае другие очки все равно начисляются
 
-    # --- Начисление очков по общим правилам (если не сработали Правила 1) ---
+        # Инициализируем словарь для хранения изменений рейтинга для каждого активного игрока
+        # Изначально у всех 0 изменений.
+        rating_changes = {user_id: 0 for user_id in active_user_ids}
+        leader_new_rating_override = None # Используется, если рейтинг ведущего определяется напрямую (уменьшение)
 
-    # Правило 2.2 (часть 1): Игроки, чьи карточки угадали, получают по одному очку за каждого угадавшего их карту.
-    # Это теперь применяется и к ведущему, если его карта была угадана!
-    for user_id_to_score_str, user_data_to_score in current_game_state['players'].items():
-        player_id_to_score = int(user_id_to_score_str)
-        
-        # Считаем, сколько игроков угадали текущего player_id_to_score
-        guessed_by_count = 0
-        for guess_user_id_str, guess_data in current_game_state['players'].items():
-            # Угадывающий не может угадывать свою собственную карту
-            # И не может угадывать карту ведущего, если он сам ведущий (тут мы ищем, кто угадал *его* карту)
-            if int(guess_user_id_str) != player_id_to_score:
-                if guess_data.get('guessed_card_id') == current_game_state['selected_cards'].get(user_id_to_score_str):
-                    guessed_by_count += 1
-        
-        if guessed_by_count > 0:
-            current_game_state['players'][user_id_to_score_str]['position'] += guessed_by_count
-            print(f"SocketIO: Player {user_data_to_score['name']} ({user_id_to_score_str}) card guessed by {guessed_by_count} players. Moves {guessed_by_count} steps (Rule 2.2 part 1).", file=sys.stderr)
+        # 2. Анализ предположений относительно карты *ведущего*
+        correct_guesser_ids_for_leader = [] # Список ID игроков, правильно угадавших карту ведущего
+        # Количество активных игроков, кроме ведущего. Если ведущий неактивен, это просто общее число активных игроков.
+        total_other_active_players = len(active_users_dict) - (1 if current_leader_id in active_users_dict else 0)
 
-    # Правило 2.2 (часть 2): По 3 очка получают все игроки, правильно угадавшие карточку Ведущего.
-    for user_id_str, user_data in current_game_state['players'].items():
-        if user_id_str != leader_id: # ТОЛЬКО для не-ведущих игроков
-            if user_data.get('guessed_leader_card', False):
-                current_game_state['players'][user_id_str]['position'] += 3
-                print(f"SocketIO: Player {user_data['name']} ({user_id_str}) correctly guessed leader's card. Moves 3 steps (Rule 2.2 part 2).", file=sys.stderr)
+        leader_was_correctly_guessed_by_all_others = False
+        leader_was_guessed_by_none_others = False
 
-    # Правило 2.3: Ведущий получает 3 очка если его карточку угадали не все игроки и не никто.
-    # Это условие уже было проверено в начале, но мы используем флаги no_one_guessed_leader и total_non_leader_players
-    if not no_one_guessed_leader and guessed_leader_count < total_non_leader_players:
-        current_game_state['players'][leader_id]['position'] += 3
-        print(f"SocketIO: Leader's card was guessed by some players, but not all. Leader moves 3 steps (Rule 2.3).", file=sys.stderr)
+        if leader_card and current_leader_id in active_users_dict: # Проверяем, что ведущий активен и его карта на столе
+            try:
+                leader_guesses = json.loads(leader_card['guesses'] or '{}')
+            except json.JSONDecodeError:
+                print(f"Scoring Error: Invalid JSON in leader card {leader_card['id']} guesses: {leader_card['guesses']}", file=sys.stderr)
+                leader_guesses = {}
 
-    # --- Подготовка к следующему раунду ---
-    current_game_state['game_round'] += 1
-    current_game_state['round_state'] = 'card_selection'
-    
-    # Выбор нового ведущего
-    player_ids = list(current_game_state['players'].keys())
-    current_leader_index = player_ids.index(leader_id)
-    next_leader_index = (current_leader_index + 1) % len(player_ids)
-    current_game_state['leader_id'] = int(player_ids[next_leader_index])
+            # Собираем ID игроков, которые правильно угадали карту ведущего (исключая самого ведущего)
+            for guesser_id_str, guessed_owner_id_val in leader_guesses.items():
+                 try:
+                    guesser_id = int(guesser_id_str)
+                    guessed_owner_id_int = int(guessed_owner_id_val)
+                 except (ValueError, TypeError):
+                    print(f"Scoring Error: Invalid guesser_id or guessed_owner_id format in leader card {leader_card['id']} guesses: {guesser_id_str} -> {guessed_owner_id_val}", file=sys.stderr)
+                    continue # Пропускаем некорректное предположение
 
-    # Выдача новых карт и сброс состояния игроков для нового раунда
-    all_cards = list(range(1, 7)) # Пример: карты от 1 до 6
-    random.shuffle(all_cards)
-    card_index = 0
-    for player_id_str in player_ids:
-        player_hand = []
-        for _ in range(3): # Каждый игрок получает 3 карты
-            if card_index < len(all_cards):
-                player_hand.append(all_cards[card_index])
-                card_index += 1
+                 # Учитываем только предположения от других активных игроков
+                 if guesser_id in active_user_ids and guesser_id != current_leader_id and guessed_owner_id_int == current_leader_id:
+                    correct_guesser_ids_for_leader.append(guesser_id)
+
+            correct_leader_guesses_count_by_others = len(correct_guesser_ids_for_leader)
+
+            # Проверяем основные случаи для карты ведущего, если есть другие активные игроки
+            if total_other_active_players > 0:
+                if correct_leader_guesses_count_by_others == total_other_active_players:
+                    # Правило: "Если карточку ведущего угадали все игроки..."
+                    # Ведущий теряет 3 балла. Остальные очки не начисляются.
+                    leader_was_correctly_guessed_by_all_others = True
+                    current_leader_current_rating = active_users_dict[current_leader_id]['rating']
+                    leader_new_rating_override = max(1, current_leader_current_rating - 3)
+                    print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) угадан ВСЕМИ ({correct_leader_guesses_count_by_others} из {total_other_active_players} других игроков). Рейтинг будет {leader_new_rating_override}. Дальнейший подсчет очков пропускается.", file=sys.stderr)
+
+                elif correct_leader_guesses_count_by_others == 0:
+                    # Правило: "Если карточку ведущего никто не угадал..."
+                    # Ведущий теряет 2 балла. Остальные игроки получают очки по общим правилам.
+                    leader_was_guessed_by_none_others = True
+                    current_leader_current_rating = active_users_dict[current_leader_id]['rating']
+                    leader_new_rating_override = max(1, current_leader_current_rating - 2)
+                    print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) не угадан НИКЕМ ({correct_leader_guesses_count_by_others} из {total_other_active_players} других игроков). Рейтинг будет {leader_new_rating_override}. Другие получают очки по общим правилам.", file=sys.stderr)
+
+                # Если количество угадавших НЕ равно 0 и НЕ равно общему количеству других активных игроков,
+                # значит, сработал случай "В любом другом случае", который будет обработан далее.
+
+            elif current_leader_id in active_users_dict:
+                 # Ведущий активен, но других активных игроков нет. Специальные правила для ведущего не применяются.
+                 print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) - единственный активный игрок. Специальные правила ведущего не применяются.", file=sys.stderr)
+
+        elif current_leader_id is None:
+            print("Scoring Warning: No current leader defined. Cannot apply leader scoring rules.", file=sys.stderr)
+        elif leader_card is None and current_leader_id in active_users_dict:
+             print(f"Scoring Warning: Leader ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) is active but no leader card on table. Cannot apply leader scoring rules.", file=sys.stderr)
+
+
+        # 3. Подсчет очков по остальным правилам, если НЕ сработал случай "Все угадали карту ведущего"
+        # Этот блок выполняется ТОЛЬКО если leader_was_correctly_guessed_by_all_others == False
+        if not leader_was_correctly_guessed_by_all_others:
+
+            # 3a. Начисление очков за угадывание *своей* карты другими игроками
+            # Правило: "Все игроки получают по одному очку за каждого игрока, который угадал их карточку."
+            # Этот пункт выполняется, если не сработал случай "Все угадали ведущего".
+            for card in table_cards:
+                card_owner_id = card['owner_id']
+                # Убедимся, что владелец карты активен, чтобы начислять ему очки
+                if card_owner_id not in active_user_ids:
+                    continue
+
+                try:
+                    guesses = json.loads(card['guesses'] or '{}')
+                except json.JSONDecodeError:
+                    guesses = {} # В случае ошибки парсинга, считаем, что предположений не было
+
+                # Перебираем все предположения по этой карте
+                for guesser_id_str, guessed_owner_id_val in guesses.items():
+                    try:
+                        guesser_id = int(guesser_id_str)
+                        guessed_owner_id_int = int(guessed_owner_id_val)
+                    except (ValueError, TypeError):
+                        continue # Пропускаем некорректное предположение
+
+                    # Проверяем, что угадавший игрок активен, отличается от владельца карты, и угадал правильно
+                    if guesser_id in active_user_ids and guesser_id != card_owner_id and guessed_owner_id_int == card_owner_id:
+                        rating_changes[card_owner_id] += 1
+                        print(f"Scoring: Игрок {get_user_name(card_owner_id) or f'ID {card_owner_id}'} получил +1 очко (карта {card['id']} угадана игроком {get_user_name(guesser_id) or f'ID {guesser_id}'}).", file=sys.stderr)
+
+
+            # 3б. Применение правил для ведущего и игроков, если НЕ сработал случай "Все угадали" и НЕ сработал случай "Никто не угадал" (т.е. "В любом другом случае")
+            # Этот блок выполняется, если у ведущего есть карта на столе, он активен, есть другие активные игроки, и
+            # количество угадавших его карту находится строго между 0 и total_other_active_players (т.е. SOME guessed)
+            if leader_card and current_leader_id in active_users_dict and total_other_active_players > 0 \
+               and not leader_was_guessed_by_none_others and not leader_was_correctly_guessed_by_all_others:
+
+                correct_leader_guesses_count_by_others = len(correct_guesser_ids_for_leader) # Пересчитываем на всякий случай, хотя уже должно быть посчитано
+
+                # Правило: "В любом другом случае..."
+                # Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.
+                leader_points_from_guessing = 3 + correct_leader_guesses_count_by_others
+                rating_changes[current_leader_id] += leader_points_from_guessing
+                print(f"Scoring: Ведущий ({get_user_name(current_leader_id) or f'ID {current_leader_id}'}) угадан SOME ({correct_leader_guesses_count_by_others} игроков). Получает +{leader_points_from_guessing} очков.", file=sys.stderr)
+
+                # Игроки, которые правильно угадали карту ведущего, получают по 3 очка.
+                for guesser_id in correct_guesser_ids_for_leader:
+                    if guesser_id in rating_changes: # Убедимся, что игрок активен
+                         rating_changes[guesser_id] += 3
+                         print(f"Scoring: Игрок ({get_user_name(guesser_id) or f'ID {guesser_id}'}) получил +3 очка за угадывание карты ведущего.", file=sys.stderr)
+                    else:
+                         print(f"Scoring Warning: Guesser ID {guesser_id} for leader card not found in active users rating_changes dict (Some Guessed case).", file=sys.stderr)
+
+
+        # 4. Окончательное обновление рейтинга в базе данных
+        for user in active_users:
+            user_id = user['id']
+            current_rating = user['rating']
+            final_rating = current_rating # Изначально новое значение равно текущему
+
+            # Если для ведущего был определен прямой расчет рейтинга (случаи All или None guessed), применяем его
+            if user_id == current_leader_id and leader_new_rating_override is not None:
+                final_rating = leader_new_rating_override
+                print(f"Scoring Update: Ведущий ({get_user_name(user_id) or f'ID {user_id}'}) итоговый рейтинг: {current_rating} -> {final_rating} (прямое изменение).", file=sys.stderr)
             else:
-                break
-        current_game_state['players'][player_id_str]['hand'] = player_hand
-        current_game_state['players'][player_id_str]['guessed_leader_card'] = False # Сброс
-        current_game_state['players'][player_id_str]['guessed_card_id'] = None # Сброс
-        current_game_state['players'][player_id_str]['selected_card'] = None # Сброс
-    current_game_state['selected_cards'] = {} # Сброс выбранных карт
-    current_game_state['guesses'] = {} # Сброс догадок
-    current_game_state['leader_card_description'] = None # Сброс описания
-    
-    save_game_state(game_id, current_game_state)
-    emit('game_update', current_game_state, room=game_id)
+                # Для не-ведущих игроков ИЛИ для ведущего в случае "В любом другом случае"
+                # Применяем изменения из rating_changes
+                calculated_rating_change = rating_changes.get(user_id, 0)
+                final_rating = max(1, current_rating + calculated_rating_change) # Убеждаемся, что рейтинг не падает ниже 1
+
+                if calculated_rating_change != 0:
+                     print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) итоговый рейтинг: {current_rating} -> {final_rating} (изменения: {calculated_rating_change}).", file=sys.stderr)
+                elif user_id != current_leader_id: # Не логируем для ведущего, если его изменение 0 в этом блоке
+                     print(f"Scoring Update: Игрок ({get_user_name(user_id) or f'ID {user_id}'}) рейтинг остался {current_rating}.", file=sys.stderr)
+
+
+            # Выполняем обновление в базе данных
+            c.execute("UPDATE users SET rating = ? WHERE id = ?", (final_rating, user_id))
+
+        # --- Конец логики подсчета очков ---
+
+        db.commit() # Сохраняем все изменения в базе данных
+
+        flash("Карты открыты, очки начислены.", "success")
+        # Отправляем обновление состояния игры всем подключенным клиентам
+        broadcast_game_state_update()
+
+    except Exception as e:
+        # В случае любой ошибки откатываем изменения в базе данных
+        db.rollback()
+        flash(f"Ошибка открытия карт/подсчета очков: {e}", "danger")
+        print(f"CRITICAL ERROR in open_cards: {e}\n{traceback.format_exc()}", file=sys.stderr)
+
+    # Перенаправляем обратно на страницу администратора
+    return redirect(url_for('admin'))
     
 
 @app.route("/new_round", methods=["POST"]) # Логика без изменений
