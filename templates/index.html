@@ -264,6 +264,8 @@
                 <h2>Выберите колоду,</h2>
                 <p>которой хотели бы играть</p> </div>
 
+            {# УДАЛЕНО: Блок вывода флэш-сообщений #}
+            {#
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="messages-container" style="margin-top: -0.5rem; margin-bottom: 1rem;">
@@ -276,6 +278,7 @@
                     </div>
                 {% endif %}
             {% endwith %}
+            #}
 
             <div class="deck-list">
                 {% if deck_votes %}
