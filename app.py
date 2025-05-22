@@ -52,7 +52,7 @@ def init_db(): # Эта функция остается без изменени�
         settings_to_init = {'game_over': 'false', 'game_in_progress': 'false', 'show_card_info': 'false', 'leading_user_id': '', 'active_subfolder': 'koloda1'}
         for key, value in settings_to_init.items(): c.execute("REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
-        image_folders = ['ariadna', 'detstvo', 'imaginarium', 'odissey', 'pandora', 'persephone', 'himera']
+        image_folders = ['ariadna', 'detstvo', 'imaginarium', 'odissey', 'pandora', 'persephone', 'soyuzmultfilm', 'himera']
         images_added_count = 0
         for folder in image_folders:
             folder_path = os.path.join(app.static_folder, 'images', folder.strip())
