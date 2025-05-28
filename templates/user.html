@@ -23,7 +23,7 @@
             --leader-card-highlight-shadow: rgba(0, 1...);
         }
 
-        /* Добавленные стили для карточек и списков угадывания */
+        /* Общие стили для карточек */
         .game-card {
             border: 1px solid #ccc;
             padding: 10px;
@@ -32,13 +32,7 @@
             background-color: #f9f9f9;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            cursor: pointer; /* Делаем карточки кликабельными */
-            transition: all 0.2s ease-in-out;
-        }
-
-        .game-card:hover:not(.guessed-card):not(.active-guessing) {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            position: relative; /* Для позиционирования списка угадывания */
         }
 
         .game-card img {
@@ -54,84 +48,93 @@
             color: #28a745;
         }
 
-        /* Стиль для списка игроков, который теперь будет использоваться для угадывания */
-        .players-guess-list {
-            margin-top: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #f0f8ff; /* Light blue background */
-            display: none; /* Изначально скрыт, появляется при выборе карточки */
-            position: sticky; /* Sticky, чтобы он оставался на экране при прокрутке */
-            top: 20px; /* Отступ от верха */
-            z-index: 1000; /* Поверх других элементов */
+        /* Секция угадывания под карточкой */
+        .guess-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
         }
-        .players-guess-list.active {
-            display: block; /* Показываем, когда активно угадывание */
-        }
-        .players-guess-list h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-        .players-guess-list ul {
+
+        /* Стили для раскрытого списка игроков для угадывания */
+        .guess-players-list {
             list-style: none;
             padding: 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px; /* Промежуток между элементами списка */
-        }
-        .players-guess-list li {
-            background-color: #e6f2ff; /* Even lighter blue */
-            padding: 8px 12px;
+            margin-top: 10px;
+            max-height: 200px; /* Ограничим высоту, чтобы не занимал слишком много места */
+            overflow-y: auto; /* Добавим прокрутку, если игроков много */
+            border: 1px solid #e0e0e0;
             border-radius: 5px;
-            border: 1px solid #cce0ff;
+            background-color: #ffffff;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .guess-players-list li {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            text-align: left; /* Выравнивание текста */
+        }
+        .guess-players-list li:last-child {
+            border-bottom: none;
+        }
+        .guess-players-list li:hover {
+            background-color: #e9ecef;
+        }
+        .guess-players-list li.leader {
             font-weight: bold;
-            color: #0056b3;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            cursor: pointer; /* Делаем элементы списка кликабельными */
-            transition: all 0.2s ease-in-out;
+            color: #007bff; /* Синий для ведущего */
+            background-color: #eaf6ff;
         }
-        .players-guess-list li:hover {
-            background-color: #cce0ff;
-            transform: translateY(-2px);
+
+        /* Стиль для моей карточки */
+        .my-card-highlight {
+            border: 3px solid var(--my-card-highlight-color);
+            box-shadow: 0 0 15px var(--my-card-highlight-shadow);
         }
-        .players-guess-list li.leader {
-            background-color: #fffacd; /* Light goldenrod yellow */
-            border-color: #ffd700; /* Gold */
-            color: #8b6508; /* Darker yellow */
-        }
-        /* Стиль для активной карточки, которую угадывают */
-        .game-card.active-guessing {
-            border: 3px solid var(--leader-card-highlight-color); /* Синяя рамка */
+
+        /* Стиль для карточки Ведущего */
+        .leader-card-highlight {
+            border: 3px solid var(--leader-card-highlight-color);
             box-shadow: 0 0 15px var(--leader-card-highlight-shadow);
         }
-        .game-card.guessed-card {
-            border: 2px solid var(--my-card-highlight-color); /* Зеленая рамка для угаданной */
-            opacity: 0.7; /* Сделать немного прозрачнее */
-            cursor: default;
+
+        /* Стили для секции правил */
+        .rules-section {
+            margin-top: 40px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        .game-card.guessed-card:hover {
-            transform: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        .rules-section h2 {
+            color: #343a40;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
         }
-        .cancel-guess-button {
-            margin-top: 10px;
-            padding: 8px 15px;
-            background-color: #dc3545; /* Красный */
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
+        .rules-section h4 {
+            color: #007bff;
+            margin-top: 15px;
+            margin-bottom: 10px;
         }
-        .cancel-guess-button:hover {
-            background-color: #c82333;
+        .rules-section p {
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .rules-section ul {
+            list-style-type: disc;
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+        .rules-section li {
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Мафия Онлайн</a>
+        <a class="navbar-brand" href="#">Ваша Игра</a> {# ИЗМЕНЕНО: на "Ваша Игра" #}
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -142,7 +145,7 @@
                 </li>
                 {% if user_data_for_init %}
                 <li class="nav-item active">
-                    <a class="nav-link" href="{{ url_for('user', code=user_data_for_init.code) }}"> {# ИЗМЕНЕНО: user_code на code #}
+                    <a class="nav-link" href="{{ url_for('user', code=user_data_for_init.code) }}">
                         {{ user_data_for_init.name }} (Ваш код: {{ user_data_for_init.code }}) <span class="sr-only">(current)</span>
                     </a>
                 </li>
@@ -177,15 +180,34 @@
         <h1 class="mb-4">Игровая страница</h1>
         <p>Ваша роль: <strong id="user-role-display">Загрузка...</strong></p>
 
+        {# Мои карточки (или блок текущего игрока) #}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2>Мои карточки</h2>
+                <div id="my-cards-container" class="row">
+                    </div>
+            </div>
+        </div>
+
+        {# Игровое поле #}
+        <h2 class="mb-3">Игровое поле</h2>
         <div id="game-board-container" class="row">
             </div>
 
-        <div class="players-guess-list" id="players-guess-list-container">
-            <h3>Кого угадываем? Выберите игрока:</h3>
-            <ul id="active-players-list">
-                </ul>
-            <button class="cancel-guess-button" id="cancel-guess-button">Отмена</button>
+        {# Правила #}
+        <div class="rules-section">
+            <h2>Правила игры</h2>
+            <p>Добро пожаловать в игру! Цель игры...</p>
+            <h4>Фазы игры:</h4>
+            <ul>
+                <li><strong>Подготовка:</strong> Игрокам раздаются роли и карточки.</li>
+                <li><strong>Ходы:</strong> Ведущий объявляет фазу, игроки совершают действия.</li>
+                <li><strong>Угадывание:</strong> В определенные моменты игроки пытаются угадать, кому принадлежит карточка на поле.</li>
+            </ul>
+            <h4>Как играть:</h4>
+            <p>Следите за инструкциями ведущего. Используйте предоставленные инструменты для взаимодействия с игровым полем и другими игроками.</p>
         </div>
+
 
         <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg" role="document">
@@ -207,20 +229,15 @@
         const userCode = "{{ user_data_for_init.code if user_data_for_init else 'anonymous' }}";
         const socket = io();
 
-        let _currentGuessingCardId = null; // Переменная для хранения ID карточки, которую сейчас угадывают
         let _allActiveUsers = []; // Храним список пользователей для использования в логике угадывания
-
-        const playersGuessListContainer = document.getElementById('players-guess-list-container');
-        const activePlayersListUl = document.getElementById('active-players-list');
-        const cancelGuessButton = document.getElementById('cancel-guess-button');
 
         // Обработка начального состояния и обновлений игры
         socket.on('game_update', function(data) {
             console.log('Получено обновление игры:', data);
             _allActiveUsers = data.active_users || []; // Сохраняем список пользователей
+
             updateGameBoard(data);
-            updateActivePlayersList(_allActiveUsers, data.current_leader_code); // Обновляем общий список
-            resetGuessingState(); // Сбросим состояние угадывания при обновлении игры
+            updateMyCards(data); // Обновляем мои карточки
         });
 
         // Функция для динамического обновления игрового поля
@@ -241,10 +258,12 @@
                  userStatusDisplay.textContent = `Статус: ${gameState.user_data.status}`;
             }
 
-            if (gameState.game_board_cards && _allActiveUsers.length > 0) { // Проверяем, что пользователи уже загружены
+            if (gameState.game_board_cards && _allActiveUsers.length > 0) {
+                const currentLeaderCode = gameState.current_leader_code; // Получаем код текущего ведущего
+
                 gameState.game_board_cards.forEach(card => {
                     const cardElement = document.createElement('div');
-                    cardElement.className = 'col-md-3 col-sm-6 col-12 game-card'; // Bootstrap колонки для адаптивности
+                    cardElement.className = 'col-md-3 col-sm-6 col-12 game-card';
                     cardElement.id = `card-${card.id}`;
 
                     let cardContent = `
@@ -258,153 +277,116 @@
                         cardContent += `<p>${card.text}</p>`;
                     }
 
+                    // Добавляем подсветку для карточки ведущего, если card.id соответствует current_leader_card_id
+                    if (currentLeaderCode && card.id === gameState.current_leader_card_id) { // Предполагаем, что gameState также содержит current_leader_card_id
+                        cardElement.classList.add('leader-card-highlight');
+                    }
+
                     if (card.is_guessed) {
                         const guessedByUser = _allActiveUsers.find(u => u.id === card.guessed_by);
                         cardContent += `<p class="guessed-info">Угадано игроком: ${guessedByUser ? guessedByUser.name : 'Неизвестно'}</p>`;
-                        cardElement.classList.add('guessed-card'); // Добавляем класс для угаданной карточки
                     } else {
-                        // Если карточка не угадана, делаем ее кликабельной для начала угадывания
-                        cardElement.dataset.cardId = card.id; // Запоминаем ID карточки
-                        cardElement.classList.add('guessable'); // Класс для кликабельных карточек
-                        // cardContent += `<button class="btn btn-outline-primary btn-sm mt-2 start-guess-button" data-card-id="${card.id}">Угадать</button>`;
+                        // Раскрытый список для угадывания под каждой карточкой
+                        cardContent += `
+                            <div class="guess-section">
+                                <p class="mb-1">Кого угадываем?</p>
+                                <ul class="guess-players-list" data-card-id="${card.id}">
+                                    ${_allActiveUsers.map(player => `
+                                        <li data-player-id="${player.id}" class="${player.id === currentLeaderCode ? 'leader' : ''}">
+                                            ${player.name}${player.id === currentLeaderCode ? ' (Ведущий)' : ''}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        `;
                     }
                     cardElement.innerHTML = cardContent;
                     gameBoardContainer.appendChild(cardElement);
                 });
 
-                // Добавляем обработчики событий для клика на карточки
-                document.querySelectorAll('.game-card.guessable').forEach(cardElement => {
-                    cardElement.addEventListener('click', function() {
-                        if (this.classList.contains('guessed-card')) {
-                            return; // Игнорируем клики на уже угаданные карточки
+                // Добавляем обработчики событий для клика на элементы списка угадывания
+                document.querySelectorAll('.guess-players-list li').forEach(listItem => {
+                    listItem.addEventListener('click', async function() {
+                        const cardId = this.closest('.guess-players-list').dataset.cardId;
+                        const guessedPlayerId = this.dataset.playerId;
+
+                        if (cardId && guessedPlayerId) {
+                            console.log(`Пользователь ${userCode} пытается отправить POST-запрос на угадывание карточки ${cardId} как ${guessedPlayerId}`);
+
+                            try {
+                                const numericCardId = parseInt(cardId, 10);
+                                if (isNaN(numericCardId)) {
+                                    console.error('Invalid cardId, not a number:', cardId);
+                                    alert('Ошибка: Некорректный идентификатор карточки.');
+                                    return;
+                                }
+
+                                const response = await fetch(`/user/${userCode}/guess/${numericCardId}`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        guessed_player_id: guessedPlayerId
+                                    })
+                                });
+
+                                if (response.ok) {
+                                    console.log('Запрос на угадывание успешно отправлен.');
+                                    const result = await response.json();
+                                    if (result.status === 'success') {
+                                        console.log('Угадывание успешно на сервере:', result);
+                                        // Ожидаем game_update через SocketIO для обновления UI
+                                    } else {
+                                        alert('Ошибка при угадывании: ' + (result.message || 'Неизвестная ошибка'));
+                                    }
+                                } else {
+                                    const errorData = await response.json();
+                                    alert('Ошибка при угадывании: ' + (errorData.message || response.statusText));
+                                    console.error('Ошибка при отправке запроса на угадывание:', response.status, errorData);
+                                }
+                            } catch (error) {
+                                console.error('Сетевая ошибка при отправке запроса на угадывание:', error);
+                                alert('Произошла сетевая ошибка. Попробуйте еще раз.');
+                            }
+                        } else {
+                            alert('Ошибка: Не удалось определить карточку или игрока.');
                         }
-                        const cardId = this.dataset.cardId;
-                        selectCardForGuessing(cardId);
                     });
                 });
-
             } else {
                 gameBoardContainer.innerHTML = '<p>Игровое поле еще не загружено или данных нет.</p>';
             }
         }
 
-        // Функция для выбора карточки для угадывания
-        function selectCardForGuessing(cardId) {
-            // Сбрасываем предыдущую подсветку
-            if (_currentGuessingCardId) {
-                const prevCardElement = document.getElementById(`card-${_currentGuessingCardId}`);
-                if (prevCardElement) {
-                    prevCardElement.classList.remove('active-guessing');
-                }
-            }
+        // Функция для обновления раздела "Мои карточки"
+        function updateMyCards(gameState) {
+            const myCardsContainer = document.getElementById('my-cards-container');
+            myCardsContainer.innerHTML = ''; // Очищаем контейнер
 
-            _currentGuessingCardId = cardId;
-            const currentCardElement = document.getElementById(`card-${_currentGuessingCardId}`);
-            if (currentCardElement) {
-                currentCardElement.classList.add('active-guessing'); // Подсвечиваем выбранную карточку
-            }
+            if (gameState.user_data && gameState.user_data.my_cards && gameState.user_data.my_cards.length > 0) {
+                gameState.user_data.my_cards.forEach(card => {
+                    const myCardElement = document.createElement('div');
+                    myCardElement.className = 'col-md-3 col-sm-6 col-12 game-card my-card-highlight'; // Стилизация моей карточки
+                    myCardElement.id = `my-card-${card.id}`; // Уникальный ID
 
-            playersGuessListContainer.classList.add('active'); // Показываем список игроков
-            // Можно прокрутить к списку игроков, если он вне поля зрения
-            playersGuessListContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        // Функция для обновления общего списка активных игроков
-        function updateActivePlayersList(players, currentLeaderCode) {
-            if (!activePlayersListUl) return;
-
-            activePlayersListUl.innerHTML = ''; // Очищаем список перед обновлением
-
-            if (players && players.length > 0) {
-                players.forEach(player => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = player.name;
-                    listItem.dataset.playerId = player.id; // Запоминаем ID игрока
-
-                    if (player.id === currentLeaderCode) {
-                        listItem.classList.add('leader');
-                        listItem.textContent += ' (Ведущий)';
+                    let cardContent = `
+                        <h4>Моя карточка: ${card.id}</h4>
+                    `;
+                    if (card.image) {
+                        cardContent += `<img src="${card.image}" alt="Моя карточка ${card.id}">`;
                     }
-                    listItem.addEventListener('click', handlePlayerGuess); // Обработчик клика на игрока
-                    activePlayersListUl.appendChild(listItem);
+                    if (card.text) {
+                        cardContent += `<p>${card.text}</p>`;
+                    }
+                    myCardElement.innerHTML = cardContent;
+                    myCardsContainer.appendChild(myCardElement);
                 });
             } else {
-                activePlayersListUl.innerHTML = '<li>Нет активных игроков.</li>';
+                myCardsContainer.innerHTML = '<p>У вас пока нет карточек.</p>';
             }
         }
 
-        // Обработчик клика по игроку в общем списке для угадывания
-        async function handlePlayerGuess(event) {
-            if (!_currentGuessingCardId) {
-                alert('Сначала выберите карточку, которую хотите угадать.');
-                return;
-            }
-
-            const guessedPlayerId = event.target.dataset.playerId;
-            if (!guessedPlayerId) {
-                alert('Не удалось определить игрока для угадывания.');
-                return;
-            }
-
-            console.log(`Пользователь ${userCode} пытается отправить POST-запрос на угадывание карточки ${_currentGuessingCardId} как ${guessedPlayerId}`);
-
-            try {
-                const numericCardId = parseInt(_currentGuessingCardId, 10);
-                if (isNaN(numericCardId)) {
-                    console.error('Invalid cardId, not a number:', _currentGuessingCardId);
-                    alert('Ошибка: Некорректный идентификатор карточки.');
-                    return;
-                }
-
-                const response = await fetch(`/user/${userCode}/guess/${numericCardId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        guessed_player_id: guessedPlayerId
-                    })
-                });
-
-                if (response.ok) {
-                    console.log('Запрос на угадывание успешно отправлен.');
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        console.log('Угадывание успешно на сервере:', result);
-                        // Ожидаем game_update через SocketIO для обновления UI
-                        // UI будет обновлен, когда game_update придет.
-                    } else {
-                        alert('Ошибка при угадывании: ' + (result.message || 'Неизвестная ошибка'));
-                    }
-                } else {
-                    const errorData = await response.json();
-                    alert('Ошибка при угадывании: ' + (errorData.message || response.statusText));
-                    console.error('Ошибка при отправке запроса на угадывание:', response.status, errorData);
-                }
-            } catch (error) {
-                console.error('Сетевая ошибка при отправке запроса на угадывание:', error);
-                alert('Произошла сетевая ошибка. Попробуйте еще раз.');
-            } finally {
-                resetGuessingState(); // Сбросим состояние угадывания после попытки
-            }
-        }
-
-        // Обработчик кнопки "Отмена"
-        if (cancelGuessButton) {
-            cancelGuessButton.addEventListener('click', resetGuessingState);
-        }
-
-        // Функция для сброса состояния угадывания
-        function resetGuessingState() {
-            if (_currentGuessingCardId) {
-                const prevCardElement = document.getElementById(`card-${_currentGuessingCardId}`);
-                if (prevCardElement) {
-                    prevCardElement.classList.remove('active-guessing');
-                }
-            }
-            _currentGuessingCardId = null;
-            playersGuessListContainer.classList.remove('active'); // Скрываем список игроков
-        }
 
         // Логика для кнопки переключения темы (без изменений)
         const themeToggleButton = document.getElementById('theme-toggle-icon-button');
@@ -438,7 +420,7 @@
             });
         }
 
-        // Логика для модального окна изображения (без изменений)
+        // Логика для модального окна изображения (если используется)
         const modalImageElement = document.getElementById('modalImage');
         if (modalImageElement) {
             modalImageElement.addEventListener('click', () => {
