@@ -1,3 +1,6 @@
+import eventlet # Импортируем eventlet
+eventlet.monkey_patch() # Вызываем monkey_patch() СРАЗУ ЖЕ
+
 import json
 import sys
 import sqlite3
