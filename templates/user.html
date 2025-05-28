@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Страница игрока - {{ user_data_for_init['name'] if user_data_for_init else 'Игрок' }}</title>
+    <title>Страница игрока - {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -20,561 +20,254 @@
 
             /* --- ДОБАВЛЕНО: Переменные для синего цвета рамки Ведущего --- */
             --leader-card-highlight-color: #007bff; /* Синий для карточки Ведущего */
-            --leader-card-highlight-shadow: rgba(0, 123, 255, 0.5);
-            /* --- КОНЕЦ ДОБАВЛЕНО --- */
+            --leader-card-highlight-shadow: rgba(0, 1...);
         }
 
-        body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            background-color: #f8f9fa; /* Светлый фон по умолчанию */
-            color: #343a40; /* Темный текст по умолчанию */
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .dark-theme {
-            background-color: #343a40; /* Темный фон для темной темы */
-            color: #f8f9fa; /* Светлый текст для темной темы */
-        }
-        .dark-theme .card {
-            background-color: #495057; /* Темный фон для карточек в темной теме */
-            color: #f8f9fa;
-            border-color: #6c757d;
-        }
-        .dark-theme .form-control {
-            background-color: #5a6268;
-            color: #f8f9fa;
-            border-color: #6c757d;
-        }
-        .dark-theme .form-control::placeholder {
-            color: #ced4da;
-        }
-        .dark-theme .list-group-item {
-            background-color: #495057;
-            color: #f8f9fa;
-            border-color: #6c757d;
-        }
-        .dark-theme .modal-content {
-            background-color: #495057;
-            color: #f8f9fa;
-            border-color: #6c757d;
-        }
-        .dark-theme .modal-header,
-        .dark-theme .modal-footer {
-            border-color: #6c757d;
-        }
-        .dark-theme .btn-secondary {
-            background-color: #6c757d;
-            border-color: #6c757d;
-        }
-        .dark-theme .close {
-            color: #f8f9fa;
-        }
-        /* Стили для кнопок, чтобы они выглядели хорошо в обеих темах */
-        .btn-primary, .btn-success, .btn-warning, .btn-danger {
-            color: #fff;
-        }
-        .btn-primary:hover, .btn-success:hover, .btn-warning:hover, .btn-danger:hover {
-            color: #fff;
-            opacity: 0.8;
-        }
-
-        .main-content {
-            flex: 1; /* Позволяет основному контенту занимать все доступное пространство */
-            padding-top: 20px;
-            padding-bottom: 20px;
-        }
-
-        .card {
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        /* Добавленные стили для карточек и списков угадывания */
+        .game-card {
+            border: 1px solid #ccc;
+            padding: 10px;
             margin-bottom: 20px;
-        }
-
-        .player-card.is-my-card {
-            border: 3px solid var(--my-card-highlight-color);
-            box-shadow: 0 0 15px var(--my-card-highlight-shadow);
-        }
-
-        /* --- ДОБАВЛЕНО: Стили для карточки Ведущего --- */
-        .player-card.is-leader-card {
-            border: 3px solid var(--leader-card-highlight-color);
-            box-shadow: 0 0 15px var(--leader-card-highlight-shadow);
-        }
-        /* --- КОНЕЦ ДОБАВЛЕНО --- */
-
-        .avatar-img {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            border-radius: 50%;
-            margin-bottom: 15px;
-            border: 3px solid #ddd;
-        }
-
-        .leaderboard-img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #eee;
-        }
-
-        .game-board-container {
-            position: relative;
-            width: 100%;
-            max-width: 800px; /* Adjust as needed */
-            margin: 0 auto;
             text-align: center;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .game-board-image {
-            width: 100%;
+        .game-card img {
+            max-width: 100%;
             height: auto;
-            display: block;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .player-position {
-            position: absolute;
-            width: 25px; /* Размер фишки игрока */
-            height: 25px;
-            border-radius: 50%;
-            background-color: blue; /* Цвет фишки по умолчанию */
-            border: 2px solid white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 0.8em;
-            font-weight: bold;
-            transform: translate(-50%, -50%); /* Центрирование фишки */
-            transition: all 0.5s ease-in-out; /* Плавное перемещение */
-            cursor: pointer; /* Делаем фишку кликабельной */
-        }
-        /* Медиа-запросы для адаптации размера фишки */
-        @media (max-width: 768px) {
-            .player-position {
-                width: 20px;
-                height: 20px;
-                font-size: 0.7em;
-            }
-        }
-        @media (max-width: 576px) {
-            .player-position {
-                width: 18px;
-                height: 18px;
-                font-size: 0.6em;
-            }
-        }
-
-        .chat-container {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            padding: 10px;
             margin-bottom: 10px;
+            border-radius: 4px;
         }
 
-        .message-item {
+        .guess-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
+        }
+
+        .guess-section select {
+            width: 100%;
+            padding: 5px;
             margin-bottom: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
         }
 
-        .message-time {
-            font-size: 0.8em;
-            color: #666;
-            margin-right: 5px;
-        }
-
-        .message-sender {
-            font-weight: bold;
-            margin-right: 5px;
-        }
-        .leaderboard-list .list-group-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 15px; /* Уменьшаем внутренние отступы */
-        }
-        .leaderboard-list .player-info {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .leaderboard-list .player-name {
-            font-size: var(--standard-font-size); /* Используем переменную */
-            font-weight: bold;
-        }
-        .leaderboard-list .player-rating {
-            font-size: var(--standard-font-size-mobile); /* Используем переменную */
-            color: #555;
-        }
-        .dark-theme .leaderboard-list .player-rating {
-            color: #bbb;
-        }
-        .leaderboard-list .player-position-display {
-            font-size: var(--standard-font-size);
-            font-weight: bold;
-            margin-left: 10px;
-            white-space: nowrap; /* Чтобы позиция не переносилась */
-        }
-
-        /* Flash messages */
-        .flash-message {
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 0.25rem;
-            font-size: var(--flash-message-font-size); /* Использование переменной */
-        }
-        .flash-message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
-        }
-        .flash-message.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border-color: #f5c6cb;
-        }
-        .flash-message.info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border-color: #bee5eb;
-        }
-        .header-unified {
-            font-size: var(--header-unified-font-size); /* Использование переменной для заголовков */
-            font-weight: bold;
-            color: inherit; /* Цвет наследуется от body, чтобы поддерживать темную тему */
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        @media (max-width: 768px) {
-            .header-unified {
-                font-size: var(--header-unified-font-size-mobile); /* Меньший размер для мобильных */
-            }
-        }
-        .player-status-badge {
-            font-size: 0.75rem; /* Размер для статуса "Ходит" / "Ждет" */
-            padding: 0.3em 0.6em;
-            border-radius: 0.25rem;
-            margin-left: 5px;
-        }
-        .player-status-active {
-            background-color: #28a745; /* Green */
+        .guess-section button {
+            width: 100%;
+            padding: 8px;
+            background-color: #007bff;
             color: white;
-        }
-        .player-status-waiting {
-            background-color: #ffc107; /* Yellow */
-            color: #343a40; /* Dark text for contrast */
-        }
-        .player-status-guessing { /* NEW: for 'Guessing' state */
-             background-color: #17a2b8; /* Cyan */
-             color: white;
-         }
-
-        /* Styles for theme toggle button */
-        .theme-toggle {
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1.5rem;
-            margin-left: 15px;
-            color: #6c757d; /* Default color for icon */
-        }
-        .dark-theme .theme-toggle {
-            color: #f8f9fa; /* Lighter color for icon in dark theme */
-        }
-        .theme-toggle svg {
-            vertical-align: middle;
         }
 
-        /* Styles for the new radio button list */
-        .guess-player-list {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            max-height: 250px; /* Ограничиваем высоту для скролла */
-            overflow-y: auto; /* Включаем вертикальную прокрутку */
-            background-color: #fff; /* Фон для списка */
-        }
-        .dark-theme .guess-player-list {
-            background-color: #495057; /* Темный фон для списка в темной теме */
-            border-color: #6c757d;
-        }
-        .guess-player-list .form-check {
-            margin-bottom: 5px;
-            padding: 5px 0;
-        }
-        .guess-player-list .form-check-label {
-            cursor: pointer;
-            padding-left: 5px; /* Отступ от радио-кнопки до текста */
-        }
-        .guess-player-list .form-check-input {
-            margin-right: 5px;
+        .guess-section button:hover {
+            background-color: #0056b3;
         }
 
+        .guessed-info {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #28a745;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Домашняя</a>
-            <div class="d-flex align-items-center">
-                <span class="navbar-text mr-3">Привет, {{ user_data_for_init['name'] }}!</span>
-                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="location.href='{{ url_for('logout') }}'">Выйти</button>
-                <div class="theme-toggle" id="theme-toggle-icon-button">
-                    <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-moon-fill" viewBox="0 0 16 16">
-                        <path d="M6 .278a.768.768 0 0 0-.083.328 1.822 1.822 0 0 1-.653 1.18 1.933 1.933 0 0 0-.877.834C2.395 3.738 1.5 6.012 1.5 8c0 1.988.895 4.262 2.387 5.42a1.933 1.933 0 0 0 .877.834c.237.117.47.28.653.456.027.027.054.053.083.082a.768.768 0 0 0 .328.083c2.4-.04 4.966-1.579 6.27-3.834C13.064 9.176 14.5 7.043 14.5 4.673c0-1.895-.83-3.235-2.074-4.225-.136-.108-.29-.204-.456-.296A.766.766 0 0 0 11.232 0C8.5 0 6 2.5 6 4.933c0 1.258.497 2.457 1.393 3.336.19.19.2.296.207.306.012.016.027.03.042.044.025.025.05.049.077.073a.852.852 0 0 0 .236.14.767.767 0 0 0 .338-.073.766.766 0 0 0 .24-.188c.036-.048.067-.099.096-.151.15-.257.298-.518.441-.773.085-.152.164-.306.236-.464.08-.176.15-.357.21-.54C12.44 5.093 13.5 3.06 13.5 1s-1.06-4.093-2.583-4.093z"/>
-                    </svg>
-                    <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-brightness-high-fill" viewBox="0 0 16 16" style="display: none;">
-                        <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.464 13.536a.5.5 0 0 1-.707-.707L2.757 12.025a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M3.464 2.757a.5.5 0 0 1-.707 0L2.043 1.343a.5.5 0 0 1 .707-.707L3.464 2.05a.5.5 0 0 1 0 .707"/>
-                    </svg>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Мафия Онлайн</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('index') }}">Главная</a>
+                </li>
+                {% if user_data_for_init %}
+                <li class="nav-item active">
+                    <a class="nav-link" href="{{ url_for('user_page', user_code=user_data_for_init.code) }}">
+                        {{ user_data_for_init.name }} (Ваш код: {{ user_data_for_init.code }}) <span class="sr-only">(current)</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="navbar-text mr-3">
+                <span id="user-status-display">Статус: Неизвестен</span>
             </div>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <button id="theme-toggle-icon-button" class="btn btn-link nav-link">
+                        <span id="icon-moon" style="display: none;">🌙</span>
+                        <span id="icon-sun" style="display: inline-block;">☀️</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Выйти</a>
+                </li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container main-content">
+    <div class="container mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert flash-message {{ category }}">{{ message }}</div>
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <h1 class="header-unified">Игровое табло</h1>
+        <h1 class="mb-4">Игровая страница</h1>
+        <p>Ваша роль: <strong id="user-role-display">Загрузка...</strong></p>
 
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card shadow">
-                    <div class="card-body text-center">
-                        <img src="{{ url_for('static', filename='avatars/' + user_data_for_init['avatar']) }}" alt="Аватар" class="avatar-img">
-                        <h4 class="card-title">{{ user_data_for_init['name'] }}</h4>
-                        <p class="card-text">Рейтинг: <span id="myRating">{{ user_data_for_init['rating'] }}</span></p>
-                        <p class="card-text">Баланс монет: <span id="myCoins">{{ user_data_for_init['coins'] }}</span></p>
-                        <p class="card-text">Позиция на доске: <span id="myPosition">{{ user_data_for_init['current_position'] }}</span></p>
-                        <p class="card-text">Мой код: <span id="myUserCode">{{ user_code_for_init }}</span></p>
-                    </div>
-                </div>
-
-                <form id="guessForm" action="{{ url_for('guess') }}" method="POST" class="mt-3">
-                    <div class="form-group">
-                        <label>Угадать игрока:</label>
-                        <div class="guess-player-list border p-3 rounded" style="max-height: 250px; overflow-y: auto;">
-                            {% if active_players_for_guess %}
-                                {% for player_id, player_name in active_players_for_guess.items() %}
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="selected_player_id" id="radioPlayer{{ player_id }}" value="{{ player_id }}" required>
-                                        <label class="form-check-label" for="radioPlayer{{ player_id }}">
-                                            {{ player_name }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            {% else %}
-                                <p>Нет активных игроков для угадывания.</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block mt-3">Угадать</button>
-                </form>
-                <h2 class="header-unified mt-5">Чат</h2>
-                <div class="chat-container bg-light shadow">
-                    </div>
-                <form id="chatForm" class="mt-3">
-                    <div class="input-group mb-3">
-                        <input type="text" id="messageInput" class="form-control" placeholder="Введите сообщение..." aria-label="Message">
-                        <div class="input-group-append">
-                            <button class="btn btn-primary" type="submit">Отправить</button>
-                        </div>
-                    </div>
-                </form>
+        <div id="game-board-container" class="row">
             </div>
 
-            <div class="col-md-6 mb-4">
-                <h2 class="header-unified">Лидерборд</h2>
-                <div class="card shadow">
-                    <ul class="list-group list-group-flush leaderboard-list" id="leaderboardList">
-                        </ul>
-                </div>
-
-                <h2 class="header-unified mt-5">Игровое поле</h2>
-                <div class="game-board-container shadow">
-                    <img id="gameBoardImage" src="{{ url_for('static', filename='board_images/' + game_board_pole_image_config.current_image) }}" alt="Игровое поле" class="game-board-image">
-                    <div id="playerPositions"></div>
+        <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-body text-center">
+                        <img src="" id="modalImage" class="img-fluid" alt="Увеличенное изображение">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
-            <div class="modal-content">
-                <div class="modal-body p-0">
-                    <img src="" id="modalImage" class="img-fluid" alt="Увеличенное изображение поля">
-                </div>
-            </div>
-        </div>
-    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script>
+        const userCode = "{{ user_data_for_init.code if user_data_for_init else 'anonymous' }}";
         const socket = io();
-        let myUserCode = '{{ user_code_for_init }}';
-        let myUserId = '{{ user_data_for_init['id'] }}'; // ИСПРАВЛЕНО
-        let myAvatar = '{{ user_data_for_init['avatar'] }}'; // ИСПРАВЛЕНО
 
-        // Утилитарная функция для форматирования времени
-        function formatTimestamp(timestamp) {
-            const date = new Date(timestamp * 1000); // Unix timestamp в мс
-            return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // Обработка начального состояния и обновлений игры
+        socket.on('game_update', function(data) {
+            console.log('Получено обновление игры:', data);
+            updateGameBoard(data);
+        });
+
+        // Функция для динамического обновления игрового поля
+        function updateGameBoard(gameState) {
+            const gameBoardContainer = document.getElementById('game-board-container');
+            gameBoardContainer.innerHTML = ''; // Очищаем текущее содержимое
+
+            const userRoleDisplay = document.getElementById('user-role-display');
+            const userStatusDisplay = document.getElementById('user-status-display');
+
+            // Обновляем роль и статус пользователя
+            if (gameState.user_data && gameState.user_data.role) {
+                userRoleDisplay.textContent = gameState.user_data.role;
+            } else {
+                userRoleDisplay.textContent = 'Не определена';
+            }
+            if (gameState.user_data && gameState.user_data.status) {
+                 userStatusDisplay.textContent = `Статус: ${gameState.user_data.status}`;
+            }
+
+            if (gameState.game_board_cards && gameState.active_users) {
+                const allUsers = gameState.active_users; // Все активные пользователи для угадывания
+
+                gameState.game_board_cards.forEach(card => {
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'col-md-3 col-sm-6 col-12 game-card'; // Bootstrap колонки для адаптивности
+                    cardElement.id = `card-${card.id}`;
+
+                    let cardContent = `
+                        <h4>Карточка #${card.id}</h4>
+                    `;
+
+                    if (card.image) {
+                        cardContent += `<img src="${card.image}" alt="Карточка ${card.id}">`;
+                    }
+                    if (card.text) {
+                        cardContent += `<p>${card.text}</p>`;
+                    }
+
+                    if (card.is_guessed) {
+                        const guessedByUser = allUsers.find(u => u.id === card.guessed_by);
+                        cardContent += `<p class="guessed-info">Угадано игроком: ${guessedByUser ? guessedByUser.name : 'Неизвестно'}</p>`;
+                    } else {
+                        cardContent += `
+                            <div class="guess-section">
+                                <label for="guess-player-${card.id}">Угадать игрока:</label>
+                                <select id="guess-player-${card.id}" class="form-control mb-2">
+                                    <option value="">Выберите игрока</option>
+                                    ${allUsers.map(user => `
+                                        <option value="${user.id}">${user.name}${user.is_leader ? ' (Ведущий)' : ''}</option>
+                                    `).join('')}
+                                </select>
+                                <button class="btn btn-primary btn-sm guess-button" data-card-id="${card.id}">Угадать</button>
+                            </div>
+                        `;
+                    }
+                    cardElement.innerHTML = cardContent;
+                    gameBoardContainer.appendChild(cardElement);
+                });
+
+                // Добавляем обработчики событий для кнопок угадывания
+                document.querySelectorAll('.guess-button').forEach(button => {
+                    button.addEventListener('click', async function() {
+                        const cardId = this.dataset.cardId;
+                        const selectElement = document.getElementById(`guess-player-${cardId}`);
+                        const guessedPlayerId = selectElement.value;
+
+                        if (guessedPlayerId) {
+                            console.log(`Пользователь ${userCode} пытается отправить POST-запрос на угадывание карточки ${cardId} как ${guessedPlayerId}`);
+
+                            try {
+                                const response = await fetch(`/user/${userCode}/guess/${cardId}`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        guessed_player_id: guessedPlayerId
+                                    })
+                                });
+
+                                if (response.ok) {
+                                    console.log('Запрос на угадывание успешно отправлен.');
+                                    // После успешного запроса ожидаем game_update через SocketIO
+                                    // Или, если сервер возвращает JSON с результатом, можно обновить UI здесь
+                                    const result = await response.json();
+                                    if (result.status === 'success') {
+                                        // Опционально: если сервер сразу возвращает обновленную карточку, обновим только ее
+                                        // В противном случае, полагаемся на game_update
+                                        console.log('Угадывание успешно на сервере:', result);
+                                        // Например, можно вызвать socket.emit('request_game_state')
+                                        // чтобы запросить немедленное обновление всего состояния,
+                                        // если 'game_update' не гарантируется сразу после POST.
+                                    } else {
+                                        alert('Ошибка при угадывании: ' + (result.message || 'Неизвестная ошибка'));
+                                    }
+                                } else {
+                                    const errorData = await response.json();
+                                    alert('Ошибка при угадывании: ' + (errorData.message || response.statusText));
+                                    console.error('Ошибка при отправке запроса на угадывание:', response.status, errorData);
+                                }
+                            } catch (error) {
+                                console.error('Сетевая ошибка при отправке запроса на угадывание:', error);
+                                alert('Произошла сетевая ошибка. Попробуйте еще раз.');
+                            }
+
+                        } else {
+                            alert('Пожалуйста, выберите игрока для угадывания.');
+                        }
+                    });
+                });
+            } else {
+                gameBoardContainer.innerHTML = '<p>Игровое поле еще не загружено или данных нет.</p>';
+            }
         }
 
-        // Обновление состояния игры
-        socket.on('game_update', function(data) {
-            console.log('Game update received:', data);
-
-            // Обновление информации о текущем игроке (если это мы)
-            if (data.current_player_info && data.current_player_info.id == myUserId) {
-                $('#myRating').text(data.current_player_info.rating);
-                $('#myCoins').text(data.current_player_info.coins);
-                $('#myPosition').text(data.current_player_info.current_position);
-            }
-
-            // Обновление лидерборда
-            const leaderboardList = $('#leaderboardList');
-            leaderboardList.empty();
-            data.leaderboard.forEach(player => {
-                const isMyCard = (player.id == myUserId) ? ' is-my-card' : '';
-                const isLeaderCard = (data.current_leader_user_id && player.id == data.current_leader_user_id) ? ' is-leader-card' : ''; // Добавляем класс для ведущего
-                let statusBadge = '';
-                if (data.current_turn_player_id === player.id) {
-                    statusBadge = '<span class="player-status-badge player-status-active">Ходит</span>';
-                } else if (data.active_players_for_guess && data.active_players_for_guess.hasOwnProperty(player.id)) {
-                    statusBadge = '<span class="player-status-badge player-status-guessing">Угадывает</span>';
-                } else {
-                    statusBadge = '<span class="player-status-badge player-status-waiting">Ждет</span>';
-                }
-
-                leaderboardList.append(`
-                    <li class="list-group-item d-flex align-items-center player-card${isMyCard}${isLeaderCard}">
-                        <img src="{{ url_for('static', filename='avatars/') }}${player.avatar}" alt="${player.name}" class="leaderboard-img">
-                        <div class="player-info">
-                            <div class="player-name">${player.name} ${statusBadge}</div>
-                            <div class="player-rating">Рейтинг: ${player.rating} | Монеты: ${player.coins}</div>
-                        </div>
-                        <span class="player-position-display">Позиция: ${player.current_position}</span>
-                    </li>
-                `);
-            });
-
-            // Обновление игрового поля
-            const gameBoardImage = $('#gameBoardImage');
-            gameBoardImage.attr('src', '{{ url_for('static', filename='board_images/') }}' + data.game_board_pole_image_config.current_image);
-
-            const playerPositionsContainer = $('#playerPositions');
-            playerPositionsContainer.empty(); // Очищаем старые фишки
-            data.game_board_pole_image_config.player_positions.forEach(pos => {
-                const isMyPlayer = (pos.user_id == myUserId);
-                // Если у игрока нет цвета, используем аватар
-                const playerContent = pos.color ? '' : `<img src="{{ url_for('static', filename='avatars/') }}${pos.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                const backgroundColor = pos.color ? `background-color: ${pos.color};` : 'background-color: transparent;'; // Устанавливаем фон в прозрачный, если есть аватар
-
-                playerPositionsContainer.append(`
-                    <div class="player-position"
-                         data-user-id="${pos.user_id}"
-                         title="${pos.user_name} (Рейтинг: ${pos.rating}, Монеты: ${pos.coins})"
-                         style="left: ${pos.x}%; top: ${pos.y}%; ${backgroundColor}"
-                         data-toggle="tooltip" data-placement="top">
-                        ${playerContent}
-                    </div>
-                `);
-            });
-            // Инициализация тултипов для новых фишек
-            $('[data-toggle="tooltip"]').tooltip();
-
-
-            // Обновление активных игроков для угадывания (для новой формы с радио-кнопками)
-            const guessPlayerListDiv = $('.guess-player-list');
-            guessPlayerListDiv.empty(); // Очищаем предыдущие радио-кнопки
-
-            if (Object.keys(data.active_players_for_guess).length > 0) {
-                for (const playerId in data.active_players_for_guess) {
-                    const playerName = data.active_players_for_guess[playerId];
-                    guessPlayerListDiv.append(`
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="selected_player_id" id="radioPlayer${playerId}" value="${playerId}" required>
-                            <label class="form-check-label" for="radioPlayer${playerId}">
-                                ${playerName}
-                            </label>
-                        </div>
-                    `);
-                }
-            } else {
-                guessPlayerListDiv.append('<p>Нет активных игроков для угадывания.</p>');
-            }
-
-            // Управление видимостью формы угадывания (если необходимо)
-            if (data.can_guess === true) {
-                $('#guessForm').show();
-            } else {
-                $('#guessForm').hide();
-            }
-        });
-
-        // Обработка сообщений чата
-        socket.on('chat_message', function(data) {
-            const chatContainer = $('.chat-container');
-            const messageElement = `
-                <div class="message-item">
-                    <span class="message-time">${formatTimestamp(data.timestamp)}</span>
-                    <span class="message-sender" style="color: ${data.color || '#000'};">${data.sender_name}:</span>
-                    <span>${data.message}</span>
-                </div>
-            `;
-            chatContainer.append(messageElement);
-            chatContainer.scrollTop(chatContainer[0].scrollHeight); // Прокрутка вниз
-        });
-
-        // Обработка соединения/переподключения
-        socket.on('connect', function() {
-            console.log('Соединение с сервером установлено!');
-            $('#connectionStatus').text('Онлайн').removeClass('text-danger').addClass('text-success');
-            socket.emit('associate_user', { user_code: myUserCode }); // Отправляем user_code при подключении
-        });
-
-        socket.on('disconnect', function() {
-            console.log('Соединение с сервером потеряно, попытка переподключения...');
-            $('#connectionStatus').text('Оффлайн').removeClass('text-success').addClass('text-danger');
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Ошибка подключения SocketIO:', error);
-            $('#connectionStatus').text('Ошибка подключения').removeClass('text-success').addClass('text-danger');
-        });
-
-        // Отправка сообщений чата
-        $('#chatForm').submit(function(e) {
-            e.preventDefault();
-            const messageInput = $('#messageInput');
-            const message = messageInput.val();
-            if (message.trim()) {
-                socket.emit('send_message', { message: message });
-                messageInput.val('');
-            }
-        });
-
-        // Обработка клика по увеличенному изображению поля
-        $('#gameBoardImage').click(function() {
-            const imageUrl = $(this).attr('src');
-            $('#modalImage').attr('src', imageUrl);
-            $('#imageModal').modal('show');
-        });
-
-
+        // Логика для кнопки переключения темы (без изменений)
         const themeToggleButton = document.getElementById('theme-toggle-icon-button');
         const iconMoon = document.getElementById('icon-moon');
         const iconSun = document.getElementById('icon-sun');
@@ -606,6 +299,7 @@
             });
         }
 
+        // Логика для модального окна изображения (если используется, можно удалить, если карточки отображаются всегда)
         const modalImageElement = document.getElementById('modalImage');
         if (modalImageElement) {
             modalImageElement.addEventListener('click', () => {
