@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Страница игрока - {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}</title>
+    <title>Страница игрока - {{ user_data_for_init['name'] if user_data_for_init else 'Игрок' }}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -321,7 +321,7 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('index') }}">Домашняя</a>
             <div class="d-flex align-items-center">
-                <span class="navbar-text mr-3">Привет, {{ user_data_for_init.name }}!</span>
+                <span class="navbar-text mr-3">Привет, {{ user_data_for_init['name'] }}!</span>
                 <button class="btn btn-sm btn-outline-secondary" type="button" onclick="location.href='{{ url_for('logout') }}'">Выйти</button>
                 <div class="theme-toggle" id="theme-toggle-icon-button">
                     <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-moon-fill" viewBox="0 0 16 16">
@@ -350,11 +350,11 @@
             <div class="col-md-6 mb-4">
                 <div class="card shadow">
                     <div class="card-body text-center">
-                        <img src="{{ url_for('static', filename='avatars/' + user_data_for_init.avatar) }}" alt="Аватар" class="avatar-img">
-                        <h4 class="card-title">{{ user_data_for_init.name }}</h4>
-                        <p class="card-text">Рейтинг: <span id="myRating">{{ user_data_for_init.rating }}</span></p>
-                        <p class="card-text">Баланс монет: <span id="myCoins">{{ user_data_for_init.coins }}</span></p>
-                        <p class="card-text">Позиция на доске: <span id="myPosition">{{ user_data_for_init.current_position }}</span></p>
+                        <img src="{{ url_for('static', filename='avatars/' + user_data_for_init['avatar']) }}" alt="Аватар" class="avatar-img">
+                        <h4 class="card-title">{{ user_data_for_init['name'] }}</h4>
+                        <p class="card-text">Рейтинг: <span id="myRating">{{ user_data_for_init['rating'] }}</span></p>
+                        <p class="card-text">Баланс монет: <span id="myCoins">{{ user_data_for_init['coins'] }}</span></p>
+                        <p class="card-text">Позиция на доске: <span id="myPosition">{{ user_data_for_init['current_position'] }}</span></p>
                         <p class="card-text">Мой код: <span id="myUserCode">{{ user_code_for_init }}</span></p>
                     </div>
                 </div>
@@ -424,8 +424,8 @@
     <script>
         const socket = io();
         let myUserCode = '{{ user_code_for_init }}';
-        let myUserId = '{{ user_data_for_init.id }}'; // Добавляем ID текущего пользователя
-        let myAvatar = '{{ user_data_for_init.avatar }}'; // Добавляем аватар текущего пользователя
+        let myUserId = '{{ user_data_for_init['id'] }}'; // ИСПРАВЛЕНО
+        let myAvatar = '{{ user_data_for_init['avatar'] }}'; // ИСПРАВЛЕНО
 
         // Утилитарная функция для форматирования времени
         function formatTimestamp(timestamp) {
