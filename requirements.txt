@@ -1,4 +1,6 @@
-Flask
-Flask-SocketIO
-gunicorn
-eventlet
+Flask==2.3.2 # Или вашей текущей версии Flask
+Flask-SocketIO==5.3.0 # Или вашей текущей версии Flask-SocketIO
+eventlet==0.33.3 # Или последняя совместимая версия
+python-socketio[redis]==5.11.0 # Или последняя совместимая версия
+redis==5.0.1 # Или последняя совместимая версия
+gunicorn==22.0.0 # Обязательно для Render
