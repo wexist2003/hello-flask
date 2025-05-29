@@ -601,7 +601,7 @@ def admin():
     users_for_template = [dict(row) for row in users_raw]
 
     # Получаем список изображений
-    images_db = c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id LIMIT 500").fetchall() # Ограничение для производительности
+    images_db = c.execute("SELECT id, subfolder, image, status, owner_id, guesses FROM images ORDER BY subfolder, id LIMIT 1000").fetchall() # Ограничение для производительности
     images_for_template = []
     # Собираем информацию о владельцах карт и всех предположениях для отображения в таблице
     image_owners_for_template = {}
