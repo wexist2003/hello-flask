@@ -805,7 +805,7 @@ def open_cards():
         # --- Логика подсчета очков ---
 
         # Получаем список активных игроков с их текущим рейтингом
-        active_users = c.execute("SELECT id, name, rating, user_code FROM users WHERE status = 'active'").fetchall() # Добавил user_code
+        active_users = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall() # Добавил user_code
         active_user_ids = [user['id'] for user in active_users]
         active_users_dict = {user['id']: dict(user) for user in active_users} # Словарь для быстрого поиска по ID
 
