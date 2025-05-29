@@ -805,7 +805,7 @@ def open_cards():
         # --- Логика подсчета очков ---
 
         # Получаем список активных игроков с их текущим рейтингом
-        active_users = c.execute("SELECT id, name, rating FROM users WHERE status = 'active'").fetchall()
+        active_users = c.execute("SELECT id, name, rating, user_code FROM users WHERE status = 'active'").fetchall() # Добавил user_code
         active_user_ids = [user['id'] for user in active_users]
         active_users_dict = {user['id']: dict(user) for user in active_users} # Словарь для быстрого поиска по ID
 
@@ -821,8 +821,8 @@ def open_cards():
 
         # Получаем ID текущего ведущего
         current_leader_id = get_leading_user_id()
-        leader_card_on_table = None # Переименовал для ясности
-        
+        leader_card_on_table = None
+
         # Находим карту, выложенную ведущим
         if current_leader_id in active_user_ids:
             for card in table_cards:
@@ -836,7 +836,7 @@ def open_cards():
         # Инициализируем словарь для хранения изменений рейтинга для каждого активного игрока
         # Изначально у всех 0 изменений.
         rating_changes = {user_id: 0 for user_id in active_user_ids}
-        
+
         # Флаги для условий ведущего
         leader_was_correctly_guessed_by_all_others = False
         leader_was_guessed_by_none_others = False
@@ -885,11 +885,10 @@ def open_cards():
             # Правило 2.1: Если карточку ведущего никто не угадал (и Правило 1 не сработало)
             elif correct_leader_guesses_count_by_others == 0 and total_other_active_players > 0:
                 leader_was_guessed_by_none_others = True
-                leader_current_rating = active_users_dict[current_leader_id]['rating']
                 # Ведущий теряет 2 балла.
                 rating_changes[current_leader_id] -= 2 # Добавляем к изменению рейтинга
                 print(f"Scoring: Ведущий ({get_user_name(current_leader_id)}) не угадан НИКЕМ ({correct_leader_guesses_count_by_others} из {total_other_active_players} других игроков). Ведущий теряет 2 очка.", file=sys.stderr)
-        
+
         elif current_leader_id in active_users_dict:
             # Ведущий активен, но других активных игроков нет или нет карты ведущего на столе.
             # Специальные правила для ведущего (1, 2.1) не применяются.
@@ -903,7 +902,8 @@ def open_cards():
         # --- Начисление очков по остальным правилам, если Правило 1 НЕ сработало ---
 
         # Правило 2.2 (часть 1): Все игроки (включая ведущего), чьи карточки угадали, получают по +1 очку за каждого угадавшего.
-        # Этот блок теперь обрабатывает ВСЕХ активных игроков.
+        # ЭТО УЖЕ БЫЛО: Владелец карты, которую угадали, получает +1 балл за каждого, кто ее угадал.
+        # ПЛЮС ДОБАВЛЕНА НОВАЯ ЛОГИКА: Угадывающий игрок получает +1 балл за любую карту, кроме карты ведущего.
         for card in table_cards:
             card_owner_id = card['owner_id']
             if card_owner_id not in active_user_ids:
@@ -915,7 +915,11 @@ def open_cards():
                 guesses_on_this_card = {}
                 print(f"Scoring Error: Invalid JSON in card {card['id']} guesses: {card['guesses']}", file=sys.stderr)
 
-            guessed_by_this_card_count = 0
+            guessed_by_this_card_count = 0 # Количество угадавших ЭТУ карту (для владельца)
+            
+            # Временный список для угадывающих игроков этой карты, чтобы применить +1 балл
+            guesser_ids_for_this_card = [] 
+
             for guesser_id_str, guessed_owner_id_val in guesses_on_this_card.items():
                 try:
                     guesser_id = int(guesser_id_str)
@@ -926,14 +930,27 @@ def open_cards():
                 # Проверяем, что угадавший игрок активен, не угадывает свою карту и угадал правильно
                 if guesser_id in active_user_ids and guesser_id != card_owner_id and guessed_owner_id_int == card_owner_id:
                     guessed_by_this_card_count += 1
-            
+                    
+                    # --- НОВАЯ ЛОГИКА: Угадывающий получает +1 балл, если это НЕ карта ведущего ---
+                    # Если карта, которую угадали, не принадлежит ведущему И угадывающий не является ведущим,
+                    # или угадывающий - это ведущий (но он не может угадывать свою карту),
+                    # тогда угадывающий получает +1 балл.
+                    # Случай +3 за карту ведущего обрабатывается отдельно ниже в "Правиле 2.2 часть 2".
+                    if card_owner_id != current_leader_id:
+                        if guesser_id in rating_changes:
+                            rating_changes[guesser_id] += 1
+                            print(f"Scoring: Игрок {get_user_name(guesser_id)} получил +1 очко за угадывание карты игрока {get_user_name(card_owner_id)} (не ведущего).", file=sys.stderr)
+                        else:
+                            print(f"Scoring Warning: Guesser ID {guesser_id} for non-leader card not found in active users rating_changes dict.", file=sys.stderr)
+                    # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
             if guessed_by_this_card_count > 0:
                 rating_changes[card_owner_id] += guessed_by_this_card_count
                 print(f"Scoring: Игрок {get_user_name(card_owner_id)} (владелец карты {card['id']}) получил +{guessed_by_this_card_count} очков (угадано {guessed_by_this_card_count} игроками) (Rule 2.2 part 1).", file=sys.stderr)
 
 
         # Правило 2.2 (часть 2): По 3 очка получают все игроки, правильно угадавшие карточку Ведущего (не ведущий).
-        # Этот блок выполняется, если Правило 1 не сработало.
+        # ЭТО УЖЕ БЫЛО И ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ.
         for guesser_id in correct_guesser_ids_for_leader:
             if guesser_id in rating_changes: # Убедимся, что игрок активен
                 rating_changes[guesser_id] += 3
@@ -943,15 +960,14 @@ def open_cards():
 
 
         # Правило 2.3: Ведущий получает 3 очка если его карточку угадали не все игроки и не никто.
-        # Это условие срабатывает, если не сработал ни случай "все угадали", ни "никто не угадал".
-        # (т.е. `leader_was_correctly_guessed_by_all_others` = False И `leader_was_guessed_by_none_others` = False)
+        # ЭТО УЖЕ БЫЛО И ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ.
         if current_leader_id in active_users_dict and not leader_was_correctly_guessed_by_all_others and not leader_was_guessed_by_none_others:
             # Убеждаемся, что есть хотя бы один угадавший, чтобы это не было "никто"
             # и что количество угадавших меньше, чем общее количество других игроков, чтобы это не было "все"
             if correct_leader_guesses_count_by_others > 0 and correct_leader_guesses_count_by_others < total_other_active_players:
                 rating_changes[current_leader_id] += 3
                 print(f"Scoring: Ведущий ({get_user_name(current_leader_id)}) угадан SOME ({correct_leader_guesses_count_by_others} игроков). Получает +3 очка (Rule 2.3).", file=sys.stderr)
-            # Если total_other_active_players = 0, то этот случай также не должен срабатывать, 
+            # Если total_other_active_players = 0, то этот случай также не должен срабатывать,
             # так как условие "не все и не никто" не имеет смысла.
             elif total_other_active_players == 0:
                  print(f"Scoring: Ведущий ({get_user_name(current_leader_id)}) - единственный активный игрок. Правило 2.3 не применяется.", file=sys.stderr)
@@ -961,13 +977,13 @@ def open_cards():
         for user in active_users:
             user_id = user['id']
             current_rating = user['rating']
-            
+
             calculated_rating_change = rating_changes.get(user_id, 0)
             final_rating = max(1, current_rating + calculated_rating_change) # Убеждаемся, что рейтинг не падает ниже 1
 
             if calculated_rating_change != 0:
                 print(f"Scoring Update: Игрок ({get_user_name(user_id)}) итоговый рейтинг: {current_rating} -> {final_rating} (изменения: {calculated_rating_change}).", file=sys.stderr)
-            else: 
+            else:
                 print(f"Scoring Update: Игрок ({get_user_name(user_id)}) рейтинг остался {current_rating}.", file=sys.stderr)
 
             # Выполняем обновление в базе данных
