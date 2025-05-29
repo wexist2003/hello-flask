@@ -428,7 +428,7 @@
                     </ul>
                 </p>
                 <p>Игра продолжается до тех пор, пока у игроков не закончатся карточки или не будет достигнут заранее оговоренный лимит очков.</p>
-                <p class="text-center"><a href="{{ url_for('vote_for_deck') }}" class="btn btn-outline-info mt-3">Проголосовать за колоду</a></p>
+                <p class="text-center"><a href="{{ url_for('vote_deck') }}" class="btn btn-outline-info mt-3">Проголосовать за колоду</a></p>
             </div>
             <div class="col-md-6 d-flex align-items-center justify-content-center">
                 <img src="{{ url_for('static', filename='images/rules.webp') }}" alt="Правила игры" class="img-fluid rules-image">
@@ -465,6 +465,12 @@
 
         socket.on('connect', function() {
             console.log('Connected to server');
+            // Опционально: Отправить user_code на сервер при подключении
+            socket.emit('client_connected', {
+                user_code: currentUserCode,
+                user_id: currentUserId,
+                user_name: currentUserName
+            });
         });
 
         socket.on('disconnect', function() {
