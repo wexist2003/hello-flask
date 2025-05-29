@@ -20,375 +20,1127 @@
 
             /* --- ДОБАВЛЕНО: Переменные для синего цвета рамки Ведущего --- */
             --leader-card-highlight-color: #007bff; /* Синий для карточки Ведущего */
-            --leader-card-highlight-shadow: rgba(0, 1...);
+            --leader-card-highlight-shadow: rgba(0, 123, 255, 0.5);
+            /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
+            --my-vote-correct-bg: rgba(40, 167, 69, 0.15);
+            --my-vote-incorrect-bg: rgba(220, 53, 69, 0.1);
+
+            /* New CSS for highlighting the placed card in hand */
+            --placed-card-in-hand-border: #007bff; /* Blue */
+            --placed-card-in-hand-shadow: rgba(0, 123, 255, 0.25);
         }
 
-        /* Общие стили для карточек */
-        .game-card {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 20px;
+        body {
+            font-size: 1rem;
+            transition: background-color 0.3s, color 0.3s;
+            line-height: 1.5;
+        }
+        .page-header-custom {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.15rem;
+        }
+
+        h2,
+        #rules-block h4,
+        #rules-block h5 {
+            font-size: var(--header-unified-font-size) !important;
+            margin-top: 0.75rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .game-board {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px;
+        }
+        .game-board-cell {
+            min-height: 70px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            border: 1px solid #eee;
+            margin: 1px;
+            padding: 2px;
+            transition: border-color 0.3s;
+        }
+        .cell-number-badge {
+            position: absolute;
+            top: 1px; left: 1px;
+            font-size: 0.7em;
+            opacity: 0.9;
+            padding: 0.15em 0.3em;
+            line-height: 1;
+        }
+        .player-chip {
+            padding: 1px 2px;
+            border-radius: .2rem;
+            margin: 1px;
+            font-size: 0.6em;
+            line-height: 1.1;
+            max-width: 95%;
+        }
+        #user-greeting-container { display: flex; align-items: center;
+        }
+        #user-greeting-text {
+            font-size: 1.4rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0;
+        }
+        #user-status-badge-container .badge {
+            font-size: 0.9rem;
+            vertical-align: middle;
+            padding: .25em .5em;
+        }
+
+        .rating-leader-info-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: var(--standard-font-size); /* Base font size */
+            margin-bottom: 0.25rem;
+        }
+        .rating-leader-info-wrapper p { margin-bottom: 0;
+        }
+        #current-game-info {}
+        #next-leader-info-container {}
+
+        #user-rating-display, #current-leader-display, #next-leader-display { font-weight: bold;
+        }
+
+        /* ИЗМЕНЕНИЕ: Увеличенный шрифт для "Ведущий", "Следующий ведущий" и "Чья карточка?" */
+        #current-game-info p,
+        #next-leader-info-container p,
+        .card-body label {
+            font-size: calc(var(--standard-font-size) * 1.2); /* 120% от стандартного */
+        }
+
+
+        #table-placeholder p {
+            font-size: var(--standard-font-size);
+            color: inherit;
+        }
+
+        #game-status-info p { margin-bottom: 0.1rem;
+            font-size: var(--standard-font-size); }
+        #game-status-info p:last-child { margin-bottom: 0;
+        }
+
+        /* ИЗМЕНЕНИЕ: Убираем padding и margin с самих колонок */
+        .row.user-hand > div[class^="col-"],
+        .row.table-cards > div[class^="col-"] {
+             padding: 0 !important;
+             margin: 0 !important;
+        }
+
+
+        /* ИЗМЕНЕНИЕ: Убраны min/max-width с карточки, reliance на колонку */
+        .user-hand .card, .table-cards .card {
+            margin-bottom: 0;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            /* REMOVED: min-width and max-width */
+            width: auto; /* or remove entirely */
+            max-width: 100% !important; /* Ensure it doesn't overflow column */
+        }
+
+        /* New style for card in hand that is currently placed on the table */
+        .user-hand .card.placed-on-table {
+             border: 3px solid var(--placed-card-in-hand-border);
+             box-shadow: 0 0 8px var(--placed-card-in-hand-shadow);
+             /* Add a slight background change */
+             background-color: rgba(0, 123, 255, 0.05);
+        }
+         /* Dark theme adjustment for placed card in hand */
+         body.dark-theme .user-hand .card.placed-on-table {
+             border-color: var(--placed-card-in-hand-border);
+             box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+             background-color: rgba(0, 123, 255, 0.15);
+         }
+
+
+        .card-owner-info {
+            font-size: var(--standard-font-size);
+            padding: 0.1rem 0.2rem;
             text-align: center;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: relative; /* Для позиционирования списка угадывания */
+            margin-bottom: 0;
+            order: -1;
+            line-height: 1.3;
+        }
+        .card-img-top {
+            /* Размер увеличен в 1.05 раза от предыдущего (250px * 1.05 = 263px) */
+            width: 263px !important;
+            height: auto; /* Высота подстраивается пропорционально ширине */
+            object-fit: contain; /* Сохраняем пропорции, не обрезаем */
+            cursor: zoom-in;
+            transition: border-color 0.3s;
+            display: block; /* Изображение как блочный элемент */
+            margin: 1px auto !important; /* Центрирование и отступ 1px со всех сторон */
+        }
+        .card-body {
+            padding: 0.2rem; /* Уменьшен padding из старого кода 0.75rem */
+            font-size: var(--standard-font-size); /* Base font size */
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Изменено с center на space-between, как в старом коде */
+            flex-grow: 1;
+            text-align: center;
+        }
+        .card-body .form-group { margin-bottom: 0.2rem;
         }
 
-        .game-card img {
-            max-width: 100%;
-            height: auto;
-            margin-bottom: 10px;
-            border-radius: 4px;
+        .card-body .btn {
+            font-size: var(--standard-font-size) !important;
+            padding: 0.3rem 0.5rem !important;
+            line-height: 1.4 !important;
+            margin-top: 0.2rem;
+        }
+        .card-body .form-control-sm {
+             font-size: var(--standard-font-size);
+             padding: 0.2rem 0.3rem;
+             height: auto;
         }
 
-        .guessed-info {
-            margin-top: 10px;
-            font-weight: bold;
-            color: #28a745;
+        .card-body .small, .card-body p.small {
+            font-size: var(--standard-font-size) !important;
+            line-height: 1.3;
+            margin-top: 0.1rem; margin-bottom: 0.1rem;
         }
-
-        /* Секция угадывания под карточкой */
-        .guess-section {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #eee;
-        }
-
-        /* Стили для раскрытого списка игроков для угадывания */
-        .guess-players-list {
+        .my-choice-text {}
+        ul.guesses-list {
             list-style: none;
+            padding-left: 0;
+            margin-bottom: 0;
+            font-size: var(--standard-font-size);
+            line-height: 1.4;
+        }
+        ul.guesses-list li {
+            margin-bottom: 0.1rem;
+            padding: 0.1rem 0.2rem;
+        }
+        .my-vote-highlight.correct-guess { background-color: var(--my-vote-correct-bg); border-left: 3px solid var(--my-card-highlight-color);
+        }
+        .my-vote-highlight.incorrect-guess { background-color: var(--my-vote-incorrect-bg); border-left: 3px solid #dc3545;
+        }
+
+        .place-action-button, .guess-action-button {}
+
+        .modal-dialog.modal-fullscreen-viewer {
+            max-width: 100vw;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
             padding: 0;
-            margin-top: 10px;
-            max-height: 200px; /* Ограничим высоту, чтобы не занимал слишком много места */
-            overflow-y: auto; /* Добавим прокрутку, если игроков много */
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-            background-color: #ffffff;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
         }
-        .guess-players-list li {
-            padding: 8px 12px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            text-align: left; /* Выравнивание текста */
+        .modal-fullscreen-viewer .modal-content {
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+            border: none;
+            background-color: rgba(0,0,0,0.92);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top:0;
+            left:0;
+            z-index: 1050;
         }
-        .guess-players-list li:last-child {
-            border-bottom: none;
+        .modal-fullscreen-viewer .modal-header {
+            display: none;
         }
-        .guess-players-list li:hover {
-            background-color: #e9ecef;
+        .modal-fullscreen-viewer .modal-body {
+            flex-grow: 1;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto; /* Разрешаем прокрутку, если изображение больше экрана */
+            width: 100%;
+            height: 100%;
         }
-        .guess-players-list li.leader {
-            font-weight: bold;
-            color: #007bff; /* Синий для ведущего */
-            background-color: #eaf6ff;
-        }
-
-        /* Стиль для моей карточки */
-        .my-card-highlight {
-            border: 3px solid var(--my-card-highlight-color);
-            box-shadow: 0 0 15px var(--my-card-highlight-shadow);
-        }
-
-        /* Стиль для карточки Ведущего */
-        .leader-card-highlight {
-            border: 3px solid var(--leader-card-highlight-color);
-            box-shadow: 0 0 15px var(--leader-card-highlight-shadow);
+        .modal-fullscreen-viewer .modal-body img#modalImage {
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+            border-radius: 0;
+            cursor: zoom-out;
         }
 
-        /* Стили для секции правил */
-        .rules-section {
-            margin-top: 40px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: #f8f9fa;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        .alert {
+            padding: 0.2rem 0.5rem !important;
+            margin-bottom: 0.3rem !important;
+            font-size: var(--flash-message-font-size) !important;
+            line-height: 1.3;
+            border-radius: .25rem;
         }
-        .rules-section h2 {
-            color: #343a40;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 10px;
+        .pending-message {
+            padding: 0.2rem 0.5rem !important;
+            margin-bottom: 0.3rem !important;
+            font-size: var(--flash-message-font-size) !important;
+            line-height: 1.3;
+            border-radius: .25rem;
+            border: 1px solid transparent;
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
         }
-        .rules-section h4 {
-            color: #007bff;
-            margin-top: 15px;
-            margin-bottom: 10px;
+        body.dark-theme .pending-message {
+            color: #a6d2ff;
+            background-color: #1c2e3f;
+            border-color: #2c4660;
         }
-        .rules-section p {
-            line-height: 1.6;
-            margin-bottom: 10px;
+
+        .my-owned-card-revealed .card {
+            border: 3px solid var(--my-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--my-card-highlight-shadow);
         }
-        .rules-section ul {
-            list-style-type: disc;
-            margin-left: 20px;
-            margin-bottom: 10px;
+
+        /* --- ДОБАВЛЕНО: Стиль для карточки Ведущего --- */
+        .leader-card-revealed .card {
+            border: 3px solid var(--leader-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--leader-card-highlight-shadow);
         }
-        .rules-section li {
-            margin-bottom: 5px;
+        /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
+
+        #rules-block { transition: background-color 0.3s, border-color 0.3s;
         }
+        #rules-block img.rules-image { margin-top: 0.5rem;
+        }
+        #rules-block p, #rules-block li {
+            font-size: var(--standard-font-size);
+            line-height: 1.4;
+            text-align: justify; /* ИЗМЕНЕНИЕ: Выравнивание по ширине */
+        }
+        #rules-block ul { padding-left: 20px; margin-bottom: 0.5rem;
+        }
+        #rules-block li { margin-bottom: 0.15rem;
+        }
+
+        #theme-icon-wrapper {}
+        #theme-toggle-icon-button {
+            width: 32px;
+            height: 32px; line-height: 1; display: flex;
+            align-items: center; justify-content: center;
+            border: 1px solid #ccc; background-color: #f8f9fa;
+            color: #212529; padding: 0;
+            border-radius: 50%;
+        }
+        #theme-toggle-icon-button svg { width: 16px; height: 16px;
+        }
+
+        /* === Темная тема === */
+        body.dark-theme { background-color: #121212;
+            color: #e0e0e0; }
+        body.dark-theme .page-header-custom { background-color: #1f1f1f;
+            border-bottom-color: #303030;}
+        body.dark-theme #theme-toggle-icon-button {
+            background-color: #3a3f44;
+            border-color: #565e64; color: #f0f0f0;
+        }
+        body.dark-theme hr { border-top-color: #383838;
+        }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h4, body.dark-theme h5, body.dark-theme p,
+        /* Удален #user-rating-display */
+        body.dark-theme .card-owner-info,
+        body.dark-theme .my-choice-text, body.dark-theme ul.guesses-list li,
+        body.dark-theme #table-placeholder p {
+            color: #e0e0e0;
+        }
+         /* Отдельно для элементов с увеличенным шрифтом в темной теме */
+        body.dark-theme #user-greeting-text, body.dark-theme #current-leader-display, body.dark-theme #next-leader-display {
+             color: #e0e0e0; /* Или желаемый цвет для темной темы */
+        }
+
+
+        body.dark-theme .card {
+            background-color: #1e1e1e;
+            border-color: #444;
+        }
+        body.dark-theme .card-img-top { border-bottom-color: #333;
+        }
+        body.dark-theme .text-muted { color: #a0a0a0 !important;
+        }
+        body.dark-theme #current-leader-display[style*="color: #007bff;"] { color: #62aeff !important;
+        }
+
+        body.dark-theme .btn-secondary { background-color: #4f545c;
+            border-color: #4f545c; color: #e0e0e0; }
+        body.dark-theme .btn-secondary:hover { background-color: #42464d; border-color: #3b3f44;
+        }
+        body.dark-theme .btn-outline-secondary { color: #adb5bd; border-color: #4f545c;
+        }
+        body.dark-theme .btn-outline-secondary:hover { color: #fff; background-color: #4f545c; border-color: #4f545c;
+        }
+        body.dark-theme .btn-primary { background-color: #0056b3; border-color: #004085;
+            color: #e0e0e0;}
+        body.dark-theme .btn-primary:hover { background-color: #004085;
+            border-color: #002752;}
+        body.dark-theme .btn-warning,
+        body.dark-theme .place-action-button,
+        body.dark-theme .guess-action-button {
+             background-color: #ffc107;
+            border-color: #ffc107; color: #212529 !important;
+        }
+        body.dark-theme .btn-warning:hover,
+        body.dark-theme .place-action-button:hover,
+        body.dark-theme .guess-action-button:hover {
+             background-color: #e0a800;
+            border-color: #d39e00;
+        }
+        body.dark-theme .btn-info { background-color: #138496; border-color: #117a8b;
+            color: #e0e0e0;}
+        body.dark-theme .btn-info:hover { background-color: #0d6e7c;
+            border-color: #0c626e;}
+
+        body.dark-theme .modal-fullscreen-viewer .modal-content { background-color: rgba(10,10,10,0.92);
+        }
+
+        body.dark-theme .alert { color: #e0e0e0;
+            background-color: #303030; border-color: #454545; }
+        body.dark-theme .alert-info { background-color: #1c2e3f; border-color: #2c4660;
+            color: #a6d2ff;}
+        body.dark-theme .alert-warning { background-color: #3e3017; border-color: #5c4823;
+            color: #ffd8a1;}
+        body.dark-theme .alert-success { background-color: #1a3525; border-color: #2a543a;
+            color: #a8e0b9;}
+        body.dark-theme .alert-danger { background-color: #3e1f23; border-color: #5c2e35;
+            color: #ffb8c0;}
+
+        body.dark-theme .game-board-cell { border-color: #383838;
+        }
+        body.dark-theme #rules-block { background-color: #1e1e1e; border: 1px solid #333;
+        }
+        body.dark-theme #rules-block h4,
+        body.dark-theme #rules-block h5,
+        body.dark-theme #rules-block p,
+        body.dark-theme #rules-block li {
+            color: #e0e0e0;
+        }
+        body.dark-theme #rules-block a { color: #62aeff;
+        }
+        body.dark-theme .form-control { background-color: #2b2b2b; color: #e0e0e0; border-color: #444;
+        }
+        body.dark-theme .form-control::placeholder { color: #888c91;
+        }
+        body.dark-theme .form-control:focus { background-color: #333; border-color: #007bff; color: #e0e0e0;
+        }
+        body.dark-theme .badge-dark { background-color: #454d55; color: #e0e0e0;
+        }
+        body.dark-theme .badge-primary { background-color: #0056b3; color: #fff;
+        }
+        body.dark-theme .badge-success { background-color: #1e7e34; color: #fff;
+        }
+        body.dark-theme .badge-warning { background-color: #ffc107; color: #212529;
+        }
+        body.dark-theme .badge-info { background-color: #138496; color: #fff;
+        }
+        body.dark-theme .my-owned-card-revealed .card {
+            border-color: var(--my-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--my-card-highlight-shadow);
+        }
+         /* --- ДОБАВЛЕНО: Стиль для карточки Ведущего в темной теме --- */
+        body.dark-theme .leader-card-revealed .card {
+            border-color: var(--leader-card-highlight-color) !important;
+            box-shadow: 0 0 12px var(--leader-card-highlight-shadow);
+        }
+        /* --- КОНЕЦ ДОБАВЛЕННОГО --- */
+
+        body.dark-theme .my-vote-highlight.correct-guess { background-color: rgba(40, 167, 69, 0.25);
+            border-left-color: var(--my-card-highlight-color); }
+        body.dark-theme .my-vote-highlight.incorrect-guess { background-color: rgba(220, 53, 69, 0.2); border-left-color: #dc3545;
+        }
+
+
+        /* === Медиа-запросы (адаптивность) === */
+        @media (max-width: 767.98px) { /* Bootstrap breakpoint for md */
+            :root {
+                --standard-font-size: var(--standard-font-size-mobile);
+                --header-unified-font-size: var(--header-unified-font-size-mobile);
+            }
+
+            /* ИЗМЕНЕНИЕ: Увеличенный шрифт для мобильных (<768px) */
+            #current-game-info p,
+            #next-leader-info-container p,
+            .card-body label {
+                font-size: calc(var(--standard-font-size-mobile) * 1.2); /* 120% от стандартного мобильного */
+            }
+
+            /* ИЗМЕНЕНИЕ: Размер карточек на мобильных (<768px) - 90% от предыдущего размера (211px) */
+            .card-img-top { width: 190px !important; margin: 1px auto !important; } /* 211 * 0.9, округлено */
+
+
+            .page-header-custom { margin-bottom: 0.25rem;
+                padding-top: 0.3rem; padding-bottom: 0.3rem; }
+            #user-greeting-text { font-size: 1.2rem;
+            }
+            #user-status-badge-container .badge { font-size: 0.8rem;
+            }
+            #theme-toggle-icon-button { width: 30px; height: 30px;
+            }
+            #theme-toggle-icon-button svg { width: 14px; height: 14px;
+            }
+
+            .player-chip {
+                font-size: 8px;
+                width: 16px;
+                height: 16px;
+                line-height: 16px;
+                padding: 0;
+                text-align: center;
+                border-radius: 3px;
+            }
+            .game-board-cell {
+                min-height: 60px;
+                padding: 1px;
+            }
+            .rating-leader-info-wrapper { font-size: var(--standard-font-size-mobile);
+            }
+            /* Удален #user-rating-display в этом медиа-запросе, так как элемент удален */
+            /* #user-rating-display { font-size: var(--standard-font-size-mobile); } */
+            #table-placeholder p { font-size: var(--standard-font-size-mobile);
+            }
+
+
+            .card-body { font-size: var(--standard-font-size-mobile); padding: 0.15rem;
+            }
+            .card-body .btn {
+                font-size: var(--standard-font-size-mobile) !important;
+                padding: 0.25rem 0.4rem !important;
+            }
+            .card-body .small, .card-body p.small {
+                font-size: var(--standard-font-size-mobile) !important;
+            }
+        }
+
+        @media (max-width: 575.98px) { /* Bootstrap breakpoint for sm */
+            :root {
+                --standard-font-size: var(--standard-font-size-mobile-small);
+                --header-unified-font-size: calc(var(--header-unified-font-size-mobile) - 0.1rem);
+                --flash-message-font-size: 0.9rem;
+            }
+
+            /* ИЗМЕНЕНИЕ: Увеличенный шрифт для маленьких мобильных (<576px) */
+             #current-game-info p,
+            #next-leader-info-container p,
+            .card-body label {
+                font-size: calc(var(--standard-font-size-mobile-small) * 1.2); /* 120% от стандартного маленького мобильного */
+            }
+
+            /* ИЗМЕНЕНИЕ: Размер карточек на маленьких мобильных (<576px) - 90% от предыдущего размера (172px) */
+             .card-img-top { width: 155px !important; margin: 1px auto !important; } /* 172 * 0.9, округлено */
+
+
+            .game-board-cell {
+                flex-basis: calc(100% / 6 - 2px) !important;
+                height: calc( (100vw - 12px - 10px) / 6 );
+                min-height: calc( (100vw - 12px - 10px) / 6 );
+                padding:0; margin:1px;
+            }
+            .player-chips-container { margin-top: auto !important;
+                margin-bottom: 1px !important;}
+
+
+            #user-greeting-text { font-size: 1.1rem;
+            }
+            .rating-leader-info-wrapper {
+                 flex-direction: column;
+                 align-items: flex-start;
+                 font-size: var(--standard-font-size-mobile-small);
+            }
+            .rating-leader-info-wrapper p { margin-bottom: 0.05rem !important;
+            }
+            .rating-leader-info-wrapper #current-game-info p.mr-md-3,
+            .rating-leader-info-wrapper #current-game-info p.mr-2 { margin-right: 0 !important;
+            }
+             #next-leader-info-container { margin-top: 0.2rem;
+            }
+        }
+         /* Медиа-запросы для игрового поля из старого кода */
+        @media (min-width: 577px) and (max-width: 991px) { .game-board-pictogram { width: 54px; height: 54px; } .game-board-player-names-area { width: 54px; } .player-avatar-on-board { font-size: 1.35em; } .game-board-cell-number { font-size: 0.6em; } }
+        @media (min-width: 992px) { .game-board-pictogram { width: 72px; height: 72px; } .game-board-player-names-area { width: 72px; } .player-avatar-on-board { font-size: 1.45em; } .game-board-cell-number { font-size: 0.65em; } }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Ваша Игра</a> {# ИЗМЕНЕНО: на "Ваша Игра" #}
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav mr-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('index') }}">Главная</a>
-                </li>
-                {% if user_data_for_init %}
-                <li class="nav-item active">
-                    <a class="nav-link" href="{{ url_for('user', code=user_data_for_init.code) }}">
-                        {{ user_data_for_init.name }} (Ваш код: {{ user_data_for_init.code }}) <span class="sr-only">(current)</span>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-            <div class="navbar-text mr-3">
-                <span id="user-status-display">Статус: Неизвестен</span>
-            </div>
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <button id="theme-toggle-icon-button" class="btn btn-link nav-link">
-                        <span id="icon-moon" style="display: none;">🌙</span>
-                        <span id="icon-sun" style="display: inline-block;">☀️</span>
+    <div class="page-header-custom container-fluid">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="user-greeting-container">
+                    <h1 id="user-greeting-text">Добро пожаловать, {{ user_data_for_init.name if user_data_for_init else 'Игрок' }}!</h1>
+                    <span id="user-status-badge-container" class="ml-2"></span>
+                </div>
+                <div id="theme-icon-wrapper">
+                    <button id="theme-toggle-icon-button" class="btn btn-sm rounded-circle" title="Сменить тему">
+                        <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+ class="bi bi-moon-stars-fill" viewBox="0 0 16 16" > <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/> <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1
+.274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/> </svg>
+                        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brightness-high-fill" viewBox="0 0 16 16" style="display:none;"> <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0
+ 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0
+ 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/> </svg>
                     </button>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}">Выйти</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
-
-    <div class="container mt-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <h1 class="mb-4">Игровая страница</h1>
-        <p>Ваша роль: <strong id="user-role-display">Загрузка...</strong></p>
-
-        {# Мои карточки (или блок текущего игрока) #}
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2>Мои карточки</h2>
-                <div id="my-cards-container" class="row">
-                    </div>
-            </div>
-        </div>
-
-        {# Игровое поле #}
-        <h2 class="mb-3">Игровое поле</h2>
-        <div id="game-board-container" class="row">
-            </div>
-
-        {# Правила #}
-        <div class="rules-section">
-            <h2>Правила игры</h2>
-            <p>Добро пожаловать в игру! Цель игры...</p>
-            <h4>Фазы игры:</h4>
-            <ul>
-                <li><strong>Подготовка:</strong> Игрокам раздаются роли и карточки.</li>
-                <li><strong>Ходы:</strong> Ведущий объявляет фазу, игроки совершают действия.</li>
-                <li><strong>Угадывание:</strong> В определенные моменты игроки пытаются угадать, кому принадлежит карточка на поле.</li>
-            </ul>
-            <h4>Как играть:</h4>
-            <p>Следите за инструкциями ведущего. Используйте предоставленные инструменты для взаимодействия с игровым полем и другими игроками.</p>
-        </div>
-
-
-        <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-body text-center">
-                        <img src="" id="modalImage" class="img-fluid" alt="Увеличенное изображение">
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category,
+ message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="rating-leader-info-wrapper">
+            <div id="current-game-info">
+                {# ИЗМЕНЕНИЕ: Удален вывод рейтинга #}
+                {# <p class="mr-md-3 mr-2 mb-0">Ваш рейтинг: <strong id="user-rating-display">{{ user_data_for_init.rating if user_data_for_init else 0 }}</strong></p> #}
+                <p class="mb-0">Ведущий: <strong id="current-leader-display" style="color: #007bff;">Загрузка...</strong></p>
+            </div>
+            <div id="next-leader-info-container" style="display: none;">
+                 <p class="mb-0">Следующий ведущий: <strong id="next-leader-display"></strong></p>
+            </div>
+        </div>
+
+        <div id="game-messages" class="alert alert-info mt-1" role="alert" style="display: none;"></div>
+        <div id="game-status-info" class="mt-1">
+            <p id="pending-player-message" class="pending-message" style="display: none;">
+                Вы присоединились как наблюдатель. Ваше участие начнется со следующей НОВОЙ игры.
+ Пока вы можете следить за процессом.
+            </p>
+        </div>
+        <hr class="my-2">
+
+        <h2 id="table-cards-header">Общий стол</h2>
+        <div id="table-cards" class="row table-cards no-gutters">
+        </div>
+        <div id="table-placeholder" class="text-center" style="display: none;">
+            <img id="leader-empty-table-pictogram" src="" alt="Место ведущего" style="max-width: 100px; display: none;">
+            <p id="leader-empty-table-rating"
+ style="display: none;"></p>
+            <p>На столе пока нет карточек...</p> {# ИЗМЕНЕНИЕ: "нет карт" -> "нет карточек" #}
+        </div>
+        <hr class="my-2">
+
+        <div id="player-hand-section" style="display: none;">
+            <h2 id="player-hand-header">Мои карточки:</h2> {# ИЗМЕНЕНИЕ: "Мои карты" -> "Мои карточки" #}
+            <div id="player-hand" class="row user-hand no-gutters">
+            </div>
+        </div>
+        <hr class="my-2">
+
+        <h2>Игровое поле:</h2>
+        <div id="game-board" class="game-board"></div>
+        <hr class="my-2">
+
+        <div id="rules-block" class="mb-3">
+            <h4>Правила игры</h4>
+            <p><a href="{{ url_for('index') }}">Ссылка на голосование</a> (выбор колоды перед началом новой игры)</p>
+            <h5>Правила</h5>
+            <ul>
+                <li>В каждом раунде Ведущий озвучивает свою ассоциацию согласно игровому полю и выкладывает соответствующую карточку.</li>
+                <li>Каждый игрок выкладывает свою карточку на озвученную Ведущим ассоциацию.</li>
+                <li>Основная задача игроков - угадать, какую именно из выложенных на столе карточек загадал ведущий, и проголосовать за нее.
+ Ведущий угадывает карточки других игроков.</li>
+                <li>Если карточку ведущего угадали все игроки, то он идет на 3 хода назад (или на поле 1, если он еще не продвинулся дальше третьего поля), а остальные игроки стоят на месте.</li>
+                <li>Если карточку ведущего никто не угадал, то ведущий идет на 2 хода назад.
+ Плюс, очки получают игроки, чьи карточки угадали.</li>
+                <li>В любом другом случае по 3 очка получают все игроки, правильно угадавшие карточку Ведущего.
+ Ведущий получает 3 очка плюс по очку за каждого угадавшего его игрока.</li>
+                <li>Все игроки получают по одному очку за каждого игрока, который угадал их карточку.</li>
+            </ul>
+            <img src="{{ url_for('static', filename='images/rules/rules2.jpg') }}" alt="Иллюстрация к правилам" class="img-fluid rounded d-block mx-auto rules-image">
+        </div>
+        <hr class="my-2">
+
+        {% if session.get('is_admin') %}
+            <p><a href="{{ url_for('admin') }}" class="btn btn-info btn-sm">Перейти в Админ панель</a></p>
+        {% endif %}
+    </div>
+
+    <div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-viewer" role="document">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <img src="" id="modalImage" alt="Увеличенное изображение карточки"> {# ИЗМЕНЕНИЕ: "изображение карты" -> "изображение карточки" #}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
     <script>
-        const userCode = "{{ user_data_for_init.code if user_data_for_init else 'anonymous' }}";
+        const currentUserCode = "{{ user_data_for_init.code if user_data_for_init else '' }}";
+        let currentUserId = parseInt("{{ user_data_for_init.id if user_data_for_init else 0 }}") || null;
+        let currentUserName = "{{ user_data_for_init.name if user_data_for_init else 'Игрок' }}";
+
         const socket = io();
+        socket.on('connect', () => { console.log('Socket.IO: Connected to server! SID:', socket.id); });
+        socket.on('disconnect', () => {
+            console.log('Socket.IO: Disconnected from server.');
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameMessagesDiv) {
+                gameMessagesDiv.textContent = 'Соединение с сервером потеряно. Попытка переподключения...';
+                gameMessagesDiv.className = 'alert alert-danger mt-1';
+                gameMessagesDiv.style.display = 'block';
+            }
+        });
+        socket.on('message', (data) => {
+            console.log('Socket.IO: Message from server:', data);
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameMessagesDiv && data.data) {
+                 gameMessagesDiv.textContent = data.data;
+                 gameMessagesDiv.className = data.category ? `alert alert-${data.category} mt-1` : 'alert alert-info mt-1';
+                 gameMessagesDiv.style.display = 'block';
+                 setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 5000);
+            }
+        });
+        socket.on('game_update', (gameState) => {
+            console.log('Socket.IO: Received game_update:', gameState);
 
-        let _allActiveUsers = []; // Храним список пользователей для использования в логике угадывания
+            const greetingTextEl = document.getElementById('user-greeting-text');
+            const statusBadgeContainerEl = document.getElementById('user-status-badge-container');
+            const pendingPlayerMessage = document.getElementById('pending-player-message');
+            const leaderDisplay = document.getElementById('current-leader-display');
+            const nextLeaderInfoContainer = document.getElementById('next-leader-info-container');
+            const nextLeaderDisplay = document.getElementById('next-leader-display');
+            const playerHandSectionDiv = document.getElementById('player-hand-section'); // Получаем элемент здесь
 
-        // Обработка начального состояния и обновлений игры
-        socket.on('game_update', function(data) {
-            console.log('Получено обновление игры:', data);
-            _allActiveUsers = data.active_users || []; // Сохраняем список пользователей
+            // Вспомогательная функция для поиска имени по ID из all_users_info
+            const getUserNameById = (userId, gameState) => {
+                 if (userId === null || userId === undefined) return 'Неизвестный';
+                 const id = parseInt(userId);
+                 if (isNaN(id)) return `ID ${userId}`;
 
-            updateGameBoard(data);
-            updateMyCards(data); // Обновляем мои карточки
+                 const user = gameState.all_users_info?.find(u => u.id === id);
+                 return user ? user.name : `Игрок ID ${id}`;
+            };
+
+
+            if (gameState.current_user_data) {
+                currentUserId = gameState.current_user_data.id;
+                currentUserName = gameState.current_user_data.name;
+                if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, ${currentUserName}!`;
+
+                let statusBadgeHTML = "";
+                if (gameState.current_user_data.status === 'active') {
+                    statusBadgeHTML = `<span class="badge badge-success">${"Активен"}</span>`;
+                } else if (gameState.current_user_data.status === 'pending') {
+                    statusBadgeHTML = `<span class="badge badge-warning">${"Ожидание"}</span>`;
+                }
+                if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = statusBadgeHTML;
+
+                // Показывать раздел "Мои карточки" только активным игрокам
+                if (gameState.current_user_data.status === 'pending') {
+                    if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block';
+                    if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
+                } else {
+                    if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'none';
+                    if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'block';
+                }
+            } else {
+                 // Если данные пользователя отсутствуют (например, гость без кода)
+                 if(playerHandSectionDiv) playerHandSectionDiv.style.display = 'none';
+                 if(pendingPlayerMessage) pendingPlayerMessage.style.display = 'block'; // Показываем сообщение для наблюдателя/гостя
+                 if(greetingTextEl) greetingTextEl.textContent = `Добро пожаловать, Гость!`;
+                 if(statusBadgeContainerEl) statusBadgeContainerEl.innerHTML = '<span class="badge badge-secondary">Наблюдатель</span>'; // Указываем статус Гость
+            }
+
+            // Обновление отображения Ведущего с использованием getUserNameById
+            let leaderName = 'Не определен';
+            let isCurrentUserLeader = false;
+            if (gameState.db_current_leader_id !== null && gameState.db_current_leader_id !== undefined && gameState.db_current_leader_id !== '') {
+                if (gameState.current_user_data && gameState.db_current_leader_id === gameState.current_user_data.id) {
+                    isCurrentUserLeader = true;
+                    leaderName = gameState.current_user_data.name; // Используем имя текущего пользователя напрямую, если это он
+                } else {
+                    // Используем вспомогательную функцию для получения имени ведущего из списка всех пользователей
+                    leaderName = getUserNameById(gameState.db_current_leader_id, gameState);
+                }
+            }
+
+            if(leaderDisplay) {
+                leaderDisplay.innerHTML = leaderName;
+                // Показываем "(Это вы!)" только если пользователь активен и является ведущим
+                if (isCurrentUserLeader && gameState.game_in_progress && !gameState.game_over && gameState.current_user_data && gameState.current_user_data.status === 'active') {
+                    leaderDisplay.innerHTML = `${leaderName} <span class="badge badge-info">(Это вы!)</span>`;
+                }
+            }
+
+
+            if (nextLeaderInfoContainer && nextLeaderDisplay) {
+                if (gameState.show_card_info && gameState.next_leader_name) {
+                    nextLeaderDisplay.textContent = gameState.next_leader_name;
+                    nextLeaderInfoContainer.style.display = 'block';
+                } else {
+                    nextLeaderInfoContainer.style.display = 'none';
+                }
+            }
+
+
+            updatePlayerHand(gameState); // Вызываем функции обновления
+            updateTableCards(gameState);
+            updateGameBoard(gameState.game_board || [], gameState.current_num_board_cells);
+
+            // Логика Flash-сообщений остается прежней
+            const gameMessagesDiv = document.getElementById('game-messages');
+            if (gameState.flashed_messages && gameState.flashed_messages.length > 0) {
+                const firstMessage = gameState.flashed_messages[0];
+                gameMessagesDiv.textContent = firstMessage.message;
+                gameMessagesDiv.className = `alert alert-${firstMessage.category} mt-1`;
+                gameMessagesDiv.style.display = 'block';
+                setTimeout(() => { gameMessagesDiv.style.display = 'none'; }, 7000);
+            } else if (gameMessagesDiv && gameMessagesDiv.textContent === 'Соединение с сервером потеряно. Попытка переподключения...') {
+                 gameMessagesDiv.style.display = 'none';
+            }
         });
 
-        // Функция для динамического обновления игрового поля
-        function updateGameBoard(gameState) {
-            const gameBoardContainer = document.getElementById('game-board-container');
-            gameBoardContainer.innerHTML = ''; // Очищаем текущее содержимое
-
-            const userRoleDisplay = document.getElementById('user-role-display');
-            const userStatusDisplay = document.getElementById('user-status-display');
-
-            // Обновляем роль и статус пользователя
-            if (gameState.user_data && gameState.user_data.role) {
-                userRoleDisplay.textContent = gameState.user_data.role;
+        function showImageModal(imageSrc) {
+            const modalImage = document.getElementById('modalImage');
+            if (modalImage) {
+                 modalImage.src = imageSrc;
+                 $('#imageModal').modal('show');
             } else {
-                userRoleDisplay.textContent = 'Не определена';
+                console.error("Modal image element not found");
             }
-            if (gameState.user_data && gameState.user_data.status) {
-                 userStatusDisplay.textContent = `Статус: ${gameState.user_data.status}`;
+        }
+
+        // updatePlayerHand без изменений
+        function updatePlayerHand(gameState) {
+            const { user_cards, current_user_data, game_in_progress, game_over, on_table_status, show_card_info, all_cards_placed_for_guessing_phase_to_template, table_images } = gameState;
+            const playerHandDiv = document.getElementById('player-hand');
+            const playerHandSectionDiv = document.getElementById('player-hand-section'); // Получаем элемент здесь
+
+            if (!playerHandDiv || !playerHandSectionDiv) return;
+            playerHandDiv.innerHTML = '';
+
+            if (!current_user_data || current_user_data.status !== 'active') {
+                playerHandSectionDiv.style.display = 'none';
+                return;
+            }
+            playerHandSectionDiv.style.display = 'block';
+
+
+            if (!user_cards || user_cards.length === 0) {
+                let message = '<div class="col-12"><p class="text-muted">У вас нет карточек на руках.</p></div>';
+                if (game_over) message = '<div class="col-12"><p class="text-muted">Игра окончена.</p></div>';
+                else if (!game_in_progress) message = '<div class="col-12"><p class="text-muted">Ожидание начала игры.</p></div>';
+                playerHandDiv.innerHTML = message;
+                return;
             }
 
-            if (gameState.game_board_cards && _allActiveUsers.length > 0) {
-                const currentLeaderCode = gameState.current_leader_code; // Получаем код текущего ведущего
+            const canPlaceCardAction = game_in_progress && !game_over && !show_card_info && !all_cards_placed_for_guessing_phase_to_template;
 
-                gameState.game_board_cards.forEach(card => {
-                    const cardElement = document.createElement('div');
-                    cardElement.className = 'col-md-3 col-sm-6 col-12 game-card';
-                    cardElement.id = `card-${card.id}`;
+            const placedCardOnTable = table_images ? table_images.find(card => card.owner_id === currentUserId) : null;
 
-                    let cardContent = `
-                        <h4>Карточка #${card.id}</h4>
-                    `;
+            user_cards.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
-                    if (card.image) {
-                        cardContent += `<img src="${card.image}" alt="Карточка ${card.id}">`;
-                    }
-                    if (card.text) {
-                        cardContent += `<p>${card.text}</p>`;
-                    }
+                let cardBodyContent = '';
+                let cardIsPlaced = placedCardOnTable && placedCardOnTable.id === card.id;
 
-                    // Добавляем подсветку для карточки ведущего, если card.id соответствует current_leader_card_id
-                    if (currentLeaderCode && card.id === gameState.current_leader_card_id) { // Предполагаем, что gameState также содержит current_leader_card_id
-                        cardElement.classList.add('leader-card-highlight');
-                    }
+                if (cardIsPlaced) {
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Эта карточка на столе)</p>';
+                    cardDiv.classList.add('placed-on-table');
+                } else if (canPlaceCardAction) {
+                    cardBodyContent = `<form action="/user/${current_user_data.code}/place/${card.id}" method="POST" class="place-card-form"><button type="submit" class="btn btn-warning btn-block place-action-button">Выложить</button></form>`;
+                } else if (on_table_status) {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Ваша карточка уже на столе)</p>';
+                } else if (all_cards_placed_for_guessing_phase_to_template && !show_card_info) {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Идет угадывание)</p>';
+                } else if (show_card_info) {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Карточки открыты)</p>';
+                } else if (game_over) {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
+                } else if (!game_in_progress) {
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание начала игры)</p>';
+                } else {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Ожидание)</p>';
+                }
 
-                    if (card.is_guessed) {
-                        const guessedByUser = _allActiveUsers.find(u => u.id === card.guessed_by);
-                        cardContent += `<p class="guessed-info">Угадано игроком: ${guessedByUser ? guessedByUser.name : 'Неизвестно'}</p>`;
+                const imagePath = `/static/images/${card.subfolder}/${card.image}`;
+                cardDiv.innerHTML = `
+                    <div class="card">
+                        <img src="${imagePath}" class="card-img-top" alt="Карточка ${card.image}" onclick="showImageModal('${imagePath}')">
+                        <div class="card-body">
+                            ${cardBodyContent}
+                        </div>
+                    </div>`;
+                playerHandDiv.appendChild(cardDiv);
+            });
+        }
+        // --- КОНЕЦ updatePlayerHand ---
+
+
+        // --- ИЗМЕНЕНО: updateTableCards (Добавлена логика выделения карточки Ведущего) ---
+        function updateTableCards(gameState) {
+            const { table_images, all_users_for_guessing, all_users_info, show_card_info, all_cards_placed_for_guessing_phase_to_template, db_current_leader_id, current_user_data, game_in_progress, game_over, leader_pole_pictogram_path, leader_pictogram_rating_display } = gameState;
+            const tableCardsDiv = document.getElementById('table-cards');
+            const tablePlaceholderDiv = document.getElementById('table-placeholder');
+
+            const getUserNameByIdLocal = (userId) => {
+                 if (userId === null || userId === undefined) return 'Неизвестный';
+                 const id = parseInt(userId);
+                 if (isNaN(id)) return `ID ${userId}`;
+
+                 const user = all_users_info?.find(u => u.id === id);
+                 return user ? user.name : `Игрок ID ${id}`;
+            };
+
+
+            if (!tableCardsDiv || !tablePlaceholderDiv) return;
+            tableCardsDiv.innerHTML = '';
+
+            const leaderPictogramImg = document.getElementById('leader-empty-table-pictogram');
+            const leaderPictogramRatingP = document.getElementById('leader-empty-table-rating');
+
+            const noCardsOnTable = !table_images || table_images.length === 0;
+
+            if ((!game_in_progress && !show_card_info && !game_over) ||
+                (game_over && !show_card_info && noCardsOnTable) ||
+                (noCardsOnTable && game_in_progress && !game_over && !show_card_info )
+               ) {
+                tablePlaceholderDiv.style.display = 'block';
+                tableCardsDiv.style.display = 'none';
+                let placeholderText = 'На столе пока нет карточек.';
+                if (!game_in_progress && !game_over) {
+                    placeholderText = 'Игра еще не началась.';
+                } else if (game_over && !show_card_info && noCardsOnTable) {
+                     placeholderText = 'Игра завершена. На столе не было карточек.';
+                } else if (game_in_progress && !game_over && noCardsOnTable) {
+                    placeholderText = 'На столе пока нет карточек. Ожидание игроков...';
+                     if (leader_pole_pictogram_path && current_user_data && current_user_data.id === db_current_leader_id && !gameState.on_table_status && current_user_data.status === 'active') {
+                        if(leaderPictogramImg) { leaderPictogramImg.src = `/static/${leader_pole_pictogram_path}`; leaderPictogramImg.style.display = 'block'; }
+                        if(leaderPictogramRatingP) { leaderPictogramRatingP.textContent = `Ваше место (рейтинг ${leader_pictogram_rating_display || 0}). Выложите карточку.`; leaderPictogramRatingP.style.display = 'block'; }
+                        placeholderText = '';
                     } else {
-                        // Раскрытый список для угадывания под каждой карточкой
-                        cardContent += `
-                            <div class="guess-section">
-                                <p class="mb-1">Кого угадываем?</p>
-                                <ul class="guess-players-list" data-card-id="${card.id}">
-                                    ${_allActiveUsers.map(player => `
-                                        <li data-player-id="${player.id}" class="${player.id === currentLeaderCode ? 'leader' : ''}">
-                                            ${player.name}${player.id === currentLeaderCode ? ' (Ведущий)' : ''}
-                                        </li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        `;
+                        if(leaderPictogramImg) leaderPictogramImg.style.display = 'none';
+                        if(leaderPictogramRatingP) leaderPictogramRatingP.style.display = 'none';
                     }
-                    cardElement.innerHTML = cardContent;
-                    gameBoardContainer.appendChild(cardElement);
-                });
+                }
+                const pElement = tablePlaceholderDiv.querySelector('p:not(#leader-empty-table-rating)');
+                if (pElement) pElement.textContent = placeholderText;
+                return;
+            }
 
-                // Добавляем обработчики событий для клика на элементы списка угадывания
-                document.querySelectorAll('.guess-players-list li').forEach(listItem => {
-                    listItem.addEventListener('click', async function() {
-                        const cardId = this.closest('.guess-players-list').dataset.cardId;
-                        const guessedPlayerId = this.dataset.playerId;
+            tablePlaceholderDiv.style.display = 'none';
+            tableCardsDiv.style.display = 'flex';
 
-                        if (cardId && guessedPlayerId) {
-                            console.log(`Пользователь ${userCode} пытается отправить POST-запрос на угадывание карточки ${cardId} как ${guessedPlayerId}`);
+            (table_images || []).forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'col-lg-4 col-md-4 col-sm-6 col-6';
 
-                            try {
-                                const numericCardId = parseInt(cardId, 10);
-                                if (isNaN(numericCardId)) {
-                                    console.error('Invalid cardId, not a number:', cardId);
-                                    alert('Ошибка: Некорректный идентификатор карточки.');
-                                    return;
-                                }
+                // --- ИЗМЕНЕНО: Логика выделения карточек ---
+                // Выделение карточки текущего пользователя, если карты открыты (зеленая рамка)
+                if (show_card_info && current_user_data && card.owner_id === current_user_data.id) {
+                    cardDiv.classList.add('my-owned-card-revealed');
+                }
 
-                                const response = await fetch(`/user/${userCode}/guess/${numericCardId}`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        guessed_player_id: guessedPlayerId
-                                    })
-                                });
+                // Выделение карточки Ведущего, если карты открыты (синяя рамка)
+                // Проверяем db_current_leader_id на наличие и совпадение с owner_id карточки
+                if (show_card_info && gameState.db_current_leader_id !== null && gameState.db_current_leader_id !== undefined && card.owner_id === gameState.db_current_leader_id) {
+                     cardDiv.classList.add('leader-card-revealed');
+                }
+                // Примечание: Если текущий пользователь является Ведущим, его карточка получит оба класса.
+                // CSS-правила .my-owned-card-revealed .card и .leader-card-revealed .card
+                // должны работать вместе или одно перекрывать другое в зависимости от порядка и специфичности.
+                // Сейчас они просто применяют border и box-shadow, которые могут совместиться.
+                // Если нужно, чтобы рамка была только одного цвета (например, только синяя для Ведущего, даже если это вы),
+                // потребуется дополнительная логика или специфичные CSS-правила.
+                // Текущая реализация просто добавляет классы независимо.
+                // --- КОНЕЦ ИЗМЕНЕННОГО ---
 
-                                if (response.ok) {
-                                    console.log('Запрос на угадывание успешно отправлен.');
-                                    const result = await response.json();
-                                    if (result.status === 'success') {
-                                        console.log('Угадывание успешно на сервере:', result);
-                                        // Ожидаем game_update через SocketIO для обновления UI
-                                    } else {
-                                        alert('Ошибка при угадывании: ' + (result.message || 'Неизвестная ошибка'));
-                                    }
-                                } else {
-                                    const errorData = await response.json();
-                                    alert('Ошибка при угадывании: ' + (errorData.message || response.statusText));
-                                    console.error('Ошибка при отправке запроса на угадывание:', response.status, errorData);
-                                }
-                            } catch (error) {
-                                console.error('Сетевая ошибка при отправке запроса на угадывание:', error);
-                                alert('Произошла сетевая ошибка. Попробуйте еще раз.');
+
+                let cardImageSrc = "";
+                let cardAltText = "Карточка на столе";
+                let cardBodyContent = '';
+                let ownerInfoAboveImage = '';
+
+                 if ((!all_cards_placed_for_guessing_phase_to_template && !show_card_info && game_in_progress && !game_over) ||
+                     (!game_in_progress && !game_over && !show_card_info) ||
+                     (game_over && !show_card_info)
+                   ) {
+                    cardImageSrc = "/static/images/a.jpg";
+                    cardAltText = "Карточка на столе (заглушка)";
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Карточка выложена)</p>';
+                } else {
+                    cardImageSrc = `/static/images/${card.subfolder}/${card.image}`;
+                    cardAltText = `Карточка ${card.image}`;
+                }
+
+                if (show_card_info) {
+                    ownerInfoAboveImage = `<p class="mb-0 small text-center card-owner-info">Чья: <strong>${getUserNameByIdLocal(card.owner_id) || 'Неизв.'}</strong></p>`;
+
+                    let guessesHtml = '';
+                    if (card.guesses && Object.keys(card.guesses).length > 0) {
+                        guessesHtml = '<p class="card-text small my-1"><u>Предположения:</u></p><ul class="list-unstyled small mb-0 guesses-list">';
+                        for (const guesserIdStr in card.guesses) {
+                            const parsedGuesserId = parseInt(guesserIdStr);
+                            const guessedTargetId = card.guesses[guesserIdStr];
+
+                            const guesserName = getUserNameByIdLocal(parsedGuesserId);
+                            const targetName = getUserNameByIdLocal(guessedTargetId);
+
+
+                            const isCorrect = guessedTargetId === card.owner_id;
+                            let myVoteClass = "";
+                            if (current_user_data && parsedGuesserId === current_user_data.id) {
+                                myVoteClass = isCorrect ? "my-vote-highlight correct-guess" : "my-vote-highlight incorrect-guess";
                             }
-                        } else {
-                            alert('Ошибка: Не удалось определить карточку или игрока.');
+                            guessesHtml += `<li class="mb-0 ${myVoteClass}">${guesserName} → ${targetName} <span class="badge badge-${isCorrect ? 'success' : 'danger'}">${isCorrect ? 'Верно' : 'Мимо'}</span></li>`;
                         }
+                        guessesHtml += '</ul>';
+                    } else {
+                        guessesHtml += '<p class="card-text small my-1">Предположений не было.</p>';
+                    }
+                    cardBodyContent = guessesHtml;
+
+                    if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id && card.my_guess_for_this_card_value !== undefined && card.my_guess_for_this_card_value !== null) {
+                        let myGuessedUserName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
+
+                        let correctGuessIndicator = "";
+                        if (card.my_guess_for_this_card_value === card.owner_id) {
+                            correctGuessIndicator = ` <span class="badge badge-success">Верно</span>`;
+                        } else {
+                            correctGuessIndicator = ` <span class="badge badge-danger">Мимо</span> (Владелец: ${getUserNameByIdLocal(card.owner_id) || 'Неизв.'})`;
+                        }
+                        cardBodyContent += `<p class="small text-center my-1 my-choice-text" style="margin-top: 0.3rem !important; padding: 0.1rem; ${card.my_guess_for_this_card_value === card.owner_id ? 'background-color: var(--my-vote-correct-bg);' : 'background-color: var(--my-vote-incorrect-bg);'}">Мой голос за эту карточку: <strong>${myGuessedUserName}</strong>${correctGuessIndicator}</p>`;
+                    }
+
+
+                } else if (all_cards_placed_for_guessing_phase_to_template && game_in_progress && !game_over) {
+                    if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id) {
+                        let selectOptions = '<option value="">-- Выберите --</option>';
+                        if(all_users_for_guessing) {
+                            all_users_for_guessing.forEach(user => {
+                                const userCardOnTable = table_images.find(c => c.owner_id === user.id);
+                                if (user.id !== current_user_data.id && userCardOnTable) {
+                                    selectOptions += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
+                                }
+                            });
+                        }
+                        cardBodyContent = `
+                            <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
+                                <div class="form-group mb-1">
+                                    <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label>
+                                    <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
+                                        ${selectOptions}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-warning btn-block guess-action-button">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
+                            </form>`;
+                        if(card.my_guess_for_this_card_value) {
+                            let guessedName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
+                            cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
+                        }
+                    } else if (current_user_data && current_user_data.status === 'pending') {
+                         cardBodyContent += '<p class="text-muted small text-center my-1">(Идет угадывание, вы наблюдатель)</p>';
+                    }
+                     else {
+                        cardBodyContent += '<p class="text-muted small text-center my-1">(Это ваша карточка)</p>';
+                    }
+                } else if (game_in_progress && !game_over && (!current_user_data || current_user_data.status !== 'active') ) {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Вы наблюдатель)</p>';
+                } else if (game_over && !show_card_info && cardImageSrc !== "/static/images/a.jpg") {
+                     cardBodyContent = '<p class="text-muted small text-center my-1">(Игра окончена)</p>';
+                } else if (cardImageSrc !== "/static/images/a.jpg") {
+                    cardBodyContent = '<p class="text-muted small text-center my-1">(Просмотр)</p>';
+                }
+
+
+                const imagePathForModal = (cardImageSrc === "/static/images/a.jpg") ? cardImageSrc : `/static/images/${card.subfolder}/${card.image}`;
+                cardDiv.innerHTML = `
+                    <div class="card">
+                        ${ownerInfoAboveImage}
+                        <img src="${imagePathForModal}" class="card-img-top" alt="${cardAltText}" onclick="showImageModal('${imagePathForModal}')">
+                        <div class="card-body">
+                            ${cardBodyContent}
+                        </div>
+                    </div>
+                `;
+                tableCardsDiv.appendChild(cardDiv);
+            });
+        }
+         // --- КОНЕЦ ИЗМЕНЕННОЙ updateTableCards ---
+
+
+        function updateGameBoard(boardCells, totalCells) {
+            const gameBoardDiv = document.getElementById('game-board');
+            if (!gameBoardDiv) return;
+            gameBoardDiv.innerHTML = '';
+
+            if (!boardCells || boardCells.length === 0) {
+                gameBoardDiv.innerHTML = '<div class="col-12"><p class="text-muted">Игровое поле не загружено.</p></div>';
+                return;
+            }
+
+            let cellsInRow;
+            const screenWidth = window.innerWidth;
+            if (screenWidth < 576) {
+                cellsInRow = 6;
+            } else if (screenWidth < 768) {
+                cellsInRow = 8;
+            } else if (screenWidth < 992) {
+                cellsInRow = 10;
+            } else {
+                cellsInRow = 12;
+            }
+            cellsInRow = Math.min(cellsInRow, totalCells > 0 ? totalCells : cellsInRow);
+            const cellWidthPercent = 100 / cellsInRow;
+            const cellMargin = 1;
+            boardCells.forEach(cell => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'game-board-cell text-white';
+                cellDiv.style.backgroundImage = `url(/static/${cell.image_path})`;
+                let basis = `calc(${cellWidthPercent}% - ${2 * cellMargin}px)`;
+                cellDiv.style.flexBasis = basis;
+
+                if (gameBoardDiv.offsetWidth > 0) {
+                     const boardEffectiveWidth = gameBoardDiv.offsetWidth;
+                     const cellComputedWidth = (boardEffectiveWidth * (cellWidthPercent / 100)) - (2 * cellMargin);
+                    cellDiv.style.height = `${Math.max(cellComputedWidth, 40)}px`;
+                }
+                cellDiv.title = `Ячейка ${cell.cell_number}`;
+
+                let cellHtml = `<div class="cell-number-badge badge badge-dark">${cell.cell_number}</div>`;
+                if (cell.users_in_cell && cell.users_in_cell.length > 0) {
+                    cellHtml += '<div class="player-chips-container mt-auto mb-1">';
+                    cell.users_in_cell.forEach(user => {
+                        const isCurrentUserOnCell = currentUserId && user.id === currentUserId;
+                        cellHtml += `<span class="player-chip badge ${isCurrentUserOnCell ? 'badge-success' : 'badge-primary'}" title="${user.name} (Рейтинг: ${user.rating})">${user.name}</span>`;
                     });
-                });
-            } else {
-                gameBoardContainer.innerHTML = '<p>Игровое поле еще не загружено или данных нет.</p>';
-            }
+                    cellHtml += '</div>';
+                }
+                cellDiv.innerHTML = cellHtml;
+                gameBoardDiv.appendChild(cellDiv);
+            });
         }
 
-        // Функция для обновления раздела "Мои карточки"
-        function updateMyCards(gameState) {
-            const myCardsContainer = document.getElementById('my-cards-container');
-            myCardsContainer.innerHTML = ''; // Очищаем контейнер
-
-            if (gameState.user_data && gameState.user_data.my_cards && gameState.user_data.my_cards.length > 0) {
-                gameState.user_data.my_cards.forEach(card => {
-                    const myCardElement = document.createElement('div');
-                    myCardElement.className = 'col-md-3 col-sm-6 col-12 game-card my-card-highlight'; // Стилизация моей карточки
-                    myCardElement.id = `my-card-${card.id}`; // Уникальный ID
-
-                    let cardContent = `
-                        <h4>Моя карточка: ${card.id}</h4>
-                    `;
-                    if (card.image) {
-                        cardContent += `<img src="${card.image}" alt="Моя карточка ${card.id}">`;
-                    }
-                    if (card.text) {
-                        cardContent += `<p>${card.text}</p>`;
-                    }
-                    myCardElement.innerHTML = cardContent;
-                    myCardsContainer.appendChild(myCardElement);
-                });
-            } else {
-                myCardsContainer.innerHTML = '<p>У вас пока нет карточек.</p>';
-            }
-        }
-
-
-        // Логика для кнопки переключения темы (без изменений)
         const themeToggleButton = document.getElementById('theme-toggle-icon-button');
         const iconMoon = document.getElementById('icon-moon');
         const iconSun = document.getElementById('icon-sun');
@@ -420,7 +1172,6 @@
             });
         }
 
-        // Логика для модального окна изображения (если используется)
         const modalImageElement = document.getElementById('modalImage');
         if (modalImageElement) {
             modalImageElement.addEventListener('click', () => {
