@@ -464,6 +464,67 @@
         body.dark-theme .my-vote-highlight.incorrect-guess { background-color: rgba(220, 53, 69, 0.2); border-left-color: #dc3545;
         }
 
+        /* Custom styles for the fixed list of users */
+        .fixed-guess-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px; /* Spacing between user options */
+            margin-bottom: 10px;
+        }
+
+        .fixed-guess-list .form-check {
+            flex: 1 1 auto; /* Allow items to grow and shrink, occupying available space */
+            min-width: 100px; /* Minimum width for each item */
+            margin: 0; /* Remove default form-check margin */
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: .25rem;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            text-align: center;
+        }
+
+        .fixed-guess-list .form-check:hover {
+            background-color: #f0f0f0;
+        }
+
+        .fixed-guess-list .form-check input[type="radio"] {
+            display: none; /* Hide the default radio button */
+        }
+
+        .fixed-guess-list .form-check input[type="radio"]:checked + .form-check-label {
+            background-color: #007bff; /* Highlight background for selected item */
+            color: white; /* White text for selected item */
+            border-color: #007bff;
+            border-radius: .2rem;
+            padding: 2px 5px;
+        }
+
+        .fixed-guess-list .form-check-label {
+            cursor: pointer;
+            width: 100%; /* Make label fill the container */
+            display: block; /* Ensure label is block for padding */
+            margin-bottom: 0; /* Remove default label margin */
+            font-size: var(--standard-font-size);
+            line-height: 1.4;
+        }
+        body.dark-theme .fixed-guess-list .form-check {
+            background-color: #2b2b2b;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        body.dark-theme .fixed-guess-list .form-check:hover {
+            background-color: #3a3f44;
+        }
+
+        body.dark-theme .fixed-guess-list .form-check input[type="radio"]:checked + .form-check-label {
+            background-color: #0056b3;
+            border-color: #0056b3;
+            color: #e0e0e0;
+        }
+
 
         /* === Медиа-запросы (адаптивность) === */
         @media (max-width: 767.98px) { /* Bootstrap breakpoint for md */
@@ -524,6 +585,9 @@
             .card-body .small, .card-body p.small {
                 font-size: var(--standard-font-size-mobile) !important;
             }
+            .fixed-guess-list .form-check {
+                min-width: 80px;
+            }
         }
 
         @media (max-width: 575.98px) { /* Bootstrap breakpoint for sm */
@@ -567,6 +631,10 @@
             .rating-leader-info-wrapper #current-game-info p.mr-2 { margin-right: 0 !important;
             }
              #next-leader-info-container { margin-top: 0.2rem;
+            }
+            .fixed-guess-list .form-check {
+                min-width: unset; /* Reset min-width for very small screens */
+                width: calc(50% - 5px); /* Two items per row with gap */
             }
         }
          /* Медиа-запросы для игрового поля из старого кода */
@@ -1035,25 +1103,34 @@
 
                 } else if (all_cards_placed_for_guessing_phase_to_template && game_in_progress && !game_over) {
                     if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id) {
-                        let selectOptions = '<option value="">-- Выберите --</option>';
+                        // START OF MODIFICATION
+                        let radioButtonsHtml = '';
                         if(all_users_for_guessing) {
+                            radioButtonsHtml += '<div class="fixed-guess-list">'; // Added container for flex display
                             all_users_for_guessing.forEach(user => {
                                 const userCardOnTable = table_images.find(c => c.owner_id === user.id);
                                 if (user.id !== current_user_data.id && userCardOnTable) {
-                                    selectOptions += `<option value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'selected' : ''}>${user.name}</option>`;
+                                    radioButtonsHtml += `
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="guessed_user_id" id="guess-for-${card.id}-user-${user.id}" value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'checked' : ''}>
+                                            <label class="form-check-label" for="guess-for-${card.id}-user-${user.id}">
+                                                ${user.name}
+                                            </label>
+                                        </div>
+                                    `;
                                 }
                             });
+                            radioButtonsHtml += '</div>'; // Close container
                         }
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
                                     <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label>
-                                    <select name="guessed_user_id" id="guess-for-${card.id}" class="form-control form-control-sm">
-                                        ${selectOptions}
-                                    </select>
+                                    ${radioButtonsHtml}
                                 </div>
                                 <button type="submit" class="btn btn-warning btn-block guess-action-button">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
                             </form>`;
+                        // END OF MODIFICATION
                         if(card.my_guess_for_this_card_value) {
                             let guessedName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
                             cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
