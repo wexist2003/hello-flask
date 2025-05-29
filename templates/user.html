@@ -1103,16 +1103,15 @@
 
                 } else if (all_cards_placed_for_guessing_phase_to_template && game_in_progress && !game_over) {
                     if (current_user_data && current_user_data.status === 'active' && card.owner_id !== current_user_data.id) {
-                        // START OF MODIFICATION
                         let radioButtonsHtml = '';
                         if(all_users_for_guessing) {
-                            radioButtonsHtml += '<div class="fixed-guess-list">'; // Added container for flex display
+                            radioButtonsHtml += '<div class="fixed-guess-list">';
                             all_users_for_guessing.forEach(user => {
                                 const userCardOnTable = table_images.find(c => c.owner_id === user.id);
                                 if (user.id !== current_user_data.id && userCardOnTable) {
                                     radioButtonsHtml += `
                                         <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="guessed_user_id" id="guess-for-${card.id}-user-${user.id}" value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'checked' : ''}>
+                                            <input class="form-check-input" type="radio" name="guessed_user_id" id="guess-for-${card.id}-user-${user.id}" value="${user.id}" ${card.my_guess_for_this_card_value == user.id ? 'checked' : ''} onchange="this.form.submit()">
                                             <label class="form-check-label" for="guess-for-${card.id}-user-${user.id}">
                                                 ${user.name}
                                             </label>
@@ -1120,17 +1119,16 @@
                                     `;
                                 }
                             });
-                            radioButtonsHtml += '</div>'; // Close container
+                            radioButtonsHtml += '</div>';
                         }
+                        // Удалена кнопка submit
                         cardBodyContent = `
                             <form action="/user/${current_user_data.code}/guess/${card.id}" method="POST" class="guess-card-form my-1">
                                 <div class="form-group mb-1">
                                     <label for="guess-for-${card.id}" class="d-block text-center">Чья карточка?</label>
                                     ${radioButtonsHtml}
                                 </div>
-                                <button type="submit" class="btn btn-warning btn-block guess-action-button">${card.my_guess_for_this_card_value ? 'Изменить' : 'Угадать'}</button>
                             </form>`;
-                        // END OF MODIFICATION
                         if(card.my_guess_for_this_card_value) {
                             let guessedName = getUserNameByIdLocal(card.my_guess_for_this_card_value);
                             cardBodyContent += `<p class="mt-1 mb-0 text-center my-choice-text">Мой выбор: ${guessedName}</p>`;
