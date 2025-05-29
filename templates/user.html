@@ -52,6 +52,8 @@
 
         .container {
             max-width: 1200px;
+            padding-left: 15px; /* Убедимся, что есть отступы по бокам */
+            padding-right: 15px;
         }
 
         .page-header-custom {
@@ -128,6 +130,7 @@
             gap: 5px;
             width: 100%;
             margin-top: 20px;
+            margin-bottom: 40px; /* Добавим отступ снизу для красоты */
         }
 
         .board-cell {
@@ -144,6 +147,7 @@
             position: relative;
             padding: 5px; /* Немного отступа для содержимого */
             box-shadow: 0 2px 4px var(--shadow-color);
+            box-sizing: border-box; /* Убедимся, что padding не увеличивает размер */
         }
 
         .cell-number-badge {
@@ -205,15 +209,15 @@
             box-shadow: 0 0 10px var(--leader-card-highlight-shadow);
         }
 
+        /* Исправлено: Стили для блока сообщений */
         .game-messages-box {
             min-height: 50px; /* Минимальная высота для сообщений */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
             margin-bottom: 1rem;
             font-size: var(--standard-font-size);
             font-weight: bold;
+            text-align: center; /* Центрируем текст */
+            display: block; /* Убедимся, что это блочный элемент */
+            padding: 10px; /* Добавим немного внутреннего отступа */
         }
 
         .rules-section h4 {
