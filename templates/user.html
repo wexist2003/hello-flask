@@ -506,9 +506,22 @@
             }
         });
 
+        // Функция для отображения flash-сообщений
+        function displayFlashMessage(message, category) {
+            const flashMessagesDiv = document.getElementById('flash-messages');
+            const alertDiv = document.createElement('div');
+            alertDiv.classList.add('alert', `alert-${category}`);
+            alertDiv.innerText = message;
+            flashMessagesDiv.appendChild(alertDiv);
+            // Можно добавить таймер для автоматического скрытия
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000); // Скрыть через 5 секунд
+        }
+
         // Обработчики кликов для элементов "Угадать"
         $(document).on('click', '.guess-action', function(e) {
-            e.preventDefault(); // Предотвращаем стандартное действие ссылки
+            e.preventDefault(); // Предотвращаем стандартное действие ссылки (перезагрузку страницы)
             const imageId = $(this).data('image-id');
             const targetUserCode = $(this).data('target-user-code');
             const currentUserCode = $('#current-user-code').text(); // Получаем код текущего пользователя из DOM
@@ -525,11 +538,11 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Сервер уже отправит game_update через SocketIO
+                    // Успех: сервер обновит состояние и отправит game_update через SocketIO
                     console.log('Guess submitted successfully. Waiting for game_update...');
                 } else {
+                    // Ошибка: отобразим сообщение
                     console.error('Guess failed:', data.message);
-                    // Можно показать ошибку пользователю
                     displayFlashMessage(data.message, 'danger');
                 }
             })
@@ -541,7 +554,7 @@
 
         // Обработчики кликов для элементов "Разместить"
         $(document).on('click', '.place-action', function(e) {
-            e.preventDefault(); // Предотвращаем стандартное действие ссылки
+            e.preventDefault(); // Предотвращаем стандартное действие ссылки (перезагрузку страницы)
             const imageId = $(this).data('image-id');
             const targetUserCode = $(this).data('target-user-code'); // Это будет код текущего пользователя
             const currentUserCode = $('#current-user-code').text();
@@ -558,11 +571,11 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Сервер уже отправит game_update через SocketIO
+                    // Успех: сервер обновит состояние и отправит game_update через SocketIO
                     console.log('Place action submitted successfully. Waiting for game_update...');
                 } else {
+                    // Ошибка: отобразим сообщение
                     console.error('Place action failed:', data.message);
-                    // Можно показать ошибку пользователю
                     displayFlashMessage(data.message, 'danger');
                 }
             })
@@ -571,20 +584,6 @@
                 displayFlashMessage('Произошла ошибка при отправке размещения.', 'danger');
             });
         });
-
-        // Функция для отображения flash-сообщений
-        function displayFlashMessage(message, category) {
-            const flashMessagesDiv = document.getElementById('flash-messages');
-            const alertDiv = document.createElement('div');
-            alertDiv.classList.add('alert', `alert-${category}`);
-            alertDiv.innerText = message;
-            flashMessagesDiv.appendChild(alertDiv);
-            // Можно добавить таймер для автоматического скрытия
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 5000); // Скрыть через 5 секунд
-        }
-
 
         // Открытие модального окна с изображением
         $('.game-board-image').on('click', function() {
